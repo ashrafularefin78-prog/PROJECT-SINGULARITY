@@ -1,0 +1,20 @@
+{
+  "name": "Project Singularity",
+  "short_name": "Singularity",
+  "description": "A browser-native collaborative workspace: own CRDT, in-browser C runtime, WebGL2 engine and end-to-end encryption. Zero runtime dependencies.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#06090d",
+  "theme_color": "#06090d",
+  "categories": ["developer", "productivity", "security"],
+  "icons": [
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

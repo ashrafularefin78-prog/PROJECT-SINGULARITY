@@ -1,0 +1,72 @@
+/* Test runner styling.
+   This lives in its own file rather than a <style> block because the project
+   ships `style-src 'self'` with no 'unsafe-inline' - an inline block is not
+   merely discouraged here, it is silently dropped by the browser, which would
+   leave the results page unstyled. */
+
+:root {
+  --bg: #05070b;
+  --panel: #0d131c;
+  --line: #1b2634;
+  --text: #dae5f5;
+  --dim: #8399b0;
+  --ok: #57d68d;
+  --bad: #ff6b81;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+body {
+  margin: 0;
+  padding: 26px 30px 40px;
+  background:
+    radial-gradient(900px 480px at 6% -10%, rgba(110, 168, 254, 0.12), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
+  font: 13px/1.65 var(--mono);
+}
+
+h1 {
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin: 0 0 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(92deg, #fff 10%, #6ea8fe 60%, #b39ddb 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+h2 {
+  font-size: 12.5px;
+  color: #6ea8fe;
+  letter-spacing: 0.06em;
+  margin: 24px 0 8px;
+}
+
+ul { list-style: none; padding: 0; margin: 0; }
+li { padding: 2px 0; }
+li.ok { color: var(--ok); }
+li.fail { color: var(--bad); font-weight: 700; }
+
+pre {
+  color: #ffb3c1;
+  white-space: pre-wrap;
+  margin: 6px 0 6px 26px;
+  font-size: 12px;
+}
+
+.summary {
+  font-weight: 700;
+  padding: 11px 16px;
+  border-radius: 999px;
+  display: inline-block;
+  border: 1px solid currentColor;
+  letter-spacing: 0.06em;
+}
+.summary.good { background: rgba(87, 214, 141, 0.12); color: var(--ok); }
+.summary.bad { background: rgba(255, 107, 129, 0.12); color: var(--bad); }
+
+.load-error { color: #ffb3c1; }

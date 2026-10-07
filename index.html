@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-motion="auto" data-contrast="normal" data-scale="1">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#06090d" />
+    <meta
+      name="description"
+      content="Project Singularity: a browser-native collaborative workspace with its own CRDT, in-browser C runtime, WebGL2 engine, end-to-end encryption and offline-first storage. No runtime dependencies."
+    />
+    <title>Project Singularity - The Impossible Website Challenge</title>
+    <link rel="stylesheet" href="styles/app.css" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+
+    <!-- Decorative depth layers: drifting aurora and a light band crossing the
+         viewport. Pure CSS, pointer-inert, and switchable from M7 (Visual
+         effects). They carry no meaning, so they are hidden from assistive
+         technology; the scanline and vignette layers live on body::after. -->
+    <div class="fx" aria-hidden="true">
+      <span class="fx-aurora"></span>
+      <span class="fx-sweep"></span>
+    </div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">◉</span>
+        <span class="brand-name">PROJECT SINGULARITY</span>
+        <span class="brand-sub">the impossible website challenge</span>
+      </div>
+      <button class="cmd-hint" id="cmd-open" type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">
+        COMMAND <kbd>⌘K</kbd>
+      </button>
+      <div class="chips" id="status-chips" role="status" aria-live="polite" aria-label="System status"></div>
+      <!-- Live readings, sampled once a second. Deliberately not a live region:
+           a screen reader should hear it on demand, not every second. -->
+      <div class="telemetry" id="telemetry" aria-label="Live system telemetry"></div>
+    </header>
+
+    <nav id="tabs" class="tabs" aria-label="Modules" role="tablist"></nav>
+
+    <main id="main" class="main" tabindex="-1"></main>
+
+    <footer class="footer">
+      <span>Zero runtime dependencies · WebCrypto · WebGL2 · Web Workers · IndexedDB · Service Worker</span>
+      <span id="footer-build">boot…</span>
+    </footer>
+
+    <!-- Classic script on purpose: browsers block ES modules on file://, so
+         this is the only script guaranteed to run when the page is opened
+         from disk. Under HTTP it checks the protocol and exits. -->
+    <script src="src/boot-note.js" defer></script>
+    <script type="module" src="src/app.js"></script>
+    <noscript>
+      <p class="noscript-note">
+        Project Singularity is a browser-native application and needs JavaScript
+        to boot its modules (editor, runtime, renderer, crypto, storage).
+        Serve this directory over HTTP and reload with scripts enabled:
+        <code>python3 tools/serve.py 5173</code>
+      </p>
+    </noscript>
+  </body>
+</html>

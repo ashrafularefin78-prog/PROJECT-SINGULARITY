@@ -1,0 +1,14 @@
+{
+  "name": "project-singularity",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Project Singularity - The Impossible Website Challenge. Browser-native, zero runtime dependencies.",
+  "scripts": {
+    "test": "node tests/run.js",
+    "serve": "node tools/serve.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

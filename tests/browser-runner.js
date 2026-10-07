@@ -1,0 +1,94 @@
+// Browser test runner. Loads every suite, runs it, and exposes results on
+// window.__RESULTS__ so both humans and automated checks can read them.
+import { collect } from './harness.js';
+
+const SUITES = [
+  './rga.test.js',
+  './crypto.test.js',
+  './compiler.test.js',
+  './storage.test.js',
+  './mesh.test.js',
+  './renderer.test.js',
+];
+
+async function main() {
+  const results = { pass: 0, fail: 0, suites: [], startedAt: Date.now() };
+  const root = document.getElementById('out');
+
+  for (const file of SUITES) {
+    const suite = { file, tests: [] };
+    let tests = [];
+    try {
+      await import(file);
+      tests = collect();
+    } catch (err) {
+      suite.loadError = err && err.stack ? err.stack : String(err);
+      results.fail += 1;
+      root.appendChild(renderSuite(suite));
+      results.suites.push(suite);
+      continue;
+    }
+    for (const t of tests) {
+      const entry = { name: t.name };
+      const t0 = performance.now();
+      try {
+        await t.fn();
+        entry.ok = true;
+        results.pass += 1;
+      } catch (err) {
+        entry.ok = false;
+        entry.error = err && err.message ? err.message : String(err);
+        results.fail += 1;
+      }
+      entry.ms = Math.round((performance.now() - t0) * 100) / 100;
+      suite.tests.push(entry);
+    }
+    results.suites.push(suite);
+    root.appendChild(renderSuite(suite));
+  }
+
+  results.ms = Date.now() - results.startedAt;
+  const summary = document.createElement('p');
+  summary.className = 'summary ' + (results.fail ? 'bad' : 'good');
+  summary.textContent = `${results.pass} passed, ${results.fail} failed in ${results.ms} ms`;
+  root.prepend(summary);
+  document.title = `${results.fail ? 'FAIL' : 'PASS'} - ${results.pass}/${results.pass + results.fail}`;
+  window.__RESULTS__ = results;
+  window.__DONE__ = true;
+}
+
+function renderSuite(suite) {
+  const box = document.createElement('section');
+  const h = document.createElement('h2');
+  h.textContent = suite.file;
+  box.appendChild(h);
+  if (suite.loadError) {
+    const p = document.createElement('pre');
+    p.className = 'load-error';
+    p.textContent = suite.loadError;
+    box.appendChild(p);
+    return box;
+  }
+  const ul = document.createElement('ul');
+  for (const t of suite.tests) {
+    const li = document.createElement('li');
+    li.className = t.ok ? 'ok' : 'fail';
+    li.textContent = (t.ok ? 'ok   ' : 'FAIL ') + t.name + ' (' + t.ms + 'ms)';
+    if (!t.ok) {
+      const pre = document.createElement('pre');
+      pre.textContent = t.error;
+      li.appendChild(pre);
+    }
+    ul.appendChild(li);
+  }
+  box.appendChild(ul);
+  return box;
+}
+
+main().catch((err) => {
+  window.__DONE__ = true;
+  window.__RESULTS__ = { pass: 0, fail: 1, fatal: err && err.stack ? err.stack : String(err) };
+  const pre = document.createElement('pre');
+  pre.textContent = window.__RESULTS__.fatal;
+  document.body.appendChild(pre);
+});

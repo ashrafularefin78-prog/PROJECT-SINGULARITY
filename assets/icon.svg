@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Project Singularity">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#6ea8fe"/>
+      <stop offset="100%" stop-color="#0b1017"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="26" fill="#06090d"/>
+  <circle cx="64" cy="64" r="40" fill="none" stroke="url(#g)" stroke-width="3"/>
+  <circle cx="64" cy="64" r="7" fill="#6ea8fe"/>
+  <ellipse cx="64" cy="64" rx="42" ry="16" fill="none" stroke="#b39ddb" stroke-width="2" opacity="0.85"/>
+  <ellipse cx="64" cy="64" rx="16" ry="42" fill="none" stroke="#57d68d" stroke-width="2" opacity="0.7"/>
+</svg>
