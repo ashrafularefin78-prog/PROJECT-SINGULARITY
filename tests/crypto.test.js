@@ -22,27 +22,9 @@ import {
   x3dhInitiate,
   x3dhRespond,
 } from '../src/crypto/e2ee.js';
-
-const dec = (bytes) => new TextDecoder().decode(bytes);
-const hexLocal = (b) =>
-  Array.from(new Uint8Array(b))
-    .map((x) => x.toString(16).padStart(2, '0'))
-    .join('');
-
-/** Run a full X3DH handshake and return both ratchets plus the identities. */
-async function handshake(names = ['alice', 'bob']) {
-  const alice = await Identity.create(names[0]);
-  const bob = await Identity.create(names[1]);
-  await bob.createOneTimePrekeys(1);
-  const opk = bob.oneTimePrekeys[0];
-  const bundle = await bob.bundle(); // publishes the OPK, signed with the IK
-  const aliceIk = b64(await exportDhPublic(alice.dhPair));
-  const { root, epk } = await x3dhInitiate(alice, bundle);
-  const bobRoot = await x3dhRespond(bob, aliceIk, epk, opk.pair);
-  const a = await Ratchet.initiator(root, unb64(bundle.spk));
-  const b = await Ratchet.responder(bobRoot, bob.spkPair);
-  return { alice, bob, a, b, bundle, opk };
-}
+// The handshake helper lives in one place so the fuzz suite and this one cannot
+// drift apart (see tests/crypto-helpers.js).
+import { dec, handshake, hexLocal } from './crypto-helpers.js';
 
 test('M4: DH primitive is symmetric and uses a real curve', async () => {
   const v = await dhVariantInfo();
@@ -64,6 +46,34 @@ test('M4: signed prekey signature verifies and detects tampering', async () => {
   assert(!(await verifyBundleWith(tampered, vk)), 'swapped prekey must fail verification');
   const badSig = { ...bundle, spkSig: b64(new Uint8Array(bundle.spkSig.length).fill(0)) };
   assert(!(await verifyBundleWith(badSig, vk)), 'forged signature must fail');
+});
+
+test('M4: the bundle check the handshake runs rejects forged and swapped prekeys', async () => {
+  // This is the exact call the app makes before deriving any key material
+  // (initCrypto -> Identity/verifyBundleWith). It used to run only in tests,
+  // which meant a spliced prekey bundle was accepted in practice.
+  const bob = await Identity.create('bob');
+  const bundle = await bob.bundle();
+  assert(await bob.verifyBundle(bundle), 'a well-formed bundle verifies against its advertised key');
+  assert(
+    await bob.verifyBundle(bundle, await importSignPublic(unb64(bundle.sign))),
+    'verification against an explicitly supplied trusted key agrees',
+  );
+  assert(
+    !(await bob.verifyBundle({ ...bundle, spkSig: b64(new Uint8Array(unb64(bundle.spkSig).length)) })),
+    'a forged signature must abort the handshake',
+  );
+  assert(
+    !(await bob.verifyBundle({ ...bundle, spk: b64(new Uint8Array(32).fill(9)) })),
+    'a swapped signed prekey must abort the handshake',
+  );
+  // A bundle produced by a different identity, presented as bob's own key.
+  const mallory = await Identity.create('mallory');
+  const foreign = await mallory.bundle();
+  assert(
+    !(await bob.verifyBundle({ ...foreign, sign: bundle.sign })),
+    'a foreign bundle must not verify against the claimed identity key',
+  );
 });
 
 test('M4: X3DH derives the same root key on both sides', async () => {

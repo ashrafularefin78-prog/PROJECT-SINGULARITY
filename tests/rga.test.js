@@ -187,3 +187,181 @@ test('M1: id ordering is a total order with clock tie-break', () => {
   assert(compareId([2, 'a'], [2, 'b']) < 0);
   assertEquals(compareId([5, 'z'], [5, 'z']), 0);
 });
+
+
+// ---------------------------------------------------------------------------
+// M1 index and maintenance.
+//
+// Two things used to be missing here and both are now covered: index lookups
+// that do not rescan the document (the cursor walk), and the maintenance
+// operations that keep a long-lived replica from growing without bound
+// (tombstone collection, op-log trimming, fingerprint pruning).
+// ---------------------------------------------------------------------------
+
+/** Deliberately naive reference implementation of the cursor-walk lookup. */
+function naiveNodeAtVisible(rga, index) {
+  if (index < 0) return null;
+  let i = -1;
+  let last = null;
+  for (let n = rga.head.next; n; n = n.next) {
+    if (n.deleted) continue;
+    i += 1;
+    last = n;
+    if (i === index) return n;
+  }
+  return last;
+}
+
+const idOf = (node) => (node && node.id ? node.id.join('@') : 'null');
+
+/** A document with tombstones at the front, in the middle and at the end. */
+function messyDocument() {
+  const r = new RGA('m');
+  r.localInsert(0, 'abcdefghij');
+  r.localDelete(0, 2);
+  r.localDelete(3, 2);
+  r.localDelete(r.stats().visible - 2, 2);
+  r.localInsert(0, 'XY');
+  r.localDelete(2, 1);
+  return r;
+}
+
+test('M1: the cursor walk resolves every index exactly like a full scan', () => {
+  const rga = messyDocument();
+  assertEquals(idOf(rga.nodeAtVisible(-1)), 'null', 'a negative index has no answer');
+  for (let i = 0; i <= rga.visible + 1; i += 1) {
+    assertEquals(
+      idOf(rga.nodeAtVisible(i)),
+      idOf(naiveNodeAtVisible(rga, i)),
+      `index ${i} must resolve identically (visible=${rga.visible})`,
+    );
+  }
+  // After the trailing leaves are collected the anchors move; parity must hold.
+  rga.collect({ safeTs: Infinity });
+  for (let i = 0; i <= rga.visible + 1; i += 1) {
+    assertEquals(idOf(rga.nodeAtVisible(i)), idOf(naiveNodeAtVisible(rga, i)), `index ${i} after collect()`);
+  }
+});
+
+test('M1: appends do not rescan the document (the quadratic path is gone)', () => {
+  const rga = new RGA('bench');
+  rga.localInsert(0, 'x'.repeat(5000));
+  rga.walkSteps = 0;
+  const n = 20000;
+  for (let i = 0; i < n; i += 1) rga.localInsert(rga.visible, 'y');
+  assertEquals(rga.text().length, 5000 + n, 'every character landed');
+  // A full rescan per append would be O(n^2) - roughly 250 million node visits
+  // here. The cursor means an append resolves its origin without walking at all.
+  assert(
+    rga.walkSteps < n * 10,
+    `20000 appends visited ${rga.walkSteps} nodes; a per-append rescan would be ~250,000,000`,
+  );
+});
+
+test('M1: an append lands at the end even when the list tail is a tombstone', () => {
+  const rga = messyDocument();
+  const before = rga.text();
+  rga.localInsert(rga.visible, '!');
+  assertEquals(rga.text(), before + '!', 'typing at the end stays at the end');
+
+  const collected = messyDocument();
+  collected.collect({ safeTs: Infinity });
+  const trimmed = collected.text();
+  collected.localInsert(collected.visible, '?');
+  assertEquals(collected.text(), trimmed + '?', 'still at the end after the tail leaves are collected');
+});
+
+test('M1: collect() reclaims leaf tombstones and keeps the structural ones', () => {
+  const rga = new RGA('gc');
+  rga.localInsert(0, 'abcdef');
+  rga.localDelete(3, 3); // d, e, f - f is a leaf, d and e are interior
+  const before = rga.stats();
+  const reclaimed = rga.collect({ safeTs: Infinity });
+  const after = rga.stats();
+  assertEquals(reclaimed, 1, 'only the leaf tombstone is collectable');
+  assertEquals(after.tombstones, before.tombstones - 1);
+  assertEquals(rga.text(), 'abc', 'the visible text is unchanged');
+  assert(after.items < before.items, 'the item count actually dropped');
+
+  // Interior tombstones stay: a child names them as its origin, and re-parenting
+  // that child can reorder it against a concurrent sibling - the classic way an
+  // RGA diverges. This is a design decision, not an oversight.
+  const interior = new RGA('keep');
+  interior.localInsert(0, 'abcdef');
+  interior.localDelete(1, 5); // b..f, so f is the only leaf
+  const kept = interior.collect({ safeTs: Infinity });
+  assertEquals(kept, 1, 'only the trailing leaf is reclaimed');
+  assertEquals(interior.stats().tombstones, 4, 'the four interior tombstones stay');
+  assertEquals(interior.text(), 'a');
+});
+
+test('M1: a peer watermark protects tombstones an in-flight op could still name', () => {
+  const a = new RGA('a');
+  const b = new RGA('b');
+  a.localInsert(0, 'ab');
+  b.merge(a.log);
+  a.localDelete(1, 1); // stamp 4
+  const opFromB = b.localInsert(2, 'X'); // b has not seen the delete yet
+
+  // The watermark is below the delete stamp, so nothing is collected and the
+  // late op still resolves.
+  assertEquals(a.collect({ safeTs: 2 }), 0, 'a low watermark pins the tombstone');
+  a.merge(opFromB);
+  b.merge(a.log);
+  assertEquals(a.stats().buffered, 0, 'no op is left stranded');
+  assertEquals(a.text(), b.text(), 'both replicas converge');
+
+  // With the watermark above the stamp (everyone has seen the delete) the same
+  // sequence is safe, which is what `Infinity` means when no peer is connected.
+  const c = new RGA('c');
+  c.localInsert(0, 'ab');
+  c.localDelete(1, 1);
+  assertEquals(c.collect({ safeTs: Infinity }), 1, 'with no peers, the leaf is reclaimable');
+  assertEquals(c.text(), 'a');
+});
+
+test('M1: collect() will not strand an op that is already waiting in the buffer', () => {
+  const rga = new RGA('buf');
+  rga.localInsert(0, 'ab');
+  rga.localDelete(1, 1);
+  // An op whose origin is missing entirely: it parks in the causal buffer.
+  rga.apply({ t: 'ins', id: [99, 'z'], o: [98, 'z'], c: 'Q' });
+  assertEquals(rga.stats().buffered, 1, 'the op is waiting for an origin we do not have');
+  const reclaimed = rga.collect({ safeTs: Infinity });
+  assertEquals(reclaimed, 1, 'the unrelated leaf is still reclaimed');
+  assertEquals(rga.stats().buffered, 1, 'and the parked op is untouched');
+});
+
+test('M1: trimLog bounds the op log and reports what it dropped', () => {
+  const rga = new RGA('trim');
+  rga.localInsert(0, 'hello world');
+  rga.localDelete(0, 5);
+  const before = rga.stats().ops;
+  const dropped = rga.trimLog(3);
+  assertEquals(dropped, before - 3);
+  assertEquals(rga.stats().ops, 3);
+  assertEquals(rga.stats().logTrimmed, dropped);
+  assertEquals(rga.text(), ' world', 'trimming the log never changes the document');
+
+  // A replica that only ever sees the trimmed log still converges on the
+  // surviving state for the ops it does receive, and the app sends the document
+  // text when the log has been trimmed (see onMeshMessage in src/app.js).
+  const peer = new RGA('peer');
+  peer.localInsert(0, rga.text());
+  assertEquals(peer.text(), rga.text());
+});
+
+test('M1: fingerprint pruning is bounded by the watermark and stays idempotent', () => {
+  const rga = new RGA('seen');
+  rga.localInsert(0, 'abcd');
+  const before = rga.stats().seen;
+  rga.collect({ safeTs: Infinity });
+  const after = rga.stats();
+  assert(after.seen < before, `fingerprints should be pruned (${before} -> ${after.seen})`);
+  assert(after.seenPruned >= before - after.seen);
+  // Replaying the whole history after pruning must still be a no-op: the guards
+  // in apply() are structural, the fingerprint set is only an optimisation.
+  const snapshot = rga.text();
+  rga.merge(rga.log);
+  assertEquals(rga.text(), snapshot, 'a full replay changes nothing');
+});

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 330" width="780" height="330" role="img" aria-labelledby="title desc">
+  <title id="title">Performance budget: measured values against the brief's targets</title>
+  <desc id="desc">Horizontal bars compare the measured value with the brief's target for each budget row. Payload and frame rate are met under the tested conditions; paint and interaction timings were measured unthrottled so they are shown as unmeasured; 10,000 concurrent users and node-kill chaos were not run at all.</desc>
+  <style>
+    .bg { fill: #0d131c; }
+    .grid { stroke: #223042; stroke-width: 1; }
+    .label { fill: #c9d4e2; font: 12px ui-monospace, monospace; }
+    .value { fill: #eaf1f8; font: 11px ui-monospace, monospace; }
+    .small { fill: #7f8ea3; font: 10px ui-monospace, monospace; }
+    .track { fill: #16202c; }
+    .met { fill: #57d68d; }
+    .unmet { fill: #f7b955; }
+    .unmeasured { fill: #4a5b70; }
+    .none { fill: none; stroke: #4a5b70; stroke-dasharray: 4 3; }
+  </style>
+  <rect class="bg" x="0" y="0" width="780" height="330" rx="10" />
+  <text class="label" x="20" y="26">Measured value as a share of the brief's target</text>
+  <text class="small" x="20" y="44">Bars are value/target. Rows marked unmeasured were taken under the wrong conditions, or not at all.</text>
+  <line class="grid" x1="330" y1="58" x2="330" y2="318" />
+  <text class="small" x="330" y="72" text-anchor="middle">target</text>
+
+  <!-- Initial JS payload: 73.3 KiB vs 170 KB (met) -->
+  <text class="label" x="20" y="96">Initial JS payload</text>
+  <rect class="track" x="330" y="84" width="420" height="16" />
+  <rect class="met" x="330" y="84" width="181" height="16" />
+  <text class="value" x="519" y="96">73.3 KiB gzip of 170 KB - met</text>
+
+  <!-- 3D FPS default: 60 of 60 (met) -->
+  <text class="label" x="20" y="128">3D frame rate, defaults</text>
+  <rect class="track" x="330" y="116" width="420" height="16" />
+  <rect class="met" x="330" y="116" width="420" height="16" />
+  <text class="value" x="20" y="143">60 FPS at 20k instances + 150k particles - met</text>
+
+  <!-- 3D FPS max: 58 of 60 (just under) -->
+  <text class="label" x="20" y="168">3D frame rate, maximum</text>
+  <rect class="track" x="330" y="156" width="420" height="16" />
+  <rect class="unmet" x="330" y="156" width="406" height="16" />
+  <text class="value" x="744" y="168">58 of 60 FPS at 100k + 1M</text>
+
+  <!-- Mesh p95: 67 ms of 200 ms (local approximation) -->
+  <text class="label" x="20" y="200">Mesh delivery p95</text>
+  <rect class="track" x="330" y="188" width="420" height="16" />
+  <rect class="unmeasured" x="330" y="188" width="141" height="16" />
+  <text class="value" x="479" y="200">67 ms of the 200 ms p95 target, 10 local peers</text>
+
+  <!-- LCP: 711 ms of 1500 ms, but unthrottled -->
+  <text class="label" x="20" y="232">Largest Contentful Paint</text>
+  <rect class="track" x="330" y="220" width="420" height="16" />
+  <rect class="unmeasured" x="330" y="220" width="199" height="16" />
+  <text class="value" x="537" y="232">711 ms of 1.5 s, but unthrottled</text>
+
+  <!-- INP: 32 ms of 100 ms, but without 50 users -->
+  <text class="label" x="20" y="264">Interaction to Next Paint</text>
+  <rect class="track" x="330" y="252" width="420" height="16" />
+  <rect class="unmeasured" x="330" y="252" width="134" height="16" />
+  <text class="value" x="472" y="264">32 ms of 100 ms, but no 50-user session</text>
+
+  <!-- Not run at all -->
+  <text class="label" x="20" y="296">10k users / chaos / 1-hour soak</text>
+  <rect class="none" x="330" y="284" width="420" height="16" />
+  <text class="value" x="744" y="296">not run</text>
+
+  <text class="small" x="20" y="320">Raw numbers and method: docs/LOAD_CHAOS.md</text>
+</svg>

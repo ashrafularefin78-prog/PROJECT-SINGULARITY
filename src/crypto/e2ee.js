@@ -58,8 +58,17 @@ export function b64(bytes) {
   return btoa(s);
 }
 
+// Canonical base64 only: four-character groups, padding at the end and nothing
+// else. `atob` accepts unpadded and truncated-looking input and silently
+// normalises it, which would give one ciphertext two spellings - and two
+// spellings means a MAC that covers the text (rather than the bytes) could be
+// fooled. Strictness here is cheaper than auditing that later.
+const STRICT_B64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
 export function unb64(str) {
-  const raw = atob(str);
+  const text = String(str);
+  if (!STRICT_B64.test(text)) throw new Error('not canonical base64');
+  const raw = atob(text);
   const out = new Uint8Array(raw.length);
   for (let i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i);
   return out;
@@ -246,16 +255,19 @@ export class Identity {
     };
   }
 
-  /** Local verification that a bundle really is signed by the claimed identity. */
-  async verifyBundle(bundle) {
-    const ourVk = this.signPair.publicKey;
-    const spkPub = unb64(bundle.spk);
-    const ok = await verify(
-      { publicKey: ourVk },
-      unb64(bundle.spkSig),
-      concat(TEXT.encode('Singularity|SPK|v1'), spkPub),
-    );
-    return ok;
+  /**
+   * Local verification that a bundle really was signed by the identity key it
+   * claims to belong to.
+   *
+   * Pass the signing key you already trust (`trustedSignKey`); with no argument
+   * the bundle's own advertised key is used, which at least proves the bundle
+   * is internally consistent. The X3DH handshake in the app calls this with the
+   * advertised key *before* deriving any key material, so a forged or spliced
+   * prekey bundle is rejected instead of silently becoming the session.
+   */
+  async verifyBundle(bundle, trustedSignKey = null) {
+    const vk = trustedSignKey || (await importSignPublic(bundle.sign));
+    return verifyBundleWith(bundle, vk);
   }
 }
 

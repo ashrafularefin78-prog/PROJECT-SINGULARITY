@@ -1,5 +1,6 @@
 import { test, assert, assertEquals } from './harness.js';
 import { CiphertextRelay, Mesh } from '../src/collab/mesh.js';
+import { RateLimiter } from '../src/security/policy.js';
 
 const room = () => `room-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -162,4 +163,44 @@ test('M5: relay queues broadcast and direct envelopes for the right recipient', 
   const eve = relay.drain('eve');
   assertEquals(eve.length, 1, 'eve only gets the broadcast');
   assertEquals(eve[0].ct, 'broadcast');
+});
+
+
+// ---------------------------------------------------------------------------
+// M8 ingress hardening: the token bucket that keeps presence chatter from
+// flooding the room, without ever touching document traffic.
+// ---------------------------------------------------------------------------
+
+test('M8: the rate limiter allows a burst, refills over time and counts refusals', () => {
+  const limiter = new RateLimiter({ rate: 10, burst: 5 });
+  let t = 0;
+  // The first five calls pass (the burst), the sixth does not.
+  for (let i = 0; i < 5; i += 1) assert(limiter.allow('peer', t), `call ${i} is within the burst`);
+  assert(!limiter.allow('peer', t), 'the sixth call in the same instant is refused');
+  assertEquals(limiter.throttled, 1);
+  // One second later the bucket has refilled ten tokens, capped at the burst.
+  assert(limiter.allow('peer', t + 1000), 'a quiet second refills the bucket');
+  for (let i = 0; i < 4; i += 1) limiter.allow('peer', t + 1000);
+  assert(!limiter.allow('peer', t + 1000), 'the cap holds at `burst`');
+  // Buckets are per key, so one noisy peer cannot silence another.
+  assert(limiter.allow('other', t), 'a different peer has its own bucket');
+  assertEquals(limiter.size, 2);
+  limiter.forget('peer');
+  assertEquals(limiter.size, 1, 'a departing peer is forgotten');
+});
+
+test('M8: the mesh throttles presence traffic but never document operations', () => {
+  const mesh = new Mesh({ room: 'flood', id: 'target' });
+  mesh.channel = null;
+  const ops = Array.from({ length: 400 }, (_, i) => ({ t: 'ins', id: [i + 1, 'x'], o: i === 0 ? null : [i, 'x'], c: 'a' }));
+  // A flood of presence packets is capped...
+  for (let i = 0; i < 400; i += 1) mesh._receive({ kind: 'ping', from: 'noisy', payload: {} }, 'tab');
+  const afterPings = mesh.stats.throttled;
+  assert(afterPings > 300, `expected the flood to be throttled, throttled=${afterPings}`);
+  // ...while every single op still lands, because losing one would lose a
+  // character. This is the invariant that makes throttling safe here.
+  const before = mesh.stats.received;
+  for (const op of ops) mesh._receive({ kind: 'ops', from: 'noisy', payload: { doc: 'd', ops: [op] } }, 'tab');
+  assertEquals(mesh.stats.throttled, afterPings, 'ops are never throttled');
+  assert(mesh.stats.received > before, 'and they are all accounted for');
 });

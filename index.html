@@ -3,6 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      M8 - the security policy travels with the file.
+
+      Static hosts (GitHub Pages above all) cannot send response headers, so
+      the CSP that tools/serve.py sets is duplicated here as a meta policy.
+      Browsers enforce every delivered policy, so over HTTP both apply and the
+      header is the stricter one; on a static host this meta tag is the policy.
+
+      Differences from the header version, both forced by the HTML spec:
+        - 'frame-ancestors' cannot be delivered via meta (it is ignored, and
+          Chromium logs a warning), so clickjacking protection relies on the
+          header or on the host's own X-Frame-Options. See _headers.
+        - 'file:' is added to the local-loading directives so the offline
+          diagnostic page still renders when index.html is double-clicked.
+          A file:// document cannot fetch a file: subresource from an http(s)
+          page in any modern browser, so this is inert over the network.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file:; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
+    />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#06090d" />
     <meta
@@ -26,6 +47,21 @@
       <span class="fx-sweep"></span>
     </div>
 
+    <!-- The deck frame. Pure chrome: corners, an attitude rail, a scale and a
+         radar ring live in the gutters, plus one scan line that wipes the frame
+         when a module is opened. Inert to pointer and assistive technology, and
+         switched off with the rest of the visual effects from M7. -->
+    <div class="hud" id="hud" aria-hidden="true">
+      <span class="hud-corner hud-corner-tl"></span>
+      <span class="hud-corner hud-corner-tr"></span>
+      <span class="hud-corner hud-corner-bl"></span>
+      <span class="hud-corner hud-corner-br"></span>
+      <span class="hud-rail"></span>
+      <span class="hud-ruler"></span>
+      <span class="hud-ring"></span>
+      <span class="hud-scan"></span>
+    </div>
+
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">◉</span>
@@ -42,6 +78,12 @@
     </header>
 
     <nav id="tabs" class="tabs" aria-label="Modules" role="tablist"></nav>
+
+    <!-- The deck strip: a live activity waveform and a ticker of real readings.
+         Both are duplicates of numbers that are already exposed accessibly in
+         the header telemetry strip, so the whole strip is hidden from assistive
+         technology rather than announced twice. -->
+    <div class="deck" id="deck" aria-hidden="true"></div>
 
     <main id="main" class="main" tabindex="-1"></main>
 

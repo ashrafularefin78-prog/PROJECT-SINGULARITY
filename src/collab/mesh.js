@@ -1,19 +1,28 @@
 /**
- * M5 - Peer-to-peer mesh (browser-local implementation).
+ * M5 - Peer-to-peer mesh: presence, liveness and the ciphertext-only relay.
  *
- * Honest scope note: the spec asks for WebRTC data channels with STUN/TURN.
- * What is implemented here is the *transport-independent* half of that module -
- * the room model, presence, liveness pruning, ciphertext-only relay contract
- * and recovery on reconnect - running over BroadcastChannel, which gives real
- * multi-peer, multi-tab collaboration in one browser with zero servers.
+ * This class owns everything that does not depend on how bytes travel: the room
+ * model, presence, heartbeat/pruning, the untrusted-relay contract and recovery
+ * when a carrier drops. Two carriers can feed it at once:
  *
- * The public API (`send`, `onMessage`, `peers`) is exactly what the WebRTC
- * data-channel implementation needs; swapping the carrier is a contained change
- * (see docs/ARCHITECTURE.md, "M5 upgrade path").
+ *   - BroadcastChannel (always on): real multi-peer collaboration between tabs
+ *     of the same browser, with zero servers and zero configuration.
+ *   - WebRTC data channels (src/collab/webrtc.js, attached with attachRtc): real
+ *     connections between different machines over the network, signaled by a
+ *     copy-pasted invite/answer code rather than a signaling server.
+ *
+ * Both carriers deliver the same envelope shape into `_receive`, so presence,
+ * the relay and the UI path are identical whichever one a peer arrived on, and
+ * the peer list says which one it was.
  */
+
+import { RateLimiter } from '../security/policy.js';
 
 const HEARTBEAT_MS = 4000;
 const PEER_TTL_MS = 12000;
+
+/** Presence chatter, which may be throttled. Document ops never are. */
+const THROTTLEABLE = new Set(['hello', 'welcome', 'beat', 'bye', 'ping', 'cursor']);
 
 const COLORS = ['#6ea8fe', '#f7b955', '#57d68d', '#ff6b81', '#b39ddb', '#4dd0e1', '#ffab91', '#c5e1a5'];
 
@@ -38,12 +47,15 @@ export class Mesh {
     this.channel = null;
     this.timers = [];
     this.startedAt = Date.now();
-    this.stats = { sent: 0, received: 0, dropped: 0, bytesOut: 0, bytesIn: 0 };
+    this.stats = { sent: 0, received: 0, dropped: 0, bytesOut: 0, bytesIn: 0, throttled: 0 };
+    /** M8: per-peer flood control for presence traffic (see RateLimiter). */
+    this.limiter = new RateLimiter({ rate: 40, burst: 80 });
   }
 
   start() {
     if (!('BroadcastChannel' in globalThis)) {
       this.available = false;
+      this.rtc = null;
       return this;
     }
     this.available = true;
@@ -69,16 +81,42 @@ export class Mesh {
   }
 
   _send(kind, payload) {
-    if (!this.channel) return;
     const envelope = { kind, from: this.id, at: Date.now(), payload };
-    try {
-      this.channel.postMessage(envelope);
-      this.stats.sent += 1;
-      this.stats.bytesOut += estimateBytes(envelope);
-    } catch (err) {
-      this.stats.dropped += 1;
-      console.warn('[mesh] send failed', err);
+    if (this.channel) {
+      try {
+        this.channel.postMessage(envelope);
+        this.stats.sent += 1;
+        this.stats.bytesOut += estimateBytes(envelope);
+      } catch (err) {
+        this.stats.dropped += 1;
+        console.warn('[mesh] broadcast send failed', err);
+      }
     }
+    if (this.rtc) {
+      const delivered = this.rtc.send(kind, payload);
+      if (delivered) {
+        this.stats.sent += 1;
+        this.stats.bytesOut += estimateBytes(envelope);
+        this.stats.rtcSent = (this.stats.rtcSent || 0) + delivered;
+      }
+    }
+  }
+
+  /**
+   * Add the WebRTC carrier. Its inbound envelopes are routed through exactly the
+   * same handler as the tab carrier, so nothing else in the mesh changes.
+   */
+  attachRtc(rtc) {
+    this.rtc = rtc;
+    this.rtc.onEnvelope = (envelope) => this._receive(envelope, 'webrtc');
+    // Say hello down any link that is already open, and let peers know we moved.
+    this._send('hello', { name: this.name, color: this.color });
+    return this;
+  }
+
+  detachRtc() {
+    if (this.rtc) this.rtc.close();
+    this.rtc = null;
   }
 
   /** Broadcast a message to every peer in the room. */
@@ -86,17 +124,31 @@ export class Mesh {
     this._send(kind, payload);
   }
 
-  _receive(envelope) {
+  _receive(envelope, via = 'tab') {
     if (!envelope || typeof envelope !== 'object') return;
     if (envelope.from === this.id) return;
     this.stats.received += 1;
     this.stats.bytesIn += estimateBytes(envelope);
+
+    // Flood control, presence only. A throttled message is counted and dropped;
+    // an `ops` or `sync-*` message is never subject to this, because dropping
+    // one would lose a character rather than save a frame.
+    if (THROTTLEABLE.has(envelope.kind) && !this.limiter.allow(envelope.from)) {
+      this.stats.throttled += 1;
+      return;
+    }
 
     const peer = this.peerMap.get(envelope.from) || {
       id: envelope.from,
       joinedAt: Date.now(),
       color: COLORS[Math.abs(hash(envelope.from)) % COLORS.length],
     };
+    // A peer can be reachable over both carriers at once (two tabs of the same
+    // browser that have also paired over WebRTC). Track every carrier seen and
+    // report the strongest one, rather than letting the last packet win.
+    if (!peer.transports) peer.transports = new Set();
+    peer.transports.add(via);
+    peer.transport = peer.transports.has('webrtc') ? 'webrtc' : via;
     peer.lastSeen = Date.now();
     if (envelope.payload && envelope.payload.name) peer.name = envelope.payload.name;
     if (envelope.payload && envelope.payload.color) peer.color = envelope.payload.color;
@@ -112,6 +164,7 @@ export class Mesh {
       if (isNew) this._changed();
     } else if (envelope.kind === 'bye') {
       this.peerMap.delete(envelope.from);
+      this.limiter.forget(envelope.from);
       this._changed();
     }
 
@@ -141,7 +194,7 @@ export class Mesh {
 
   peers() {
     return [
-      { id: this.id, name: this.name, color: this.color, self: true, lastSeen: Date.now() },
+      { id: this.id, name: this.name, color: this.color, self: true, transport: 'local', lastSeen: Date.now() },
       ...[...this.peerMap.values()].sort((a, b) => a.id.localeCompare(b.id)),
     ];
   }
@@ -152,6 +205,7 @@ export class Mesh {
     this.timers = [];
     if (this.channel) this.channel.close();
     this.channel = null;
+    if (this.rtc) this.rtc.close();
   }
 }
 

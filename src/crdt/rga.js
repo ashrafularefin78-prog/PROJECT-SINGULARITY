@@ -60,6 +60,21 @@ export class RGA {
     this._draining = false;
     /** Full op history: what a freshly joined replica replays to catch up. */
     this.log = [];
+    /** How many ops have been dropped from the front of the log by trimLog(). */
+    this.logTrimmed = 0;
+    /**
+     * Walk cursor: the last (node, visible index) this replica resolved.
+     * Lookups start from the nearest anchor - head, tail or the cursor - so
+     * sequential editing costs O(1) per operation instead of a full scan of the
+     * document, which is what made typing one character at a time quadratic.
+     */
+    this._cursor = { node: this.head, index: -1 };
+    /** Reverse index: origin id -> number of children. Makes tombstone GC O(1)
+     *  per candidate instead of a scan of every node. */
+    this._childCount = new Map();
+    /** Nodes visited by index resolution. Exposed so tests can assert that the
+     *  access pattern is not secretly quadratic. */
+    this.walkSteps = 0;
     /** Per-user undo/redo. Never contains another replica's edits. */
     this.undoStack = [];
     this.redoStack = [];
@@ -179,28 +194,83 @@ export class RGA {
     return out;
   }
 
-  /** The node at a visible index, clamped to the last visible character. */
-  nodeAtVisible(index) {
-    if (index < 0) return null;
-    let i = -1;
-    let last = null;
-    for (let n = this.head.next; n; n = n.next) {
-      if (n.deleted) continue;
-      i += 1;
-      last = n;
-      if (i === index) return n;
+/**
+   * Walk from a known (node, index) pair to a target index. The caller
+   * guarantees the invariant that `node` is visible and sits at `fromIndex`.
+   */
+  _walkTo(node, fromIndex, target) {
+    let n = node;
+    let i = fromIndex;
+    if (i < target) {
+      while (n && i < target) {
+        n = n.next;
+        this.walkSteps += 1;
+        if (!n) return null;
+        if (!n.deleted) i += 1;
+      }
+      return n;
     }
-    return last;
+    while (n && i > target) {
+      n = n.prev;
+      this.walkSteps += 1;
+      if (!n) return null;
+      if (!n.deleted) i -= 1;
+    }
+    return n && !n.deleted ? n : null;
+  }
+
+  /**
+   * The node at a visible index, clamped to the last visible character.
+   *
+   * The original implementation always scanned from the head, so appending n
+   * characters one at a time cost O(n^2). This starts from whichever anchor is
+   * closest - the cursor, the head, or the tail - which makes the common access
+   * patterns (typing at the caret, appending, editing near the end) O(1) or
+   * O(distance) instead of O(document).
+   */
+  nodeAtVisible(index) {
+    if (index < 0 || this.visible === 0) return null;
+    let target = index;
+    if (target >= this.visible) target = this.visible - 1;
+
+    // Anchors must be *visible* nodes: the walk below relies on the invariant
+    // that its start node sits at `fromIndex` among visible items. The list
+    // tail in particular can be a tombstone (deleting at the end leaves them),
+    // so walk back over any trailing tombstones to the last visible item.
+    let tailNode = this.tail;
+    let tailIndex = this.visible - 1;
+    while (tailNode && tailNode !== this.head && tailNode.deleted) tailNode = tailNode.prev;
+
+    let from = this.head;
+    let fromIndex = -1;
+    const cursor = this._cursor;
+    if (cursor && cursor.node && cursor.node !== this.head && !cursor.node.deleted && this.nodes.has(idKey(cursor.node.id))) {
+      if (Math.abs(target - cursor.index) < Math.abs(target - fromIndex)) {
+        from = cursor.node;
+        fromIndex = cursor.index;
+      }
+    }
+    if (tailNode && tailNode !== this.head && Math.abs(target - tailIndex) < Math.abs(target - fromIndex)) {
+      from = tailNode;
+      fromIndex = tailIndex;
+    }
+    const node = this._walkTo(from, fromIndex, target);
+    if (node) this._cursor = { node, index: target };
+    return node;
   }
 
   /** Visible index of a node id, or -1 when the character is not visible. */
   visibleIndexOf(id) {
+    const node = this.nodes.get(idKey(id));
+    if (!node || node.deleted) return -1;
+    // Count visible characters before it, walking outwards from the node so the
+    // cost follows the caret's position rather than the document's length.
     let i = 0;
-    for (let n = this.head.next; n; n = n.next) {
-      if (!n.deleted && compareId(n.id, id) === 0) return i;
+    for (let n = node.prev; n && n !== this.head; n = n.prev) {
+      this.walkSteps += 1;
       if (!n.deleted) i += 1;
     }
-    return -1;
+    return i;
   }
 
   stats() {
@@ -211,7 +281,100 @@ export class RGA {
       buffered: this._buffer.length,
       ops: this.log.length,
       clock: this.clock,
+      reclaimed: this.reclaimed || 0,
+      seenPruned: this.seenPruned || 0,
+      seen: this._seen.size,
+      logTrimmed: this.logTrimmed,
     };
+  }
+
+  // ------------------------------------------------------------- maintenance
+
+  /**
+   * Reclaim tombstoned items - the memory a CRDT leaks as a document is edited
+   * forever. A tombstone is only dropped when nothing can ever reference it
+   * again:
+   *
+   *   - no live or tombstoned sibling has it as its direct origin (a later
+   *     insert naming it would otherwise be stranded), and
+   *   - it is not the head or the tail anchor, and
+   *   - when `graceTs` is given, its delete stamp is at or below that watermark,
+   *     which is how a caller keeps tombstones that an in-flight op might still
+   *     name as an origin.
+   *
+   * Deleted items that are already in `_seen` stay covered: a peer replaying the
+   * original delete is recognised as a duplicate before it needs the node.
+   */
+  collect(options = {}) {
+    const safeTs = options.safeTs == null ? this.clock : options.safeTs;
+    // An op still waiting for an origin would be stranded if that origin is
+    // dropped, so anything the buffer names is pinned this round.
+    const pinned = new Set();
+    for (const op of this._buffer) if (op.o != null) pinned.add(idKey(op.o));
+    let reclaimed = 0;
+    for (const node of [...this.nodes.values()]) {
+      if (!node.deleted || node === this.head) continue;
+      // Interior tombstones are NOT collectable: a child's origin points at
+      // them, and re-parenting a child to its grandparent can reorder it
+      // against a concurrent sibling, which is exactly how an RGA diverges.
+      // Only leaves go, and only below the watermark. The tail anchor is
+      // allowed to move back to the previous item when a leaf tail goes.
+      if (this._childCount.has(idKey(node.id))) continue;
+      if (node.dt > safeTs) continue;
+      if (pinned.has(idKey(node.id))) continue;
+      if (node.prev) node.prev.next = node.next;
+      if (node.next) node.next.prev = node.prev;
+      else this.tail = node.prev;
+      this.nodes.delete(idKey(node.id));
+      this._childCount.delete(idKey(node.id));
+      this.tombstones -= 1;
+      if (this._cursor.node === node) this._cursor = { node: this.head, index: -1 };
+      reclaimed += 1;
+    }
+    this.reclaimed = (this.reclaimed || 0) + reclaimed;
+    // Fingerprints older than the watermark can never be needed again: even a
+    // full log replay from a peer is idempotent on its own (an insert whose
+    // item already exists, or a delete whose stamp is older, is a no-op), so
+    // this set is an optimisation, not the correctness guarantee.
+    let pruned = 0;
+    if (options.pruneSeen !== false) {
+      for (const fp of [...this._seen]) {
+        const ts = Number(fp.slice(fp.indexOf(':') + 1).split('@')[0]);
+        if (!Number.isFinite(ts) || ts <= safeTs) {
+          this._seen.delete(fp);
+          pruned += 1;
+        }
+      }
+    }
+    this.seenPruned = (this.seenPruned || 0) + pruned;
+    return reclaimed;
+  }
+
+  /**
+   * The conservative watermark for collect(): the lowest Lamport clock every
+   * connected peer has reported. No peer below it can still be holding an op
+   * whose origin we would drop. With no peers at all, pass Infinity - nobody
+   * else can be writing, so every leaf tombstone is safe.
+   */
+  static safeWatermark(peerClocks) {
+    if (!peerClocks || !peerClocks.length) return Infinity;
+    return Math.min(...peerClocks);
+  }
+
+  /**
+   * Keep only the newest `keep` ops. Callers that trim must be able to catch a
+   * new replica up from a snapshot instead of the log, which the app does: a
+   * sync response carries the document text whenever this replica has trimmed
+   * (see onMeshMessage in src/app.js).
+   */
+  trimLog(keep = 0) {
+    const want = Math.max(0, keep);
+    const drop = Math.max(0, this.log.length - want);
+    if (drop) {
+      this.log = this.log.slice(drop);
+      this.logTrimmed += drop;
+    }
+    return drop;
   }
 
   // --------------------------------------------------------------- internals
@@ -230,6 +393,10 @@ export class RGA {
     if (!origin) return false; // causal wait
     const node = { id: op.id, ch: op.c, deleted: false, dt: -1, prev: null, next: null };
     this.nodes.set(idKey(op.id), node);
+    if (op.o != null) {
+      const key = idKey(op.o);
+      this._childCount.set(key, (this._childCount.get(key) || 0) + 1);
+    }
     this._link(origin, node);
     this.visible += 1;
     return true;

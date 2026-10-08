@@ -1,0 +1,36 @@
+# Security headers for hosts that support a `_headers` file
+# (Netlify, Cloudflare Pages, and anything speaking the same format).
+#
+# GitHub Pages cannot send custom response headers, which is why index.html
+# also carries the CSP as a <meta http-equiv> tag. That meta tag covers the
+# script/style/connect surface; the three directives below CANNOT be expressed
+# in meta and need a real header, so they only exist when the site is served by
+# a host that reads this file (or by tools/serve.py, which sets all of them):
+#
+#   Content-Security-Policy: frame-ancestors 'none'   clickjacking
+#   Cross-Origin-Opener-Policy                        cross-origin isolation
+#   Cross-Origin-Embedder-Policy                      cross-origin isolation
+#
+# Paths are relative to this file, so the same rules apply at '/' and at a
+# subpath deployment such as '/PROJECT-SINGULARITY/'.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), camera=(), microphone=()
+  Cache-Control: no-store
+
+/sw.js
+  Cache-Control: no-cache
+
+# The shell is content-addressed by the service worker version, so assets can
+# be cached briefly by the CDN without ever pinning a stale deploy.
+/*.css
+  Cache-Control: public, max-age=300
+
+/*.js
+  Cache-Control: public, max-age=300

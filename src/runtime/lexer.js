@@ -20,12 +20,16 @@ export class CompileError extends Error {
 
 export const KEYWORDS = new Set([
   'int', 'char', 'void', 'long', 'short', 'unsigned', 'signed', 'float', 'double',
-  'if', 'else', 'while', 'for', 'return', 'break', 'continue', 'sizeof', 'const',
-  'struct', 'static',
+  'if', 'else', 'while', 'for', 'do', 'return', 'break', 'continue', 'sizeof', 'const',
+  'struct', 'static', 'switch', 'case', 'default',
+  'size_t', 'ptrdiff_t', 'uint32_t', 'int32_t',
 ]);
 
 export const TYPE_KEYWORDS = new Set([
   'int', 'char', 'void', 'long', 'short', 'unsigned', 'signed', 'float', 'double', 'const', 'static',
+  // Accepted as built-in aliases for `int`/`unsigned int`: the standard library
+  // functions below return them, and `size_t n = strlen(s);` is ordinary C.
+  'size_t', 'ptrdiff_t', 'uint32_t', 'int32_t',
 ]);
 
 const ESCAPES = {
@@ -139,6 +143,12 @@ export function tokenize(source) {
       }
       const value = text.includes('.') ? parseFloat(text) : parseInt(text, text.startsWith('0x') || text.startsWith('0X') ? 16 : 10);
       if (Number.isNaN(value)) throw new CompileError('Lex', `invalid number literal '${text}'`, startLine, startCol);
+      // A literal long enough to overflow a double (a 400-digit paste, say)
+      // would otherwise become Infinity and flow into arithmetic as a silent
+      // value no C program can produce. Reject it at the lexer instead.
+      if (!Number.isFinite(value)) {
+        throw new CompileError('Lex', `number literal '${text.slice(0, 20)}${text.length > 20 ? '…' : ''}' is out of range`, startLine, startCol);
+      }
       push('num', value, startLine, startCol);
       continue;
     }

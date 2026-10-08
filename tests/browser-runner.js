@@ -6,9 +6,12 @@ const SUITES = [
   './rga.test.js',
   './crypto.test.js',
   './compiler.test.js',
+  './lang.test.js',
   './storage.test.js',
   './mesh.test.js',
+  './webrtc.test.js',
   './renderer.test.js',
+  './fuzz.test.js',
 ];
 
 async function main() {

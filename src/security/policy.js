@@ -73,3 +73,55 @@ export const clear = (node) => {
   while (node.firstChild) node.removeChild(node.firstChild);
   return node;
 };
+
+/**
+ * M8 - Ingress rate limiting.
+ *
+ * A peer (or a bug, or a runaway script) that floods the room can otherwise pin
+ * the CPU and drown the presence UI. This is a per-peer token bucket with a
+ * small burst allowance, so ordinary chatter never notices it and a flood is
+ * capped.
+ *
+ * Deliberately NOT applied to document operations or sync replies: dropping one
+ * of those would lose a character, and "we dropped your edit to save CPU" is not
+ * a trade this app is willing to make. Presence is throttled; the document is
+ * not.
+ */
+export class RateLimiter {
+  /** @param {object} options @param {number} options.rate refills per second
+   *  @param {number} options.burst maximum tokens held */
+  constructor({ rate = 40, burst = 80 } = {}) {
+    this.rate = rate;
+    this.burst = burst;
+    this.buckets = new Map();
+    this.throttled = 0;
+  }
+
+  /** True when this key may proceed. Refills by elapsed time, so a quiet peer
+   *  is never penalised for an old burst. */
+  allow(key, now = Date.now()) {
+    let bucket = this.buckets.get(key);
+    if (!bucket) {
+      bucket = { tokens: this.burst, at: now };
+      this.buckets.set(key, bucket);
+    }
+    const elapsed = Math.max(0, now - bucket.at) / 1000;
+    bucket.tokens = Math.min(this.burst, bucket.tokens + elapsed * this.rate);
+    bucket.at = now;
+    if (bucket.tokens < 1) {
+      this.throttled += 1;
+      return false;
+    }
+    bucket.tokens -= 1;
+    return true;
+  }
+
+  /** Forget a peer's bucket (it left the room, or recovered). */
+  forget(key) {
+    this.buckets.delete(key);
+  }
+
+  get size() {
+    return this.buckets.size;
+  }
+}

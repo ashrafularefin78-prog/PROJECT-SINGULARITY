@@ -1,7 +1,8 @@
 # Project Singularity — build plan
 
 Derived from `Impossible_Website_Challenge.pdf`. This is the plan the
-implementation follows, including the decisions about what *not* to build.
+implementation follows, including the decisions about what *not* to build and a
+record of where the plan changed because the work turned out to be reachable.
 
 ## 1. What the brief actually asks for
 
@@ -20,24 +21,35 @@ performance budget, and a 1000-point tier ladder.
 
 The brief itself says: *20 engineers × 12 months, success rate practically zero*,
 and advises a solo attempt to target Bronze/Silver with one or two modules done
-properly. So the plan is:
+properly. So the plan was:
 
 **Pick the modules where a complete, honest implementation is reachable, and
 declare the rest as partial rather than faking them.**
 
 | Module | Plan | Why |
 |--------|------|-----|
-| M1 CRDT editor | **Full** | Self-contained, testable to a proof-like standard with property tests. The crown jewel. |
-| M4 E2EE | **Full** | WebCrypto supplies the primitives; the composition (X3DH + Double Ratchet + streaming AEAD) is engineering, not research. |
-| M6 offline sync | **Full** | IndexedDB + service worker + versioned migrations is well-trodden. |
-| M2 C runtime | **Partial** | clang→WASM is out of reach here, but a *real* lexer/parser/interpreter plus a worker sandbox, terminal and hard kill switch delivers most of the module's engineering value. |
-| M3 3D engine | **Partial** | WebGL2 instancing, real shadow maps and GPU particles are achievable; PBR/IBL/glTF/skeletal animation are not, and faking them would be dishonest. |
-| M5 mesh | **Partial** | The room/presence/relay/recovery model is implementable and testable; WebRTC+STUN/TURN traversal needs infrastructure this environment does not have. |
+| M1 CRDT editor | **Full** | Self-contained, testable to a proof-like standard with property tests. The crown jewel. Now with cursor-indexed lookups (no rescans), watermark-bounded tombstone collection and op-log trimming. |
+| M4 E2EE | **Full** | WebCrypto supplies the primitives; the composition (X3DH + Double Ratchet + streaming AEAD) is engineering, not research. The signed prekey bundle is verified inside the handshake, before any key material exists. |
+| M6 offline sync | **Full** | IndexedDB + service worker + versioned migrations is well-trodden, and the scope-relative paths make the offline shell work under a subpath deployment. |
+| M2 C runtime | **Partial** | clang→WASM is out of reach here, but a *real* lexer/parser/interpreter plus a worker sandbox, terminal and hard kill switch delivers most of the module's engineering value. Grew during the build: ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked), casts, do/while, malloc/calloc/realloc/free/memcpy/memset and scanf. |
+| M3 3D engine | **Partial** | WebGL2 instancing, a real depth-only shadow pass with hardware PCF, GPU particles and a Cook-Torrance BRDF were all reachable and are in. Image-based lighting from an HDRI probe, a glTF loader and skeletal animation are not — and faking them would be dishonest. |
+| M5 mesh | **Partial** | The room/presence/relay/recovery model is implementable and testable, and **this changed during the build**: WebRTC data channels were reachable without infrastructure, so the mesh now runs two carriers (tabs over BroadcastChannel, machines over WebRTC with copy-pasted signaling). TURN is still not bundled. |
 | M7 accessibility | **Partial** | Semantics, keyboard model, live regions, text-alternative tree and preferences are real; screen-reader validation was not performed. |
-| M8 hardening | **Partial** | Strict CSP, Trusted Types, sandbox isolation and a STRIDE model are real; no live red-team session was run. |
+| M8 hardening | **Partial** | Strict CSP (header *and* meta tag), Trusted Types, sandbox isolation, per-peer ingress flood control and a STRIDE model are real; no live red-team session was run. |
 
-Deliberately **not** attempted at all: WebGPU renderer, OPFS, SAB-based worker
-pool, fuzzing harness, chaos/load rigs, 10-minute demo video.
+Still deliberately **not** attempted at all: WebGPU renderer, OPFS, a
+SharedArrayBuffer worker pool, an OffscreenCanvas render loop, a bundled TURN
+relay, and a **10-minute narrated demo video** (the brief's deliverable list asks
+for one; it was not recorded, and [DEMO.md](DEMO.md) is the tour script a
+narrator would follow instead - with the expected output of every step, which
+also makes it a manual acceptance test).
+
+The parser/crypto **fuzzer** was originally in this "not attempted" list and
+moved out of it: a seeded, deterministic fuzzer for the C front end, the CRDT,
+the ciphertext decoders and the signaling parser is now part of the suite
+(`tests/fuzz.test.js`, 11 tests). It immediately found two real defects — a
+numeric literal that could overflow to `Infinity`, and `atob`-based decoders that
+silently normalised non-canonical base64 — which is the argument for having it.
 
 ## 3. Build order (following the brief's own advice)
 
@@ -46,8 +58,10 @@ pool, fuzzing harness, chaos/load rigs, 10-minute demo video.
 2. **M1 CRDT, with properties proven before any networking.** The RGA was built
    and its commutative/idempotent/convergent properties tested *before* a
    transport existed. Three real bugs were found by those tests, not by review.
-3. **M5 + M4** — turn the local editor into a private collaborative one.
-4. **M2** — the biggest single risk, prototyped early as the brief suggests.
+3. **M5 + M4** — turn the local editor into a private collaborative one, then
+   make the transport real (WebRTC) once the model underneath it was proven.
+4. **M2** — the biggest single risk, prototyped early as the brief suggests, then
+   grown feature by feature with a test for every construct added.
 5. **M3 + M7** — the engine, and accessibility designed in rather than bolted on.
 6. **Integration, budget measurement, honest scorecard.**
 
@@ -62,13 +76,32 @@ pool, fuzzing harness, chaos/load rigs, 10-minute demo video.
 - **Budgets are explicit and tested.** Step limits, heap caps, depth caps and
   wall-clock kills are all asserted in the test suite.
 - **Measure, don't claim.** The dashboard reads live numbers (FPS, op counts,
-  quota, payload) and marks unmeasured budget rows as unmeasured.
+  quota, payload) and marks unmeasured budget rows as unmeasured. The same rule
+  applies to the tier ladder: it shows the points band *and* grades each tier's
+  requirement from the scorecard, because those two answers differ here.
 
-## 5. Definition of done for this pass
+## 5. Where the score actually lands
+
+| Reading | Answer | Why |
+|---------|--------|-----|
+| Points (of the brief's 1000) | **637** | 95 + 75 + 70 + 92 + 80 + 92 + 55 + 78 across the eight modules, before the budget and integration rows. |
+| Points band | **Gold** (450–750) | Purely arithmetic. |
+| Tier by *requirement* | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete (M1, M4, M6) and five are partial, so Silver misses by one module. |
+| Budget row (100 pts) | **Not claimable** | Payload is met (73 KiB gzip vs 170 KB) and the 3D frame rate is met at the tested settings, but Lighthouse, a throttled-4G LCP, a 1-hour memory soak, 10k concurrent users and node-kill chaos were not run. See [LOAD_CHAOS.md](LOAD_CHAOS.md). |
+| Integration row (100 pts) | **Partly** | The modules genuinely drive each other (editor ⇄ CRDT ⇄ mesh ⇄ crypto ⇄ storage ⇄ worker sandbox), with tests across the seams; a full end-to-end multi-machine session has not been run by a person. |
+
+## 6. Definition of done for this pass
 
 - [x] Site boots from one URL with no install and no plugins
-- [x] 70 automated tests green across 6 suites, runnable from the site itself
+- [x] 120 automated tests green across 9 suites, runnable from the site itself
+- [x] A deterministic fuzzer for the C front end, the CRDT, the crypto decoders
+      and the signaling parser
 - [x] Every module panel does something real, or says what it does not do
-- [x] Architecture and STRIDE documents written
-- [x] Scorecard published with partials marked as partials
-- [ ] Screen-reader validation, WebRTC carrier, clang→WASM, PBR/glTF, red team
+- [x] Architecture, STRIDE threat model and a written security test report
+- [x] Load measurements with raw numbers, and the unmeasured rows named
+- [x] Scorecard published with partials marked as partials, and the tier read
+      both ways (points band vs requirement)
+- [x] Demo tour script with the expected output of every step
+- [ ] Narrated 10-minute demo video (the script exists; the recording does not)
+- [ ] Screen-reader validation, clang→WASM, IBL/glTF/skeletal animation, TURN,
+      red-team session, chaos rig, narrated demo video

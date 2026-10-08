@@ -10,11 +10,14 @@
  *     hardware PCF comparison sampling, plus a shadow-receiving ground plane
  *   - a GPU-computed particle system: 1,000,000 points generated from
  *     gl_VertexID with no vertex buffers at all
- *   - directional + ambient lighting with a rim term, and a hand-written
+ *   - physically based shading: a Cook-Torrance BRDF (GGX distribution, Smith
+ *     geometry, Schlick Fresnel) with per-instance metallic/roughness, a
+ *     hemispheric ambient standing in for image-based lighting, and Reinhard
+ *     tone mapping, plus a hand-written
  *     perspective/orbit camera
  *
  * Deliberately not implemented (declared in docs/ARCHITECTURE.md): PBR with
- * image-based lighting, a glTF 2.0 loader, skeletal animation. Shipping those
+ * a real HDRI probe, a glTF 2.0 loader, skeletal animation. Shipping those
  * badly would be worse than declaring the gap.
  */
 import {
@@ -90,6 +93,8 @@ uniform highp sampler2DShadow uShadow;  // ES 3.00 requires an explicit precisio
 uniform float uShadows;
 out vec4 outColor;
 
+const float PI = 3.14159265359;
+
 float shadowFactor() {
   vec3 p = vLightSpace.xyz / vLightSpace.w;
   p = p * 0.5 + 0.5;
@@ -104,15 +109,66 @@ float shadowFactor() {
   return mix(1.0, sum / 9.0, uShadows);
 }
 
+// --- Cook-Torrance BRDF -----------------------------------------------------
+
+float distributionGGX(vec3 N, vec3 H, float roughness) {
+  float a = roughness * roughness;
+  float a2 = a * a;
+  float NdotH = max(dot(N, H), 0.0);
+  float denom = NdotH * NdotH * (a2 - 1.0) + 1.0;
+  return a2 / max(PI * denom * denom, 1e-5);
+}
+
+float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+  float r = roughness + 1.0;
+  float k = (r * r) / 8.0;
+  float NdotV = max(dot(N, V), 0.0);
+  float NdotL = max(dot(N, L), 0.0);
+  return (NdotL / (NdotL * (1.0 - k) + k)) * (NdotV / (NdotV * (1.0 - k) + k));
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+  return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
 void main() {
-  vec3 n = normalize(vNormal);
-  vec3 baseColor = mix(vec3(0.35, 0.62, 1.0), vec3(1.0, 0.62, 0.32), vSeed);
-  float ndl = max(dot(n, -uLightDir), 0.0);
+  vec3 N = normalize(vNormal);
+  vec3 V = normalize(uCamera - vWorld);
+  vec3 L = normalize(-uLightDir);
+  vec3 H = normalize(V + L);
+
+  // Per-instance material variety, derived from the instance seed so the same
+  // cube always looks the same without any per-instance attribute.
+  float metallic = mix(0.05, 0.85, vSeed);
+  float roughness = clamp(mix(0.22, 0.72, fract(vSeed * 7.31)), 0.06, 1.0);
+  vec3 albedo = mix(vec3(0.35, 0.62, 1.0), vec3(1.0, 0.62, 0.32), vSeed);
+  vec3 F0 = mix(vec3(0.04), albedo, metallic);
+
+  float NdotL = max(dot(N, L), 0.0);
+  float NdotV = max(dot(N, V), 0.0);
   float shadow = shadowFactor();
-  vec3 viewDir = normalize(uCamera - vWorld);
-  float rim = pow(1.0 - max(dot(n, viewDir), 0.0), 3.0) * 0.35;
-  vec3 lit = baseColor * (0.16 + ndl * shadow * 1.05) + vec3(rim);
-  outColor = vec4(lit, 1.0);
+
+  vec3 radiance = vec3(1.0, 0.97, 0.92) * 3.2;
+  vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+  float D = distributionGGX(N, H, roughness);
+  float G = geometrySmith(N, V, L, roughness);
+  vec3 specular = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-4);
+  vec3 diffuse = (1.0 - F) * (1.0 - metallic) * albedo / PI;
+  vec3 direct = (diffuse + specular) * radiance * NdotL * shadow;
+
+  // Approximate image-based lighting with a hemispheric ambient: sky above,
+  // floor bounce below, sampled by the normal. This is not an HDRI probe and
+  // the shader says so; it exists so dielectrics are not lit from nowhere and
+  // metals are not black.
+  vec3 sky = vec3(0.17, 0.23, 0.36);
+  vec3 floorBounce = vec3(0.05, 0.055, 0.075);
+  vec3 ambientSource = mix(floorBounce, sky, N.y * 0.5 + 0.5);
+  vec3 ambient = ambientSource * albedo * (1.0 - metallic) * 0.55;
+  vec3 envSpecular = ambientSource * F0 * (1.0 - roughness) * 1.35;
+
+  vec3 color = direct + ambient + envSpecular;
+  // Reinhard tone map, so the specular highlights roll off instead of clipping.
+  outColor = vec4(color / (color + vec3(1.0)), 1.0);
 }`;
 
 const GROUND_VS = `#version 300 es
@@ -268,6 +324,14 @@ export class Renderer {
     this.frameTimes = [];
     this.fps = 0;
     this.frames = 0;
+    /**
+     * Main-thread CPU cost of issuing one frame, as an exponential moving
+     * average. This is the number the "CPU cost stays O(1)" claim is about: it
+     * measures the work the page does to submit the frame, not how fast the GPU
+     * or a headless software rasteriser can push pixels.
+     */
+    this.cpuMs = 0;
+    this.cpuSamples = 0;
     this.lastState = { instances: 0, particles: 0, drawCalls: 0, triangles: 0 };
   }
 
@@ -498,6 +562,7 @@ export class Renderer {
   frame(nowMs) {
     const gl = this.gl;
     if (!gl) return;
+    const cpuStart = typeof performance !== 'undefined' ? performance.now() : 0;
     const seconds = nowMs / 1000;
     this.resize();
 
@@ -601,10 +666,22 @@ export class Renderer {
       triangles: this.instanceCount * (CUBE_INDICES.length / 3) + 2,
       shadows: this.shadows,
     };
+
+    if (typeof performance !== 'undefined') {
+      const spent = performance.now() - cpuStart;
+      this.cpuMs = this.cpuSamples ? this.cpuMs * 0.94 + spent * 0.06 : spent;
+      this.cpuSamples += 1;
+    }
   }
 
   stats() {
-    return { fps: Math.round(this.fps), frames: this.frames, ...this.lastState, camera: { ...this.camera } };
+    return {
+      fps: Math.round(this.fps),
+      frames: this.frames,
+      cpuMs: Math.round(this.cpuMs * 1000) / 1000,
+      ...this.lastState,
+      camera: { ...this.camera },
+    };
   }
 
   /**

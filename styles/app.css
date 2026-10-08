@@ -67,7 +67,8 @@ body {
     var(--bg);
   background-attachment: fixed;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  /* topbar · module tabs · deck strip · main · footer */
+  grid-template-rows: auto auto auto 1fr auto;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -350,6 +351,11 @@ p { margin: 0 0 8px; }
   box-shadow: 0 0 0 1px rgba(184, 196, 212, 0.45);
 }
 .tier-chip.current b { color: #fff; }
+/* Requirements are graded, not decorated: a tier whose requirement actually
+   holds is marked met, one that does not says by how many modules it fails. */
+.tier-chip.met .req:last-of-type { color: var(--ok); font-style: normal; opacity: 1; }
+.tier-chip.unmet { opacity: 0.62; }
+.tier-chip.unmet .req:last-of-type { color: var(--bad); font-style: normal; opacity: 0.9; }
 
 /* -------------------------------------------------------- module identity */
 
@@ -647,6 +653,29 @@ tr.unmeasured td { opacity: 0.82; }
   background: rgba(13, 19, 28, 0.8);
 }
 .peer.self { border-color: rgba(110, 168, 254, 0.65); box-shadow: 0 0 0 1px rgba(110, 168, 254, 0.25); }
+
+/* Which carrier a peer arrived on. Deliberately quiet: it is information, not
+   an alert, and the peer list must stay readable at a glance. */
+.mini-badge {
+  font: 600 calc(9.5px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  padding: 3px 5px;
+}
+
+.mesh-log {
+  max-height: 210px;
+  overflow: auto;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(7, 11, 17, 0.72);
+}
+
+.mesh-log p { margin: 0 0 4px; }
 .dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 8px -1px currentColor; }
 .avatar {
   width: 22px; height: 22px;
@@ -1312,3 +1341,290 @@ html[dir='rtl'] .gutter { text-align: right; }
   .toasts { inset-inline: 10px; justify-items: stretch; }
   .toast { max-width: none; }
 }
+
+/* ============================================================== THE DECK
+   The futuristic chrome: a flight-deck frame in the gutters, a live activity
+   waveform, a ticker of real readings, depth parallax and a radial module dial.
+
+   Three constraints shaped all of it:
+     - style-src forbids inline styles, so nothing here is positioned from JS:
+       parallax is nine data-attribute zones and the dial's slots are eight
+       explicit classes;
+     - the M7 "Visual effects" control owns all of it: 'off' removes the
+       chrome, 'reduced' keeps the readouts but stops the motion;
+     - the readouts are real numbers. The waveform plots fps while the engine
+       runs and document ops/s otherwise, because a decorative waveform would
+       be a lie told in a graph. */
+
+.hud { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+
+.hud-corner {
+  position: absolute;
+  width: 86px; height: 86px;
+  border: 1px solid rgba(110, 168, 254, 0.4);
+  box-shadow: inset 0 0 26px -18px var(--accent);
+}
+/* The top pair starts below the chrome (topbar + tabs + deck strip) so the
+   frame reads as the boundary of the working area, not as a border behind it. */
+.hud-corner-tl { inset: 162px auto auto 10px; border-right: 0; border-bottom: 0; }
+.hud-corner-tr { inset: 162px 10px auto auto; border-left: 0; border-bottom: 0; }
+.hud-corner-bl { inset: auto auto 12px 10px; border-right: 0; border-top: 0; }
+.hud-corner-br { inset: auto 10px 12px auto; border-left: 0; border-top: 0; }
+.hud-corner::before {
+  content: '';
+  position: absolute;
+  width: 3px; height: 3px;
+  background: var(--accent-3);
+  box-shadow: 0 0 8px var(--accent-3);
+}
+.hud-corner-tl::before { inset: -2px auto auto -2px; }
+.hud-corner-tr::before { inset: -2px -2px auto auto; }
+.hud-corner-bl::before { inset: auto auto -2px -2px; }
+.hud-corner-br::before { inset: auto -2px -2px auto; }
+
+/* Attitude rail: a hairline along the top of the content area with a travelling
+   highlight, so the frame reads as monitored rather than painted. */
+.hud-rail {
+  position: absolute;
+  inset: 160px 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(110, 168, 254, 0.22) 30%, rgba(77, 208, 225, 0.3) 50%, rgba(110, 168, 254, 0.22) 70%, transparent);
+}
+.hud-rail::after {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0;
+  width: 22%; height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(140, 226, 255, 0.55), transparent);
+  animation: rail-travel 9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform;
+}
+@keyframes rail-travel {
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: translate3d(520%, 0, 0); }
+}
+
+/* Bottom scale: engineering ruler ticks with a slide that keeps moving. */
+.hud-ruler {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 10px;
+  background-image: repeating-linear-gradient(90deg, rgba(140, 180, 220, 0.35) 0 1px, transparent 1px 26px);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.hud-ruler::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 120px;
+  background: linear-gradient(90deg, transparent, rgba(77, 208, 225, 0.5), transparent);
+  animation: ruler-slide 14s linear infinite;
+  will-change: transform;
+}
+@keyframes ruler-slide {
+  from { transform: translate3d(-10vw, 0, 0); }
+  to { transform: translate3d(100vw, 0, 0); }
+}
+
+/* Radar ring in the bottom-right gutter: a slow sweep with no data attached to
+   it, so it stays purely decorative and low-contrast. */
+.hud-ring {
+  position: absolute;
+  right: -70px; bottom: -70px;
+  width: 220px; height: 220px;
+  border-radius: 50%;
+  border: 1px solid rgba(77, 208, 225, 0.18);
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(77, 208, 225, 0.12) 0 1px, transparent 1px 34px),
+    conic-gradient(from 0deg, rgba(77, 208, 225, 0.22), transparent 22%, transparent 100%);
+  opacity: 0.5;
+  animation: ring-turn 26s linear infinite;
+  will-change: transform;
+}
+@keyframes ring-turn { to { transform: rotate(360deg); } }
+
+.hud-scan {
+  position: absolute;
+  inset-inline: 0;
+  top: 0; height: 140px;
+  background: linear-gradient(180deg, transparent, rgba(140, 226, 255, 0.07) 60%, transparent);
+  opacity: 0;
+}
+/* The boot sweep: the deck resolving once, one pass, then never again. */
+.hud[data-boot='1'] .hud-scan { animation: boot-sweep 1.5s cubic-bezier(0.3, 0.9, 0.4, 1) 1; }
+@keyframes boot-sweep {
+  0% { opacity: 0; transform: translate3d(0, -140px, 0); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(0, 100vh, 0); }
+}
+
+/* Depth parallax: nine zones, expressed as transforms on the deepest layer
+   only. The depth layers move, the readouts do not. */
+.hud-corner, .hud-ring, .fx-aurora { transition: transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1); }
+html[data-pointer='nw'] .hud-corner, html[data-pointer='nw'] .hud-ring { transform: translate3d(5px, 4px, 0); }
+html[data-pointer='n'] .hud-corner, html[data-pointer='n'] .hud-ring { transform: translate3d(0, 4px, 0); }
+html[data-pointer='ne'] .hud-corner, html[data-pointer='ne'] .hud-ring { transform: translate3d(-5px, 4px, 0); }
+html[data-pointer='w'] .hud-corner, html[data-pointer='w'] .hud-ring { transform: translate3d(5px, 0, 0); }
+html[data-pointer='e'] .hud-corner, html[data-pointer='e'] .hud-ring { transform: translate3d(-5px, 0, 0); }
+html[data-pointer='sw'] .hud-corner, html[data-pointer='sw'] .hud-ring { transform: translate3d(5px, -4px, 0); }
+html[data-pointer='s'] .hud-corner, html[data-pointer='s'] .hud-ring { transform: translate3d(0, -4px, 0); }
+html[data-pointer='se'] .hud-corner, html[data-pointer='se'] .hud-ring { transform: translate3d(-5px, -4px, 0); }
+
+/* ------------------------------------------------------------- deck strip */
+
+.deck {
+  display: grid;
+  grid-template-columns: minmax(260px, 30%) minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 7px 22px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(8, 13, 20, 0.9), rgba(5, 7, 11, 0.72));
+}
+.deck-wave { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.deck-label { font: 700 calc(9.5px * var(--scale)) / 1 var(--mono); letter-spacing: 0.16em; color: var(--accent-3); white-space: nowrap; }
+.deck-value { font: 600 calc(10px * var(--scale)) / 1 var(--mono); color: var(--dim); font-style: normal; white-space: nowrap; }
+.wave { flex: 1 1 auto; min-width: 0; height: 34px; overflow: visible; }
+.wave-grid { stroke: rgba(140, 180, 220, 0.12); stroke-width: 1; }
+.wave-line { fill: none; stroke: var(--accent-3); stroke-width: 1.4; stroke-linejoin: round; filter: drop-shadow(0 0 5px rgba(77, 208, 225, 0.55)); }
+.wave-area { fill: rgba(77, 208, 225, 0.13); stroke: none; }
+.wave-cursor { stroke: rgba(255, 255, 255, 0.35); stroke-width: 1; }
+
+.deck-ticker {
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.deck-track { display: inline-flex; gap: 28px; white-space: nowrap; animation: ticker-run 54s linear infinite; will-change: transform; }
+@keyframes ticker-run { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+.deck-fact {
+  font: 600 calc(10.5px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+.deck-fact::before { content: '◈ '; color: var(--accent); }
+
+/* Readouts stay when the effects are off - they are data, not decoration - but
+   they stop moving and stop glowing, which is what reclaims the frame time. */
+html[data-fx='reduced'] .deck-track { animation-duration: 220s; }
+html[data-fx='reduced'] .deck-fact { opacity: 0.8; }
+html[data-fx='off'] .deck-track { animation: none; }
+html[data-fx='off'] .wave-line { filter: none; }
+html[data-fx='off'] .hud { display: none; }
+html[data-fx='off'] .hud-rail, html[data-fx='off'] .hud-ruler { display: none; }
+/* The dial is navigation, not chrome: it keeps working with the effects off,
+   it just stops glowing and stops sweeping. */
+html[data-fx='off'] .dial-sweep { display: none; }
+html[data-fx='off'] .dial { backdrop-filter: none; }
+html[data-fx='off'] .dial-slot[data-active='true'] { box-shadow: none; }
+html[data-fx='reduced'] .dial { backdrop-filter: none; }
+
+/* Warp wipe: one element appended to the panel that is arriving. The host only
+   exists to position it - the panel's own layout class is untouched. */
+.panel-host { position: relative; }
+.warp-scan {
+  position: absolute;
+  inset-inline: -2px;
+  top: 0; height: 38%;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(140, 226, 255, 0.12) 55%, rgba(140, 226, 255, 0.02));
+  border-bottom: 1px solid rgba(140, 226, 255, 0.35);
+  animation: warp-wipe 0.62s cubic-bezier(0.25, 0.9, 0.35, 1) 1 forwards;
+  will-change: transform, opacity;
+}
+@keyframes warp-wipe {
+  from { opacity: 0; transform: translate3d(0, 0, 0) scaleY(0.4); }
+  25% { opacity: 1; }
+  to { opacity: 0; transform: translate3d(0, 190%, 0) scaleY(1); }
+}
+
+/* ------------------------------------------------------------- module dial */
+
+.dial {
+  position: fixed; inset: 0; z-index: 70;
+  display: grid; place-items: center;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(4, 8, 13, 0.72), rgba(2, 4, 8, 0.94));
+  backdrop-filter: blur(7px);
+  animation: dial-in 0.18s ease-out;
+}
+@keyframes dial-in { from { opacity: 0; } to { opacity: 1; } }
+.dial-stage { position: relative; width: min(560px, 92vw); height: min(560px, 92vw); }
+.dial-ring {
+  position: absolute; inset: 12%;
+  border-radius: 50%;
+  border: 1px solid rgba(110, 168, 254, 0.34);
+  background:
+    repeating-conic-gradient(from 0deg, rgba(110, 168, 254, 0.16) 0deg 1deg, transparent 1deg 15deg),
+    radial-gradient(closest-side, rgba(77, 208, 225, 0.1), transparent 78%);
+  box-shadow: inset 0 0 60px -30px var(--accent-3);
+}
+.dial-sweep {
+  position: absolute; inset: 12%;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(77, 208, 225, 0.3), transparent 26%, transparent 100%);
+  animation: ring-turn 4.6s linear infinite;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+.dial-core {
+  position: absolute; inset: 34%;
+  display: grid; place-content: center; gap: 7px;
+  text-align: center;
+  border-radius: 50%;
+  border: 1px solid rgba(110, 168, 254, 0.3);
+  background: radial-gradient(closest-side, rgba(10, 16, 24, 0.95), rgba(4, 8, 13, 0.6));
+}
+.dial-name { font: 800 calc(13px * var(--scale)) / 1.3 var(--mono); letter-spacing: 0.06em; color: #fff; }
+.dial-note { font: 600 calc(9.5px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.1em; color: var(--dim); font-style: normal; }
+
+/* Eight slots, eight classes: no inline positioning, so the CSP stays intact. */
+.dial-slot {
+  position: absolute; left: 50%; top: 50%;
+  width: 124px; height: 72px;
+  margin: -36px 0 0 -62px;
+  padding: 8px 10px;
+  display: grid; align-content: center; gap: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--line-2);
+  background: linear-gradient(180deg, rgba(16, 23, 33, 0.96), rgba(8, 12, 18, 0.96));
+  color: var(--dim);
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.dial-slot-n { font: 800 calc(12px * var(--scale)) / 1 var(--mono); letter-spacing: 0.1em; color: var(--accent); }
+.dial-slot-l { font: 600 calc(9.5px * var(--scale)) / 1.2 var(--mono); letter-spacing: 0.06em; }
+.dial-slot-s { font: 600 calc(8.5px * var(--scale)) / 1 var(--mono); letter-spacing: 0.06em; color: var(--dim); font-style: normal; opacity: 0.85; }
+.dial-slot[data-active='true'] {
+  border-color: var(--accent-3);
+  color: #fff;
+  box-shadow: 0 0 0 1px var(--accent-3), 0 18px 40px -22px var(--accent-3);
+}
+.dial-slot:focus-visible { outline: 2px solid var(--accent-3); outline-offset: 3px; }
+.dial-slot-0 { transform: rotate(0deg) translateY(-186px) rotate(0deg); }
+.dial-slot-1 { transform: rotate(45deg) translateY(-186px) rotate(-45deg); }
+.dial-slot-2 { transform: rotate(90deg) translateY(-186px) rotate(-90deg); }
+.dial-slot-3 { transform: rotate(135deg) translateY(-186px) rotate(-135deg); }
+.dial-slot-4 { transform: rotate(180deg) translateY(-186px) rotate(-180deg); }
+.dial-slot-5 { transform: rotate(225deg) translateY(-186px) rotate(-225deg); }
+.dial-slot-6 { transform: rotate(270deg) translateY(-186px) rotate(-270deg); }
+.dial-slot-7 { transform: rotate(315deg) translateY(-186px) rotate(-315deg); }
+.dial-slot[data-active='true'][class*='dial-slot-'] { scale: 1.04; }
+html[data-dial='open'] body { overflow: hidden; }
+
+@media (max-width: 760px) {
+  .deck { grid-template-columns: minmax(0, 1fr); }
+  .deck-ticker { display: none; }
+}
+@media (max-width: 620px) {
+  .hud-corner { width: 54px; height: 54px; }
+  .hud-ring { display: none; }
+  .dial-stage { width: 100%; height: auto; padding: 12px 0; }
+  .dial-ring, .dial-sweep { display: none; }
+  .dial-core { position: static; inset: auto; margin: 0 auto 14px; padding: 14px; border-radius: 12px; }
+  .dial-slot { position: static; margin: 6px auto; width: min(320px, 90vw); transform: none; }
+  .dial-stage { display: grid; }
+}
+
+html[data-motion='reduced'] .hud, html[data-motion='reduced'] .deck-track { animation: none; }
+html[data-motion='reduced'] .dial-sweep, html[data-motion='reduced'] .hud-ring { animation: none; }

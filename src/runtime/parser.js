@@ -69,15 +69,35 @@ class Parser {
 
   isTypeStart() {
     const t = this.peek();
-    return t.type === 'kw' && TYPE_KEYWORDS.has(t.value);
+    if (t.type !== 'kw') return false;
+    return TYPE_KEYWORDS.has(t.value) || t.value === 'struct';
   }
 
+  /**
+   * A type is a base name (`int`, `char`, ...) plus zero or more `*`, with an
+   * optional `struct Name` (and, in a declaration, the field list that defines
+   * it). Struct definitions are attached to the type node so `parseProgram`
+   * can register the layout once, wherever the definition appears.
+   */
   parseType() {
     if (!this.isTypeStart()) this.fail('expected a type name');
     const start = this.peek();
     let base = null;
-    while (this.at('kw') && TYPE_KEYWORDS.has(this.peek().value)) {
+    let structName = null;
+    let structDef = null;
+    while (
+      this.at('kw') &&
+      (TYPE_KEYWORDS.has(this.peek().value) || this.peek().value === 'struct')
+    ) {
       const w = this.peek().value;
+      if (w === 'struct') {
+        this.pos += 1;
+        const nameTok = this.expect('id', undefined, 'a struct name');
+        structName = nameTok.value;
+        base = 'struct';
+        if (this.at('op', '{')) structDef = this.parseStructFields(nameTok);
+        continue;
+      }
       if (w !== 'const' && w !== 'static') base = normalizeType(w);
       this.pos += 1;
     }
@@ -86,22 +106,68 @@ class Parser {
       ptr += 1;
       this.pos += 1;
     }
-    return { base: base || 'int', ptr, line: start.line };
+    return { base: base || 'int', ptr, structName, structDef, line: start.line };
+  }
+
+  /** `{ int x; struct Point inner; char name[8]; ... }` */
+  parseStructFields(nameTok) {
+    this.expect('op', '{');
+    const fields = [];
+    while (!this.at('op', '}')) {
+      if (this.at('eof')) this.fail('unterminated struct: expected "}"', nameTok);
+      const fieldType = this.parseType();
+      if (this.eat('op', ';')) continue; // tolerate a stray semicolon
+      do {
+        let ptr = 0;
+        while (this.at('op', '*')) {
+          ptr += 1;
+          this.pos += 1;
+        }
+        const name = this.expect('id', undefined, 'a field name');
+        let array = false;
+        if (this.eat('op', '[')) {
+          if (!this.at('op', ']')) this.parseExpression();
+          this.expect('op', ']');
+          array = true;
+        }
+        // parseType already consumed any `*` directly after the type name, so
+        // add the ones that came after it (`struct Node **links`).
+        fields.push({ name: name.value, type: { ...fieldType, ptr: fieldType.ptr + ptr }, array });
+      } while (this.eat('op', ','));
+      this.expect('op', ';');
+    }
+    this.expect('op', '}');
+    return { name: nameTok.value, fields, line: nameTok.line };
   }
 
   parseProgram() {
     const funcs = [];
     const globals = [];
+    const structs = [];
     while (!this.at('eof')) {
       if (!this.isTypeStart()) this.fail(`unexpected '${this.peek().value}' at top level`);
+      // `struct Point { int x; int y; };` - a definition with no declarator.
+      if (this.at('kw', 'struct') && this.at('id', undefined, 1) && this.at('op', '{', 2)) {
+        const defType = this.parseType();
+        if (defType.structDef) structs.push(defType.structDef);
+        if (this.eat('op', ';')) continue;
+        globals.push({
+          type: 'VarDecl',
+          declType: defType,
+          decls: this.parseDeclarators(),
+          line: defType.line,
+        });
+        continue;
+      }
       const type = this.parseType();
+      if (type.structDef) structs.push(type.structDef);
       if (this.at('id') && this.at('op', '(', 1)) {
         funcs.push(this.parseFunction(type));
       } else {
         globals.push({ type: 'VarDecl', declType: type, decls: this.parseDeclarators(), line: type.line });
       }
     }
-    return { type: 'Program', funcs, globals };
+    return { type: 'Program', funcs, globals, structs };
   }
 
   parseFunction(retType) {
@@ -152,6 +218,9 @@ class Parser {
         this.expect('op', ';');
         return { type: 'Return', value, line: t.line };
       }
+      if (t.value === 'struct') return this.parseStructStatement();
+      if (t.value === 'switch') return this.parseSwitch();
+      if (t.value === 'do') return this.parseDoWhile();
       if (t.value === 'break') {
         this.pos += 1;
         this.expect('op', ';');
@@ -168,6 +237,24 @@ class Parser {
     const expr = this.parseExpression();
     this.expect('op', ';', '";"');
     return { type: 'ExprStmt', expr, line: t.line };
+  }
+
+  /**
+   * `struct Point { int x; int y; };` or `struct Point p;` inside a function.
+   * A definition with no declarator becomes a StructDef statement, which the
+   * runtime registers when execution reaches it.
+   */
+  parseStructStatement() {
+    const type = this.parseType();
+    if (this.eat('op', ';')) {
+      return { type: 'StructDef', defs: type.structDef ? [type.structDef] : [], line: type.line };
+    }
+    return {
+      type: 'VarDecl',
+      declType: type,
+      decls: this.parseDeclarators(),
+      line: type.line,
+    };
   }
 
   parseDeclStatement() {
@@ -238,6 +325,56 @@ class Parser {
     return { type: 'While', test, body, line: kw.line };
   }
 
+  /**
+   * `switch (x) { case 1: ...; break; default: ...; }`
+   *
+   * Case bodies are kept in source order, because C falls through: execution
+   * starts at the matching label and runs until `break` or the end of the
+   * switch. That is why the AST stores a list of labelled runs, not a map.
+   */
+  parseSwitch() {
+    const kw = this.expect('kw', 'switch');
+    this.expect('op', '(');
+    const disc = this.parseExpression();
+    this.expect('op', ')');
+    this.expect('op', '{');
+    const cases = [];
+    let current = null;
+    while (!this.at('op', '}')) {
+      if (this.at('eof')) this.fail('unterminated switch: expected "}"', kw);
+      if (this.at('kw', 'case')) {
+        this.pos += 1;
+        const test = this.parseExpression();
+        this.expect('op', ':');
+        current = { test, body: [], line: test.line };
+        cases.push(current);
+        continue;
+      }
+      if (this.at('kw', 'default')) {
+        this.pos += 1;
+        this.expect('op', ':');
+        current = { test: null, body: [], line: this.peek().line };
+        cases.push(current);
+        continue;
+      }
+      if (!current) this.fail('statement in a switch outside any case label');
+      current.body.push(this.parseStatement());
+    }
+    this.expect('op', '}');
+    return { type: 'Switch', disc, cases, line: kw.line };
+  }
+
+  parseDoWhile() {
+    const kw = this.expect('kw', 'do');
+    const body = this.parseStatement();
+    this.expect('kw', 'while');
+    this.expect('op', '(');
+    const test = this.parseExpression();
+    this.expect('op', ')');
+    this.expect('op', ';');
+    return { type: 'DoWhile', test, body, line: kw.line };
+  }
+
   parseFor() {
     const kw = this.expect('kw', 'for');
     this.expect('op', '(');
@@ -263,6 +400,15 @@ class Parser {
 
   parseExpression() {
     const left = this.parseBinary(0);
+    // Ternary conditional: looser than ||, tighter than assignment, and
+    // right-associative so `a ? b : c ? d : e` nests the way C does.
+    if (this.at('op', '?')) {
+      this.pos += 1;
+      const then = this.parseExpression();
+      this.expect('op', ':', '":" in a conditional expression');
+      const alt = this.parseExpression();
+      return { type: 'Cond', test: left, then, alt, line: left.line };
+    }
     if (this.at('op', '=')) {
       this.pos += 1;
       const value = this.parseExpression();
@@ -289,8 +435,22 @@ class Parser {
     return left;
   }
 
+  /** True when the next '(' begins a cast such as `(int)` or `(struct Node *)`. */
+  isCastStart() {
+    if (!this.at('op', '(')) return false;
+    const t = this.peek(1);
+    return t.type === 'kw' && (TYPE_KEYWORDS.has(t.value) || t.value === 'struct');
+  }
+
   parseUnary() {
     const t = this.peek();
+    if (this.isCastStart()) {
+      this.pos += 1;
+      const castType = this.parseType();
+      this.expect('op', ')', '")" closing a cast');
+      const operand = this.parseUnary();
+      return { type: 'Cast', castType, operand, line: t.line };
+    }
     if (t.type === 'op' && ['!', '-', '+', '~', '&', '*'].includes(t.value)) {
       this.pos += 1;
       const operand = this.parseUnary();
@@ -305,13 +465,16 @@ class Parser {
     if (t.type === 'kw' && t.value === 'sizeof') {
       this.pos += 1;
       this.expect('op', '(');
-      let size = 4;
+      // `sizeof(type)` is resolved at parse time (layout is static);
+      // `sizeof expr` needs the runtime value for arrays and structs.
       if (this.isTypeStart()) {
         const type = this.parseType();
-        size = type.base === 'char' ? 1 : type.ptr > 0 ? 8 : 4;
+        this.expect('op', ')');
+        return { type: 'Sizeof', sizeofType: type, operand: null, line: t.line };
       }
+      const operand = this.parseExpression();
       this.expect('op', ')');
-      return { type: 'Num', value: size, line: t.line };
+      return { type: 'Sizeof', sizeofType: null, operand, line: t.line };
     }
     return this.parsePostfix();
   }
@@ -319,6 +482,18 @@ class Parser {
   parsePostfix() {
     let node = this.parsePrimary();
     for (;;) {
+      if (this.at('op', '.') || this.at('op', '->')) {
+        const viaPointer = this.peek().value === '->';
+        this.pos += 1;
+        const name = this.expect('id', undefined, 'a struct field name');
+        node = {
+          type: viaPointer ? 'MemberPtr' : 'Member',
+          object: node,
+          name: name.value,
+          line: node.line,
+        };
+        continue;
+      }
       if (this.at('op', '[')) {
         this.pos += 1;
         const index = this.parseExpression();
