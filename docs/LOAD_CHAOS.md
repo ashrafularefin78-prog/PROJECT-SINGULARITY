@@ -18,11 +18,12 @@ throwaway scripts.
 
 | Item | Value |
 |------|-------|
-| Browser | Microsoft Edge 154.0.4258.62 (Chromium), driven headlessly over the DevTools Protocol |
+| Browser | Microsoft Edge 154.0.4258.62 (Chromium), driven headlessly over the DevTools Protocol. The machine auto-updated to 155.0.4283.45 while the work was in flight: the soak and Lighthouse artifacts above were recorded on 154, and the accessibility re-run recorded 155 in `docs/reports/a11y.json`. Every number below is reported with the version its own artifact records |
 | Driver | `tools/cdp.js` — a ~350-line CDP client built on Node's own `fetch`/`WebSocket` globals, no npm packages |
 | Server | `python3 tools/serve.py 5173` / `node tools/serve.js` on 127.0.0.1, serving the **real `_headers` policy** (strict CSP, COOP/COEP, Trusted Types) |
 | Instrumentation | `PerformanceObserver` installed before first paint (LCP, FCP, layout shift, long tasks), `Performance.getMetrics`, `Runtime.getHeapUsage` after an explicit GC, `HeapProfiler.takeHeapSnapshot`, the browser accessibility tree, axe-core |
 | Repetition | every timing row was run at least twice under each profile; the tables show each run, not a best case |
+| Drift control | `node tools/check-docs.js` re-measures the payload from the import graph, reads every JSON report, and asserts that the exact strings this document and the chart publish are still the ones the artifacts produce (25 numbers). It found the one real drift during the final pass — a 4-line code change moved the payload from 112.9 to 113.2 KiB gzip — which is why the row above is 113.2. `--self-test` injects a wrong number and asserts the check fails, so a checker that passes on everything cannot pass for the wrong reason |
 
 Two environments are reported on purpose:
 
@@ -30,7 +31,8 @@ Two environments are reported on purpose:
   a canvas or IndexedDB, so the exit code means "no regressions" rather than
   "this machine has no GPU".
 * **headless Edge** (`npm run test:browser`) runs all 152, including the WebGL2
-  renderer and the IndexedDB store, in ~3.2 s.
+  renderer and the IndexedDB store, in 2.3–3.2 s depending on what else the machine
+  is doing (the spread is reported rather than averaged away).
 
 ### Why there is no 10,000-user run here
 
@@ -49,13 +51,13 @@ row is marked unmeasured on the in-app dashboard too.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **112.9 KiB gzip JS** (435.5 KiB raw over 18 modules) + 15.6 KiB gzip CSS, measured from the import graph | **met** (cold load, every module loaded, worker included) |
+| Initial JS payload | ≤ 170 KB gzip | **113.2 KiB gzip JS** (436.1 KiB raw over 18 modules) + 15.6 KiB gzip CSS, measured from the import graph | **met** (cold load, every module loaded, worker included) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **4,705 ms** (FCP 1,955 ms) under Slow 4G + 4x CPU at 412×915, against 742 ms unthrottled on loopback | **not met** — see the analysis below |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
 | Lighthouse | ≥ 95 in all four categories | desktop **98 / 100 / 100 / 100**, mobile **80 / 100 / 96 / 100** (Performance / Accessibility / Best practices / SEO) | desktop **met**, mobile **not met** on Performance — see section 2b |
 | Cumulative layout shift | (implicit: under 0.1) | **0** in three of four mobile runs, **1.000** in the first (unexplained, section 2b); desktop 0.005 | **met**, with one unreproduced outlier reported rather than hidden |
-| Memory after 1 hour | ≤ 400 MB, no leaks | soak with a heap sample every minute and real heap snapshots at two points; details below | see the soak section |
+| Memory after 1 hour | ≤ 400 MB, no leaks | a **60-minute soak**, one sample per minute through all nine modules: JS heap after GC **1.10 → 1.53 MiB** (peak 1.56 MiB at minute 52), and the minute-60 heap snapshot holds **fewer nodes (70,231 vs 77,490) and less memory (5.99 vs 6.71 MiB)** than the minute-10 one | **met on the conditions run** — desktop browser, JS heap after a forced GC, not RSS or GPU memory |
 | Concurrent users | 10,000 @ p95 < 200 ms | not run; the local approximations are listed below | not measured |
 | Chaos survival | kill any server node, lose zero data | not run; the local failure injections below are the closest thing that exists here | not measured |
 | Durability window | (implicit: no lost edits) | an edit survives a reload **0 ms** later, repeatedly — see below | **met** |
@@ -70,15 +72,15 @@ stylesheet, and the runtime worker) and gzips every file:
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk (this report's measurement) | **112.9 KiB gzip JS over 18 modules**, 15.6 KiB gzip CSS, 435.5 KiB raw total |
+| Import-graph walk (this report's measurement) | **113.2 KiB gzip JS over 18 modules**, 15.6 KiB gzip CSS, 436.1 KiB raw total |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts the same files live and is visible on the M0 dashboard |
 
-The two largest files are `src/app.js` (40.5 KiB gzip of 125.9 KiB raw) and
+The two largest files are `src/app.js` (40.7 KiB gzip of 126.4 KiB raw) and
 `src/runtime/interpreter.js` (19.6 KiB gzip of 76.2 KiB raw) — the second grew
 during the M2 work that added `<string.h>`, `<ctype.h>`, `<math.h>`, the
 preprocessor, typedefs, two-dimensional arrays, function pointers and unions,
 and `src/runtime/preprocess.js` (4.0 KiB gzip) is new from the same work. The brief's
-ceiling is 170 KB gzip, so the bundle uses ~66% of it with every module loaded
+ceiling is 170 KB gzip, so the bundle uses ~67% of it with every module loaded
 and nothing deferred.
 
 ### 2. Throttled LCP — 4,705 ms, not met
@@ -100,7 +102,7 @@ between runs is reported rather than averaged away.
 **What this means, honestly:** the row fails its 1.5 s target by a factor of
 three under a mid-range-Android profile, and the same page renders in 742 ms on
 loopback. The gap is CPU, not network: TTFB is 6.5 ms because the profile is
-emulated from a local server, FCP is 1,955 ms because ~112 KiB gzip of JS must
+emulated from a local server, FCP is 1,955 ms because ~113 KiB gzip of JS must
 be parsed and executed under a 4x slowdown before the view paints, and LCP is
 2.7 s after that because the largest element is filled in at the end of boot.
 
@@ -190,31 +192,114 @@ desktop CLS of **0.375**, now **0.005**, by reserving the filled height with
 claiming a fix that a control run contradicts is exactly the kind of claim the
 rest of this report exists to avoid.
 
-### 3. Memory soak — no growth over the run
+### 3. Memory soak — 60 minutes, and the last snapshot is *smaller* than the first
 
-`node tools/perf.js soak --minutes=45 --snapshot-at=10,45` opens the app, clicks
-through the module tabs one per minute (each panel builds and tears down its own
-DOM, canvases and workers — an idle page would prove much less), forces a full
-GC every minute and records the JS heap, node count and DOM size. Raw samples:
+`node tools/perf.js soak --minutes=60 --snapshot-at=10,60` opens the app,
+clicks through the nine module tabs one per minute (each panel builds and tears down
+its own DOM, canvases and workers — an idle page would prove far less), forces a full
+GC every minute, resizes the window every minute (a renderer re-creating its drawing
+buffer is a classic leak path), and records the JS heap *after* that GC, the V8 node
+count and the DOM size. It then takes real heap snapshots at minutes 10 and
+60, both of which survived on disk. Raw samples:
 `.tools/soak/samples.jsonl`; report: `docs/reports/soak.json`.
 
-| Metric | First minute | Last minute | Peak |
-|--------|--------------|-------------|------|
-| JS heap after GC | see `docs/reports/soak.json` | — | — |
-| DOM elements | rises and falls with the active module | — | — |
+| Metric | First minute | Last minute | Peak | Delta |
+|--------|--------------|-------------|------|-------|
+| JS heap after GC | 1.10 MiB | 1.53 MiB | 1.56 MiB (minute 52) | +0.43 MiB over 60 minutes |
+| Per minute | — | — | — | +0.010 MiB/min |
+| V8 nodes | 969 | 940 | 1,616 | rises and falls with the active module, and returns |
+| DOM elements | 532 | 235 | 532 | rises and falls with the active module |
+| Canvases | 0 | 0 | 1 | the 3D panel is the only module that allocates one |
+| Documents | 1 | 1 | 1 | constant: nothing opens a document it forgets to close |
 
-The heap figures and the two heap-snapshot comparisons (10 minutes and end of
-run, by retained bytes per object type) are written to
-`docs/reports/soak.json` and summarised in the closing section of this file.
+Verdict against the brief's row (**≤ 400 MB after 1 hour, no leaks**): the measured
+heap is two orders of magnitude below the budget, and it completed all 60 of its minutes, so the duration in
+the row's own words is satisfied by a real 60-sample run with no
+interpolation. It is still reported against the conditions actually run: a desktop
+browser (Edge
+154.0.4258.62) on this machine, not a mid-range
+phone; the number is the **JS heap after a forced GC**, not resident set size, and it
+excludes GPU memory. Nothing here is extrapolated past minute 60.
 
-An earlier 10-minute run of the same tool (before module rotation was added)
-held a flat 1.06 → 1.11 MiB across ten samples with a constant 960 nodes and 530
-DOM elements. It is quoted because it is the only multi-sample evidence for the
-idle case; the 45-minute run supersedes it for the tab-switching case.
+#### The strongest evidence is the pair of snapshots, not the line
 
-What this is **not**: a 1-hour soak against a 400 MB budget on a mid-range phone.
-It is a 45-minute soak in a desktop browser, and the budget row is reported as
-such.
+An hour of runtime with object churn left the heap smaller: **5.99 MiB reachable over 70,231 nodes** at minute 60, against 6.71 MiB over 77,490 nodes at minute 10. A leak cannot survive that comparison; a heap nothing ever touched could fake a flat line but not a shrinking one.
+
+#### Where the bytes actually are
+
+| Snapshot | Nodes | Reachable bytes | Largest retained categories |
+|---|---|---|---|
+| minute 10 | 77,490 | 6.71 MiB | native 5.69 MiB, code 0.45 MiB, object shape 0.19 MiB, array 0.15 MiB |
+| minute 60 | 70,231 | 5.99 MiB | native 4.91 MiB, code 0.51 MiB, object shape 0.19 MiB, array 0.15 MiB |
+
+The minute-10 and minute-60 snapshots, compared object type by object type. Across the whole heap the minute-60 snapshot holds **7,259 fewer nodes** and **0.72 MiB less reachable memory** than the minute-10 one — 50 more minutes of clicking through nine modules left the heap *smaller*. That is what rules a leak out; a flat line alone could also be a heap nothing ever touched.
+
+| Grew most | min 10 | min 60 | Delta | Count delta |
+|---|---|---|---|---|
+| `native blink::CachedMatchedProperties` | 0 | 58,344 | +58,344 | +429 |
+| `code system / BytecodeArray` | 0 | 50,280 | +50,280 | +180 |
+| `native system / DoubleStringCache` | 0 | 49,160 | +49,160 | +1 |
+| `array (object properties)` | 0 | 48,744 | +48,744 | +80 |
+| `code system / InstructionStream` | 180,608 | 219,008 | +38,400 | +32 |
+| `object shape system / DescriptorArray` | 98,776 | 100,240 | +1,464 | +6 |
+| `native system / ArrayList` | 77,128 | 78,588 | +1,460 | +0 |
+| `object shape system / Map` | 82,864 | 83,224 | +360 | +9 |
+
+| Shrank most | min 10 | min 60 | Delta | Count delta |
+|---|---|---|---|---|
+| `native blink::GridSizingTrackCollection` | 156,960 | 52,320 | -104,640 | -60 |
+| `native blink::ComputedStyle` | 111,312 | 79,704 | -31,608 | -439 |
+| `native blink::ComputedStyleBase::StyleMiscData` | 105,776 | 75,504 | -30,272 | -344 |
+| `native blink::ComputedStyleBase::StyleMiscInherited1Data` | 96,928 | 89,440 | -7,488 | -36 |
+| `native blink::ComputedStyleBase::StyleSurroundData` | 94,224 | 86,736 | -7,488 | -24 |
+| `native blink::ComputedStyleBase::StyleBoxData` | 63,888 | 59,664 | -4,224 | -24 |
+| `native system / ExternalStringData` | 421,889 | 419,431 | -2,458 | -47 |
+| `array (anonymous)` | 103,416 | 101,368 | -2,048 | +0 |
+| `native blink::ImmutableCSSPropertyValueSet` | 111,728 | 111,392 | -336 | -7 |
+
+The minute-60 snapshot by retained type:
+
+| Retained object type | Bytes |
+|---|---|
+| `native` | 5,151,695 |
+| `code` | 535,388 |
+| `object shape` | 196,632 |
+| `array` | 156,324 |
+| `string` | 125,904 |
+| `closure` | 83,416 |
+| `object` | 30,912 |
+
+| Largest single retained objects | Bytes | Count |
+|---|---|---|
+| `native system / JSArrayBufferData` | 1,600,904 | 8 |
+| `native system / ExternalStringData` | 419,431 | 489 |
+| `native system / FunctionTemplateInfo` | 246,080 | 3847 |
+| `code system / InstructionStream` | 219,008 | 151 |
+| `native blink::ImmutableCSSPropertyValueSet` | 111,392 | 772 |
+| `array (anonymous)` | 101,368 | 267 |
+
+The single largest retained item is `native system / JSArrayBufferData`: the
+ArrayBuffers behind the WebGL context and the module panels' backings, not JS objects
+the app keeps allocating. That split is why the per-minute series is the growth
+evidence and the snapshot is the attribution — a working set of a few MiB that does
+not grow is a working set, not a leak. The eight object types that grew between the
+two snapshots total ~242 KiB,
+while the single largest that shrank (`blink::GridSizingTrackCollection`) gave back
+102 KiB.
+
+#### The earlier runs, and why each was rerun
+
+Every earlier run is kept rather than overwritten, because each later run exists to fix
+what the previous one exposed. Logs: `.tools/logs/soak*.log`; the reports that were
+saved are named below.
+
+| Run | Samples | Heap after GC | What was wrong with it |
+|-----|---------|---------------|------------------------|
+| idle page, no module rotation | 10 | 1.06 → 1.11 MiB (peak 1.11) | first version: it sampled an empty tab strip, so almost none of the app's code was exercised |
+| idle page, `--tabs=0` | 20 | 1.04 → 1.16 MiB (peak 1.16) | same flaw, longer: it proved the idle page is stable, which was never the question |
+| module rotation, first attempt | 20 | 1.10 → 1.50 MiB (peak 1.52) | rotation worked; the run was still capped at 20 samples by a bad argument |
+| module rotation, machine restarted mid-run | 35 | 1.04 → 1.57 MiB (peak 1.57) | killed at minute 35 by the restart; the report was rebuilt from the samples already on disk (`tools/perf.js analyse`) |
+| **this run** | **60** | **1.10 MiB → 1.53 MiB (peak 1.56 MiB at minute 52)** | —; heap snapshots at minutes 10, 60 |
 
 ### 4. Durability — an edit is never lost, measured
 
@@ -336,9 +421,9 @@ so main-thread CPU per frame stays flat as instance count grows.
 
 ### 11. Storage path (M6)
 
-| Test | Result |
-|------|--------|
-| Append | 1,000 ops in 4 batches of 250 | 68 ms | 14,630 ops/s |
+| Test | What was run | Result |
+|------|--------------|--------|
+| Append | 1,000 ops in 4 batches of 250 | 68 ms, 14,630 ops/s |
 | Read back | 1,000 ops | 9 ms |
 | Compaction | save snapshot + trim the log | 64 ms |
 | Durability window | reload 0 ms after an edit | edit survived (section 4) |
@@ -365,7 +450,7 @@ the GitHub Pages layout is reproduced locally.
 | Command | Environment | Result |
 |---------|-------------|--------|
 | `npm test` | bare Node 24, no browser | 146 passed, 0 failed, 6 skipped (the 6 need a canvas or IndexedDB) |
-| `npm run test:browser` | Edge 154 via CDP, real WebGL2 + IndexedDB | **152 passed, 0 failed, 0 skipped** in ~3.2 s |
+| `npm run test:browser` | Edge 154/155 via CDP, real WebGL2 + IndexedDB | **152 passed, 0 failed, 0 skipped** — 2.3 s on an idle machine, 3.2 s under load |
 | `npm run test:browser --url=<deployment>` | the same suite against the site, or against the workerd deploy artifact | **152 passed, 0 failed, 0 skipped** |
 
 `npm test` used to report those 6 as failures because the machine has no GPU.
@@ -405,9 +490,10 @@ with every interaction landing.
   are the reachable substitute.
 - No screen-reader session (NVDA/VoiceOver): the accessibility tree and axe-core
   were audited, which is what a screen reader consumes, but nobody listened.
-- No 1-hour memory soak: the soak ran for the number of minutes printed in
-  `docs/reports/soak.json`, and the budget row is reported against that duration,
-  not against the brief's hour.
+- No mid-range phone. The one-hour soak and the Lighthouse runs are desktop Edge on
+  this machine. The soak's number is the JS heap after a forced GC — not resident set
+  size, and not GPU memory — so it is reported against the conditions run, not
+  promoted to the brief's.
 - No multi-machine WebRTC session driven by a person end to end: the
   two-carrier data-channel test is automated inside one machine.
 - No INP number from a 50-user session: the metric does not populate under
@@ -428,6 +514,8 @@ node tools/cls.js               # layout shift across a viewport change -> docs/
 node tools/a11y.js              # axe-core + accessibility tree -> docs/reports/a11y.json
 node tools/durability.js        # durability window -> docs/reports/durability.json
 node tools/verify-headers.js    # headers really delivered -> exit code
+node tools/check-docs.js        # every number in this report still matches its artifact
+python3 tools/gen-soak-section.py  # rewrite section 3 of this report from the measured JSON
 tools/build-site.py             # deploy artifact, then: verify-headers, workerd suite
 node tools/demo.js --encode-only  # re-encode the recorded tour (or record it fresh)
 ```

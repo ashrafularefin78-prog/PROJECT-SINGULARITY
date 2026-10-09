@@ -1,7 +1,7 @@
 {
-  "measuredAt": "2026-10-09T07:00:01.259Z",
+  "measuredAt": "2026-10-09T18:33:35.740Z",
   "url": "http://127.0.0.1:5198/",
-  "browser": "Edg/154.0.4258.62",
+  "browser": "Edg/155.0.4283.45",
   "note": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
   "tabs": [
     "M0 Dashboard",
@@ -177,8 +177,8 @@
         "passCount": 45
       },
       "axTree": {
-        "totalNodes": 356,
-        "liveNodes": 237,
+        "totalNodes": 358,
+        "liveNodes": 239,
         "ignoredNodes": 119,
         "interactiveCount": 17,
         "unnamedInteractive": [],
@@ -271,8 +271,8 @@
         "passCount": 43
       },
       "axTree": {
-        "totalNodes": 523,
-        "liveNodes": 421,
+        "totalNodes": 525,
+        "liveNodes": 423,
         "ignoredNodes": 102,
         "interactiveCount": 17,
         "unnamedInteractive": [],
@@ -335,7 +335,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 44,
+            "count": 45,
             "targets": [
               [
                 ".brand-mark"
@@ -420,7 +420,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 46,
+            "count": 44,
             "targets": [
               [
                 ".brand-mark"
@@ -515,7 +515,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 100,
+            "count": 99,
             "targets": [
               [
                 ".brand-mark"
@@ -620,7 +620,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 84,
+            "count": 82,
             "targets": [
               [
                 ".brand-mark"
@@ -710,7 +710,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 91,
+            "count": 89,
             "targets": [
               [
                 ".brand-mark"
@@ -980,7 +980,7 @@
     },
     {
       "module": "1. M1 Editor",
-      "liveNodes": 237,
+      "liveNodes": 239,
       "interactiveCount": 17,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1010,7 +1010,7 @@
     },
     {
       "module": "2. M2 C Runtime",
-      "liveNodes": 421,
+      "liveNodes": 423,
       "interactiveCount": 17,
       "unnamedInteractive": [],
       "unnamedImages": [],

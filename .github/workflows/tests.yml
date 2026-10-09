@@ -36,6 +36,12 @@ jobs:
         with:
           node-version: '24'
       - run: node tests/run.js
+      # The report publishes numbers; this asserts they are still the numbers
+      # the repository produces. It needs no browser, so it belongs here: a
+      # one-line code change that moves the payload fails the build instead of
+      # leaving a figure in the README that describes a build nobody can find.
+      - name: published numbers still match their artifacts
+        run: node tools/check-docs.js
 
   browser:
     name: suite in headless Chrome

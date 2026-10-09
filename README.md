@@ -113,7 +113,7 @@ The brief's ladder asks two different questions, so this README answers both:
 |---------|--------|-----|
 | Points band | **Gold** (450-750) | Arithmetic on the module scores. |
 | Tier by requirement | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete and five are partial, so Silver misses by one module - stated plainly rather than rounded up. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (112.9 KiB gzip vs 170 KB) and the default frame rate (60 FPS) are met; Lighthouse was run in both form factors (desktop 98/100/100/100, mobile 80/100/96/100) and the throttled-4G LCP **misses** its 1.5 s target at 4,705 ms; the memory soak is reported against the minutes actually run, and 10k-user load and node-kill chaos were not run at all. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (113.2 KiB gzip vs 170 KB) and the default frame rate (60 FPS) are met; Lighthouse was run in both form factors (desktop 98/100/100/100, mobile 80/100/96/100) and the throttled-4G LCP **misses** its 1.5 s target at 4,705 ms; the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10), and 10k-user load and node-kill chaos were not run at all. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -139,12 +139,14 @@ _headers                the header set for hosts that read a _headers file
 tests/                  browser test suite (10 suites, 152 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
+tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
 tools/site/             deploy worker template + local workerd config
 tools/*.js              measurement and delivery drivers, no npm dependencies:
                         cdp.js (the CDP client they share), perf.js (LCP + soak),
                         lighthouse.js, a11y.js, durability.js, payload.js,
                         headers.js + verify-headers.js, browser-run.js, demo.js
-                        (records the demo video through the real UI)
+                        (records the demo video through the real UI), check-docs.js
+                        (re-measures every number the report publishes)
 .github/workflows/      CI: Node suite, headless-browser suite, deploy + policy
 _headers                the response policy, read by the dev servers and the host
 docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,

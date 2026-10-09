@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-09T07:02:07.533Z",
+  "measuredAt": "2026-10-09T18:36:29.540Z",
   "url": "http://127.0.0.1:5203/",
   "note": "Each attempt types a unique marker into the M1 editor, reloads after the stated delay, and checks the marker came back from IndexedDB.",
   "results": [

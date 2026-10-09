@@ -15,6 +15,7 @@
     "measure:soak": "node tools/perf.js soak",
     "audit:a11y": "node tools/a11y.js",
     "measure:durability": "node tools/durability.js",
+    "check:docs": "node tools/check-docs.js",
     "record:demo": "node tools/demo.js"
   },
   "dependencies": {},

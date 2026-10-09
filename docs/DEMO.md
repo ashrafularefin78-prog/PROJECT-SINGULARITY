@@ -51,9 +51,10 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 6. Point at the tier ladder: Bronze says *requirement: met*, Silver says *not met
    (3 of 4 modules)*. Say out loud that the leading column is the brief's points
    band and the ladder grades the *requirements*, which is why the two disagree.
-7. Point at the budget table: payload **met** (112.5 KiB gzip of JavaScript plus
-   14.9 KiB of CSS, against a 170 KB ceiling), frame rate **met**, and everything
-   that was not measured labelled *not measured*.
+7. Point at the budget table: payload **met** (113.2 KiB gzip of JavaScript plus
+   15.6 KiB of CSS, against a 170 KB ceiling), the hour-long memory soak **met**
+   (the heap at minute 60 is smaller than at minute 10), frame rate **met**, and
+   everything that was not measured labelled *not measured*.
 
 ## 1. M1 Editor — the CRDT (1.5 min)
 
