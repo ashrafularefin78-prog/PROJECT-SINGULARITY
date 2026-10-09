@@ -84,16 +84,16 @@ silently normalised non-canonical base64 — which is the argument for having it
 
 | Reading | Answer | Why |
 |---------|--------|-----|
-| Points (of the brief's 1000) | **637** | 95 + 75 + 70 + 92 + 80 + 92 + 55 + 78 across the eight modules, before the budget and integration rows. |
+| Points (of the brief's 1000) | **652** | 95 + 85 + 70 + 92 + 80 + 92 + 55 + 83 across the eight modules, before the budget and integration rows. M2 moved 75 → 85 when the standard-library, preprocessor, typedef, two-dimensional array, function pointer and union gaps closed; M8 moved 78 → 83 when the site moved to a host that delivers `_headers`. |
 | Points band | **Gold** (450–750) | Purely arithmetic. |
 | Tier by *requirement* | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete (M1, M4, M6) and five are partial, so Silver misses by one module. |
-| Budget row (100 pts) | **Not claimable** | Payload is met (73 KiB gzip vs 170 KB) and the 3D frame rate is met at the tested settings, but Lighthouse, a throttled-4G LCP, a 1-hour memory soak, 10k concurrent users and node-kill chaos were not run. See [LOAD_CHAOS.md](LOAD_CHAOS.md). |
+| Budget row (100 pts) | **Partly evidenced, not claimable** | Payload is met (112.5 KiB gzip vs 170 KB), the 3D frame rate is met at the defaults (60 FPS) and short at maximum settings (58), Lighthouse was run in both form factors, the throttled-4G LCP was measured and **misses** its target, and the memory soak is reported against the minutes actually run. 10,000 concurrent users and node-kill chaos were not run: there is no server tier to kill. See [LOAD_CHAOS.md](LOAD_CHAOS.md). |
 | Integration row (100 pts) | **Partly** | The modules genuinely drive each other (editor ⇄ CRDT ⇄ mesh ⇄ crypto ⇄ storage ⇄ worker sandbox), with tests across the seams; a full end-to-end multi-machine session has not been run by a person. |
 
 ## 6. Definition of done for this pass
 
 - [x] Site boots from one URL with no install and no plugins
-- [x] 120 automated tests green across 9 suites, runnable from the site itself
+- [x] 152 automated tests green across 10 suites, runnable from the site itself
 - [x] A deterministic fuzzer for the C front end, the CRDT, the crypto decoders
       and the signaling parser
 - [x] Every module panel does something real, or says what it does not do

@@ -19,8 +19,19 @@ python3 tools/serve.py 5173
 # -> http://127.0.0.1:5173/
 ```
 
-The app is deployed at a subpath on GitHub Pages, which is exactly where absolute
-paths break, so the server can reproduce that deployment locally before you push:
+**Demo video:** [docs/demo/demo.mp4](docs/demo/demo.mp4) — 15:19, 8.8 MiB,
+recorded from the running app by `node tools/demo.js`. No narration: the script
+in [docs/DEMO.md](docs/DEMO.md) is burned in as captions, beat by beat, and
+`docs/reports/demo.json` lists which beats performed their interaction.
+
+**Live deployment:** <https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/>
+(Cloudflare-backed, so the `_headers` policy actually arrives - the three
+directives a `<meta>` tag cannot express included). What was verified against
+that URL, header by header, is in [docs/DEPLOY.md](docs/DEPLOY.md); GitHub Pages
+carried an earlier copy of this site and could not deliver them.
+
+Subpath deployments still work, and the server can reproduce one locally, which
+is exactly where absolute paths break:
 
 ```bash
 python3 tools/serve.py 5174 --prefix /PROJECT-SINGULARITY
@@ -47,10 +58,17 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**120 tests across 9 suites** (~2 s). Each suite also runs standalone from
-`tests/*.test.js`; `tests/run.js` is a Node runner for environments that have it.
-The browser is the authoritative runner: some tests need a real WebGL2 context,
-IndexedDB or RTCPeerConnection, none of which Node provides.
+**152 tests across 10 suites** (~4 s in a real browser, of which 6 need it). Each
+suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
+runner for environments that have it (it reports those 6 as skips with a reason,
+not as failures). The browser is the authoritative runner - some tests need a
+real WebGL2 context, IndexedDB or RTCPeerConnection, none of which Node provides
+- and the same runner works headlessly against the deployed site:
+
+```bash
+node tools/browser-run.js                                        # this working tree
+node tools/browser-run.js --url=https://<site>/tests/browser.html  # a deployment
+```
 
 | Suite | Tests | Covers |
 |-------|-------|--------|
@@ -58,13 +76,14 @@ IndexedDB or RTCPeerConnection, none of which Node provides.
 | `crypto.test.js` | 15 | X3DH, Double Ratchet, signed-bundle enforcement, replay/tamper rejection, groups, file streaming |
 | `compiler.test.js` | 19 | lexer/parser/interpreter, diagnostics with line+column, resource budgets |
 | `lang.test.js` | 21 | the full language surface: ternary, switch, structs, casts, the malloc family, scanf, and the heap's failure modes |
+| `stdlib.test.js` | 32 | `<string.h>`, `<ctype.h>`, `<math.h>`, the preprocessor (`#define`), `typedef`, two-dimensional arrays, function pointers and unions - including the fail-closed cases |
 | `storage.test.js` | 8 | IndexedDB round-trip, compaction, file frames, v1 -> v2 migration |
 | `mesh.test.js` | 8 | presence, room isolation, pruning, ciphertext-only relay, ingress flood control |
 | `webrtc.test.js` | 7 | signaling-code validation, rejected and self-pasted codes, a real data channel between two carriers |
 | `renderer.test.js` | 11 | 3D maths, real WebGL2 initialisation and a rendered frame |
 | `fuzz.test.js` | 11 | seeded fuzzing of the C front end, the CRDT, the ciphertext decoders and the signaling parser |
 
-Number check: 20 + 15 + 19 + 21 + 8 + 8 + 7 + 11 + 11 = 120.
+Number check: 20 + 15 + 19 + 21 + 32 + 8 + 8 + 7 + 11 + 11 = 152.
 
 ## What is real, and what is not
 
@@ -73,16 +92,20 @@ Number check: 20 + 15 + 19 + 21 + 8 + 8 + 7 + 11 + 11 = 120.
 | M1 Collaborative editor | **Full** | Own RGA CRDT, live cursors, per-user undo, offline merge, cursor-indexed lookups (20k sequential appends visit zero nodes), watermark-bounded tombstone collection and op-log trimming. Interior tombstones are kept by design. |
 | M4 End-to-end encryption | **Full** | X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD. The signed prekey bundle is verified *inside* the handshake, before any key material exists. |
 | M6 Offline-first storage | **Full** | IndexedDB op log, snapshots, quota, migrations, and a service worker whose paths are scope-relative - offline is verified by stopping the server and reloading under `/PROJECT-SINGULARITY/`. |
-| M2 In-browser C runtime | **Partial** | Real compiler for a C subset + worker sandbox + terminal + kill switch. Now includes ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked lists), casts, do/while, `malloc`/`calloc`/`realloc`/`free`/`memcpy`/`memset` over a bounds-checked arena, and `scanf`/`sscanf`. *Still not clang/TCC in WASM; no preprocessor beyond `#include`, no prototypes, typedefs or unions, no variadic user functions.* |
+| M2 In-browser C runtime | **Partial** | Real compiler for a C subset + worker sandbox + terminal + kill switch. Includes ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked lists), casts, do/while, `malloc`/`calloc`/`realloc`/`free`/`memcpy`/`memset` over a bounds-checked arena, `scanf`/`sscanf`, plus the library surface student C actually uses: `<string.h>` (`strcpy`, `strcat`, `strcmp`, `strncpy`, `strchr`), `<ctype.h>` (`toupper`, `isdigit`, `isalpha`), `<math.h>` (`sqrt`, `pow`, `fabs`), `#define` constants, `typedef`, `int m[2][3]`, function pointers and unions. The bounds-checked arena fails closed - an overflowing `strcpy` is an error, never silent corruption. *Still not clang/TCC in WASM; no variadic user functions; a struct tag is not usable as a type name without a `typedef`.* |
 | M3 3D engine | **Partial** | WebGL2 instancing to 100k, a real PCF shadow map, 1M GPU particles, and physically based shading (Cook-Torrance GGX/Smith/Schlick, hemispheric ambient, Reinhard tonemap). *No HDRI image-based lighting, no glTF loader, no skeletal animation, no WebGPU.* |
 | M5 Peer mesh | **Partial** | Two carriers into one mesh: BroadcastChannel for tabs, WebRTC data channels for separate machines, signaled by copy-pasted invite/answer codes with no server. STUN on by default. *No bundled TURN relay, so symmetric NAT on both ends needs one.* |
 | M7 Accessibility | **Partial** | Semantics, keyboard model, live regions, text alternative tree, motion/contrast/scale/RTL/visual-effects preferences. *Not screen-reader validated.* |
-| M8 Hardening | **Partial** | Strict CSP delivered as both a header and a meta tag, Trusted Types enforced, no markup sinks, sandbox isolation, per-peer ingress flood control, STRIDE model plus a written [security test report](docs/SECURITY_REPORT.md). *No red-team session; no SRI, because a stale hash would brick the app without a build step.* |
+| M8 Hardening | **Partial** | Strict CSP delivered as both a header and a meta tag (and now actually *delivered* by the host - see [docs/DEPLOY.md](docs/DEPLOY.md)), Trusted Types enforced, no markup sinks, sandbox isolation, per-peer ingress flood control, STRIDE model plus a written [security test report](docs/SECURITY_REPORT.md). Subresource Integrity is generated at deploy time by `tools/build-site.py`, which also keys the service-worker cache to the build so a stale hash cannot brick a cached page; SRI covers the entry subresources, not the transitive import graph. *No third-party red-team session, and the OWASP ZAP baseline scan was not run (no Docker/ZAP in this environment).* |
 
 ## Where the score lands
 
-**637 / 1000 points** across the eight modules (95 + 75 + 70 + 92 + 80 + 92 + 55
-+ 78), before the budget and integration rows.
+**652 / 1000 points** across the eight modules (95 + 85 + 70 + 92 + 80 + 92 + 55
++ 83), before the budget and integration rows. Two rows moved since the first
+self-assessment, both against the reviewer's own rubric: M2 75 → 85 for closing
+the standard-library, preprocessor, typedef, two-dimensional array, function
+pointer and union gaps, and M8 78 → 83 for moving the site to a host that
+actually delivers the `_headers` policy (frame-ancestors, COOP, COEP).
 
 The brief's ladder asks two different questions, so this README answers both:
 
@@ -90,7 +113,7 @@ The brief's ladder asks two different questions, so this README answers both:
 |---------|--------|-----|
 | Points band | **Gold** (450-750) | Arithmetic on the module scores. |
 | Tier by requirement | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete and five are partial, so Silver misses by one module - stated plainly rather than rounded up. |
-| Performance budget (100 pts) | **Not claimable** | Payload (73 KiB gzip vs 170 KB) and the default frame rate (60 FPS) are met; [LOAD_CHAOS.md](docs/LOAD_CHAOS.md) reports the paint/interaction timings as unthrottled, and the 1-hour soak, 10k-user load and node-kill chaos as not run. |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (112.9 KiB gzip vs 170 KB) and the default frame rate (60 FPS) are met; Lighthouse was run in both form factors (desktop 98/100/100/100, mobile 80/100/96/100) and the throttled-4G LCP **misses** its 1.5 s target at 4,705 ms; the memory soak is reported against the minutes actually run, and 10k-user load and node-kill chaos were not run at all. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -113,11 +136,20 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (9 suites, 120 tests, fuzzer included)
-tools/serve.py          static server with production headers, and --prefix
+tests/                  browser test suite (10 suites, 152 tests, fuzzer included)
+tools/serve.py          static server with the _headers policy, --prefix, --root
+tools/build-site.py     deploy build: SRI, worker cache bump, manifest
+tools/site/             deploy worker template + local workerd config
+tools/*.js              measurement and delivery drivers, no npm dependencies:
+                        cdp.js (the CDP client they share), perf.js (LCP + soak),
+                        lighthouse.js, a11y.js, durability.js, payload.js,
+                        headers.js + verify-headers.js, browser-run.js, demo.js
+                        (records the demo video through the real UI)
+.github/workflows/      CI: Node suite, headless-browser suite, deploy + policy
+_headers                the response policy, read by the dev servers and the host
 docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
-                        SECURITY_REPORT.md, LOAD_CHAOS.md, DEMO.md,
-                        charts/budget.svg
+                        SECURITY_REPORT.md, LOAD_CHAOS.md, DEMO.md, DEPLOY.md,
+                        reports/ (raw JSON), charts/budget.svg
 ```
 
 ## Try the interesting bits

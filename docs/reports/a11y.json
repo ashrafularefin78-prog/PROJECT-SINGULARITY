@@ -1,0 +1,1238 @@
+{
+  "measuredAt": "2026-10-09T07:00:01.259Z",
+  "url": "http://127.0.0.1:5198/",
+  "browser": "Edg/154.0.4258.62",
+  "note": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
+  "tabs": [
+    "M0 Dashboard",
+    "1. M1 Editor",
+    "2. M2 C Runtime",
+    "3. M3 3D Engine",
+    "4. M4 E2EE",
+    "5. M5 Mesh",
+    "6. M6 Offline",
+    "7. M7 Access",
+    "8. M8 Hardening"
+  ],
+  "perModule": [
+    {
+      "module": "M0 Dashboard",
+      "axe": {
+        "version": "4.10.2",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 224,
+            "targets": [
+              [
+                ".brand-mark"
+              ],
+              [
+                ".brand-name"
+              ],
+              [
+                ".brand-sub"
+              ],
+              [
+                "#cmd-open"
+              ],
+              [
+                "kbd"
+              ],
+              [
+                ".chip.ok:nth-child(1)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 46
+      },
+      "axTree": {
+        "totalNodes": 1057,
+        "liveNodes": 778,
+        "ignoredNodes": 279,
+        "interactiveCount": 11,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "Boot sequence",
+            "level": 2
+          },
+          {
+            "name": "Tier ladder",
+            "level": 2
+          },
+          {
+            "name": "Module score map",
+            "level": 2
+          },
+          {
+            "name": "Module scorecard",
+            "level": 2
+          },
+          {
+            "name": "Performance and reliability budget",
+            "level": 2
+          },
+          {
+            "name": "Build order followed (from the brief)",
+            "level": 2
+          },
+          {
+            "name": "How to verify all of it yourself",
+            "level": 2
+          },
+          {
+            "name": "Project Singularity",
+            "level": 1
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region",
+          "region",
+          "region",
+          "region",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          },
+          {
+            "role": "log",
+            "name": "Boot sequence log",
+            "politeness": "polite"
+          }
+        ]
+      }
+    },
+    {
+      "module": "1. M1 Editor",
+      "axe": {
+        "version": "4.10.2",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 82,
+            "targets": [
+              [
+                ".brand-mark"
+              ],
+              [
+                ".brand-name"
+              ],
+              [
+                ".brand-sub"
+              ],
+              [
+                "#cmd-open"
+              ],
+              [
+                "kbd"
+              ],
+              [
+                ".ok.chip:nth-child(1)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 45
+      },
+      "axTree": {
+        "totalNodes": 356,
+        "liveNodes": 237,
+        "ignoredNodes": 119,
+        "interactiveCount": 17,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "Real-time collaborative editor",
+            "level": 1
+          },
+          {
+            "name": "Document",
+            "level": 2
+          },
+          {
+            "name": "Peers in this room",
+            "level": 2
+          },
+          {
+            "name": "LIVE CURSORS",
+            "level": 3
+          },
+          {
+            "name": "CRDT invariants (proved by the test suite)",
+            "level": 2
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          }
+        ]
+      }
+    },
+    {
+      "module": "2. M2 C Runtime",
+      "axe": {
+        "version": "4.10.2",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 62,
+            "targets": [
+              [
+                ".brand-mark"
+              ],
+              [
+                ".brand-name"
+              ],
+              [
+                ".brand-sub"
+              ],
+              [
+                "#cmd-open"
+              ],
+              [
+                "kbd"
+              ],
+              [
+                ".ok.chip:nth-child(1)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 43
+      },
+      "axTree": {
+        "totalNodes": 523,
+        "liveNodes": 421,
+        "ignoredNodes": 102,
+        "interactiveCount": 17,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "In-browser C compiler and runtime",
+            "level": 1
+          },
+          {
+            "name": "Source",
+            "level": 2
+          },
+          {
+            "name": "Terminal, diagnostics and budgets",
+            "level": 2
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          },
+          {
+            "role": "log",
+            "name": "Program output",
+            "politeness": "polite"
+          }
+        ]
+      }
+    },
+    {
+      "module": "3. M3 3D Engine",
+      "axe": {
+        "version": "4.10.2",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 44,
+            "targets": [
+              [
+                ".brand-mark"
+              ],
+              [
+                ".brand-name"
+              ],
+              [
+                ".brand-sub"
+              ],
+              [
+                "#cmd-open"
+              ],
+              [
+                "kbd"
+              ],
+              [
+                ".ok.chip:nth-child(1)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 45
+      },
+      "axTree": {
+        "totalNodes": 354,
+        "liveNodes": 244,
+        "ignoredNodes": 110,
+        "interactiveCount": 16,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "Custom 3D engine on WebGL2",
+            "level": 1
+          },
+          {
+            "name": "Scene",
+            "level": 2
+          },
+          {
+            "name": "Parallel accessible tree (M7)",
+            "level": 2
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          }
+        ]
+      }
+    },
+    {
+      "module": "4. M4 E2EE",
+      "axe": {
+        "version": "4.10.2",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 46,
+            "targets": [
+              [
+                ".brand-mark"
+              ],
+              [
+                ".brand-name"
+              ],
+              [
+                ".brand-sub"
+              ],
+              [
+                "#cmd-open"
+              ],
+              [
+                "kbd"
+              ],
+              [
+                ".ok.chip:nth-child(1)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 46
+      },
+      "axTree": {
+        "totalNodes": 379,
+        "liveNodes": 266,
+        "ignoredNodes": 113,
+        "interactiveCount": 15,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "End-to-end encrypted layer",
+            "level": 1
+          },
+          {
+            "name": "Session",
+            "level": 2
+          },
+          {
+            "name": "Wire transcript",
+            "level": 2
+          },
+          {
+            "name": "What the untrusted relay can see",
+            "level": 2
+          },
+          {
+            "name": "Security properties, and how they are checked",
+            "level": 2
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          }
+        ]
+      }
+    },
+    {
+      "module": "5. M5 Mesh",
+      "axe": {
+        "version": "4.10.2",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 100,
+            "targets": [
+              [
+                ".brand-mark"
+              ],
+              [
+                ".brand-name"
+              ],
+              [
+                ".brand-sub"
+              ],
+              [
+                "#cmd-open"
+              ],
+              [
+                "kbd"
+              ],
+              [
+                ".ok.chip:nth-child(1)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 45
+      },
+      "axTree": {
+        "totalNodes": 432,
+        "liveNodes": 306,
+        "ignoredNodes": 126,
+        "interactiveCount": 20,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "Peer mesh: WebRTC data channels + ciphertext-only relay",
+            "level": 1
+          },
+          {
+            "name": "Same-browser room",
+            "level": 2
+          },
+          {
+            "name": "Across machines: WebRTC, no signaling server",
+            "level": 2
+          },
+          {
+            "name": "Mesh scope",
+            "level": 2
+          },
+          {
+            "name": "Relay inspector",
+            "level": 2
+          },
+          {
+            "name": "Recovery behaviour",
+            "level": 2
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region",
+          "region",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          },
+          {
+            "role": "log",
+            "name": "WebRTC connection log",
+            "politeness": "polite"
+          }
+        ]
+      }
+    },
+    {
+      "module": "6. M6 Offline",
+      "axe": {
+        "version": "4.10.2",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 84,
+            "targets": [
+              [
+                ".brand-mark"
+              ],
+              [
+                ".brand-name"
+              ],
+              [
+                ".brand-sub"
+              ],
+              [
+                "#cmd-open"
+              ],
+              [
+                "kbd"
+              ],
+              [
+                ".ok.chip:nth-child(1)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 42
+      },
+      "axTree": {
+        "totalNodes": 383,
+        "liveNodes": 271,
+        "ignoredNodes": 112,
+        "interactiveCount": 13,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "Offline-first sync and storage",
+            "level": 1
+          },
+          {
+            "name": "Local persistence",
+            "level": 2
+          },
+          {
+            "name": "Offline capability",
+            "level": 2
+          },
+          {
+            "name": "Automatic test coverage",
+            "level": 2
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          }
+        ]
+      }
+    },
+    {
+      "module": "7. M7 Access",
+      "axe": {
+        "version": "4.10.2",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 91,
+            "targets": [
+              [
+                ".brand-mark"
+              ],
+              [
+                ".brand-name"
+              ],
+              [
+                ".brand-sub"
+              ],
+              [
+                "#cmd-open"
+              ],
+              [
+                "#cmd-open > kbd"
+              ],
+              [
+                ".ok.chip:nth-child(1)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 47
+      },
+      "axTree": {
+        "totalNodes": 387,
+        "liveNodes": 286,
+        "ignoredNodes": 101,
+        "interactiveCount": 35,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "Accessibility and internationalisation",
+            "level": 1
+          },
+          {
+            "name": "Preferences",
+            "level": 2
+          },
+          {
+            "name": "Keyboard map",
+            "level": 2
+          },
+          {
+            "name": "Screen-reader text alternative for the 3D scene",
+            "level": 2
+          },
+          {
+            "name": "Where this is honest about its limits",
+            "level": 2
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          }
+        ]
+      }
+    },
+    {
+      "module": "8. M8 Hardening",
+      "axe": {
+        "version": "4.10.2",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 104,
+            "targets": [
+              [
+                ".brand-mark"
+              ],
+              [
+                ".brand-name"
+              ],
+              [
+                ".brand-sub"
+              ],
+              [
+                "#cmd-open"
+              ],
+              [
+                "kbd"
+              ],
+              [
+                ".ok.chip:nth-child(1)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 47
+      },
+      "axTree": {
+        "totalNodes": 424,
+        "liveNodes": 321,
+        "ignoredNodes": 103,
+        "interactiveCount": 14,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "Hostile-environment hardening",
+            "level": 1
+          },
+          {
+            "name": "Live response headers",
+            "level": 2
+          },
+          {
+            "name": "Injection probe",
+            "level": 2
+          },
+          {
+            "name": "STRIDE threat model - top entries",
+            "level": 2
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          }
+        ]
+      }
+    }
+  ],
+  "axe": {
+    "passes": 406,
+    "violations": [],
+    "perModule": [
+      {
+        "module": "M0 Dashboard",
+        "violations": 0,
+        "passes": 46,
+        "incomplete": 2
+      },
+      {
+        "module": "1. M1 Editor",
+        "violations": 0,
+        "passes": 45,
+        "incomplete": 2
+      },
+      {
+        "module": "2. M2 C Runtime",
+        "violations": 0,
+        "passes": 43,
+        "incomplete": 2
+      },
+      {
+        "module": "3. M3 3D Engine",
+        "violations": 0,
+        "passes": 45,
+        "incomplete": 2
+      },
+      {
+        "module": "4. M4 E2EE",
+        "violations": 0,
+        "passes": 46,
+        "incomplete": 2
+      },
+      {
+        "module": "5. M5 Mesh",
+        "violations": 0,
+        "passes": 45,
+        "incomplete": 2
+      },
+      {
+        "module": "6. M6 Offline",
+        "violations": 0,
+        "passes": 42,
+        "incomplete": 2
+      },
+      {
+        "module": "7. M7 Access",
+        "violations": 0,
+        "passes": 47,
+        "incomplete": 2
+      },
+      {
+        "module": "8. M8 Hardening",
+        "violations": 0,
+        "passes": 47,
+        "incomplete": 2
+      }
+    ]
+  },
+  "axTree": [
+    {
+      "module": "M0 Dashboard",
+      "liveNodes": 778,
+      "interactiveCount": 11,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "Boot sequence",
+          "level": 2
+        },
+        {
+          "name": "Tier ladder",
+          "level": 2
+        },
+        {
+          "name": "Module score map",
+          "level": 2
+        },
+        {
+          "name": "Module scorecard",
+          "level": 2
+        },
+        {
+          "name": "Performance and reliability budget",
+          "level": 2
+        },
+        {
+          "name": "Build order followed (from the brief)",
+          "level": 2
+        },
+        {
+          "name": "How to verify all of it yourself",
+          "level": 2
+        },
+        {
+          "name": "Project Singularity",
+          "level": 1
+        }
+      ]
+    },
+    {
+      "module": "1. M1 Editor",
+      "liveNodes": 237,
+      "interactiveCount": 17,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "Real-time collaborative editor",
+          "level": 1
+        },
+        {
+          "name": "Document",
+          "level": 2
+        },
+        {
+          "name": "Peers in this room",
+          "level": 2
+        },
+        {
+          "name": "LIVE CURSORS",
+          "level": 3
+        },
+        {
+          "name": "CRDT invariants (proved by the test suite)",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "module": "2. M2 C Runtime",
+      "liveNodes": 421,
+      "interactiveCount": 17,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "In-browser C compiler and runtime",
+          "level": 1
+        },
+        {
+          "name": "Source",
+          "level": 2
+        },
+        {
+          "name": "Terminal, diagnostics and budgets",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "module": "3. M3 3D Engine",
+      "liveNodes": 244,
+      "interactiveCount": 16,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "Custom 3D engine on WebGL2",
+          "level": 1
+        },
+        {
+          "name": "Scene",
+          "level": 2
+        },
+        {
+          "name": "Parallel accessible tree (M7)",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "module": "4. M4 E2EE",
+      "liveNodes": 266,
+      "interactiveCount": 15,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "End-to-end encrypted layer",
+          "level": 1
+        },
+        {
+          "name": "Session",
+          "level": 2
+        },
+        {
+          "name": "Wire transcript",
+          "level": 2
+        },
+        {
+          "name": "What the untrusted relay can see",
+          "level": 2
+        },
+        {
+          "name": "Security properties, and how they are checked",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "module": "5. M5 Mesh",
+      "liveNodes": 306,
+      "interactiveCount": 20,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "Peer mesh: WebRTC data channels + ciphertext-only relay",
+          "level": 1
+        },
+        {
+          "name": "Same-browser room",
+          "level": 2
+        },
+        {
+          "name": "Across machines: WebRTC, no signaling server",
+          "level": 2
+        },
+        {
+          "name": "Mesh scope",
+          "level": 2
+        },
+        {
+          "name": "Relay inspector",
+          "level": 2
+        },
+        {
+          "name": "Recovery behaviour",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "module": "6. M6 Offline",
+      "liveNodes": 271,
+      "interactiveCount": 13,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "Offline-first sync and storage",
+          "level": 1
+        },
+        {
+          "name": "Local persistence",
+          "level": 2
+        },
+        {
+          "name": "Offline capability",
+          "level": 2
+        },
+        {
+          "name": "Automatic test coverage",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "module": "7. M7 Access",
+      "liveNodes": 286,
+      "interactiveCount": 35,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "Accessibility and internationalisation",
+          "level": 1
+        },
+        {
+          "name": "Preferences",
+          "level": 2
+        },
+        {
+          "name": "Keyboard map",
+          "level": 2
+        },
+        {
+          "name": "Screen-reader text alternative for the 3D scene",
+          "level": 2
+        },
+        {
+          "name": "Where this is honest about its limits",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "module": "8. M8 Hardening",
+      "liveNodes": 321,
+      "interactiveCount": 14,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "Hostile-environment hardening",
+          "level": 1
+        },
+        {
+          "name": "Live response headers",
+          "level": 2
+        },
+        {
+          "name": "Injection probe",
+          "level": 2
+        },
+        {
+          "name": "STRIDE threat model - top entries",
+          "level": 2
+        }
+      ]
+    }
+  ],
+  "shaping": {
+    "font": "normal 400 13px ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+    "direction": "ltr",
+    "unicodeBidi": "normal",
+    "htmlLang": "en",
+    "htmlDir": "ltr",
+    "samples": {
+      "latin": {
+        "width": 85.77,
+        "inkPixels": 338
+      },
+      "bangla": {
+        "width": 29.87,
+        "inkPixels": 171
+      },
+      "arabic": {
+        "width": 28.08,
+        "inkPixels": 120
+      },
+      "mixed": {
+        "width": 87.05,
+        "inkPixels": 360
+      }
+    },
+    "arabicShapingLooksApplied": true,
+    "sample": "বাংলা العربية 42",
+    "codepoints": 16,
+    "beforeLength": 91,
+    "survivedInsert": true,
+    "survivedReload": true,
+    "afterReloadLength": 107,
+    "reloadNote": "reloaded ~2.5 s after the edit, which is inside the measured durability window (see docs/reports/durability.json)"
+  },
+  "shapingTab": "1. M1 Editor",
+  "pageErrors": [],
+  "consoleErrors": []
+}

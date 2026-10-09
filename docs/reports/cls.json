@@ -1,0 +1,103 @@
+{
+  "measuredAt": "2026-10-09T06:21:16.744Z",
+  "url": "http://127.0.0.1:5231/",
+  "viewport": {
+    "width": 412,
+    "height": 915,
+    "shrunk": 780,
+    "mobile": true
+  },
+  "mode": "current build",
+  "note": "layout-shift PerformanceObserver installed before first paint; the layout viewport is resized twice to imitate the mobile URL bar moving",
+  "steps": [
+    {
+      "label": "after load",
+      "height": 915,
+      "geometry": {
+        "inset": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "transform": "matrix(1.40535, 0, 0, 1.40535, -26.7226, -35.3942)",
+        "rect": [
+          -266,
+          -566,
+          1657,
+          3681
+        ],
+        "renderedShareOfViewport": [
+          141,
+          141
+        ],
+        "viewport": [
+          1179,
+          2619
+        ]
+      },
+      "cls": 0,
+      "shiftEntries": []
+    },
+    {
+      "label": "after the visual viewport shrank (URL bar appears)",
+      "height": 780,
+      "geometry": {
+        "inset": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "transform": "matrix(1.41484, 0, 0, 1.41484, -21.8367, -24.2889)",
+        "rect": [
+          -266,
+          -487,
+          1668,
+          3159
+        ],
+        "renderedShareOfViewport": [
+          141,
+          141
+        ],
+        "viewport": [
+          1179,
+          2233
+        ]
+      },
+      "cls": 0,
+      "shiftEntries": []
+    },
+    {
+      "label": "after the visual viewport grew back (URL bar hides)",
+      "height": 915,
+      "geometry": {
+        "inset": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "transform": "matrix(1.42887, 0, 0, 1.42887, -14.6155, -18.2796)",
+        "rect": [
+          -267,
+          -580,
+          1685,
+          3742
+        ],
+        "renderedShareOfViewport": [
+          143,
+          143
+        ],
+        "viewport": [
+          1179,
+          2619
+        ]
+      },
+      "cls": 0,
+      "shiftEntries": []
+    }
+  ],
+  "finalCls": 0,
+  "auroraOverflowPreserved": true
+}

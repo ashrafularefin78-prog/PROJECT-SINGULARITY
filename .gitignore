@@ -1,0 +1,29 @@
+# Local tooling, never part of the app or the deploy.
+#
+# .tools holds the portable Node runtime that `tools/bootstrap-node.py`
+# downloads, the dev-only Lighthouse copy, the axe-core audit script, and the
+# raw measurement output (heap snapshots, logs, scratch). The app itself has
+# zero dependencies and the repository stays that way: nothing here is required
+# to run or deploy the site.
+.tools/
+
+# Deployment build output (tools/build-site.py). Regenerable, never committed:
+# `dist/` is the public copy, `dist-site/` the generated worker, and the
+# manifest names both.
+dist/
+dist-site/
+deploy.site.json
+
+# Measurement scratch output that is large and regenerable.
+*.heapsnapshot
+
+# Local tool state: wrangler's workerd cache and Python bytecode from the
+# helper scripts. Neither is part of the app or the deploy.
+.wrangler/
+__pycache__/
+*.pyc
+
+# Editor and OS noise.
+.DS_Store
+Thumbs.db
+*.swp

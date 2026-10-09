@@ -158,7 +158,13 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
 }
 .brand-sub { color: var(--dim); font: 0.76em/1 var(--mono); letter-spacing: 0.1em; }
 
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  /* Deliberately NOT reserved. On a wide viewport the chips share a row with
+     the brand, so filling them costs nothing; on a narrow one they take their
+     own row, and reserving it made the header taller at first paint than it
+     ends up (a shift in the other direction - measured, then removed). */
+}
 
 .chip {
   font: 700 calc(10.5px * var(--scale)) / 1 var(--mono);
@@ -195,6 +201,12 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
   background: rgba(10, 15, 22, 0.72);
   backdrop-filter: blur(10px);
   scrollbar-width: none;
+  /* The shell ships an empty tab strip and the app fills it during boot. With
+     no reservation the strip went 21px -> 53px 938ms in, moving every module
+     panel 58px down the page: the single layout shift Lighthouse scored at CLS
+     0.375 on desktop (measured with tools/a11y principles - see the probe and
+     LOAD_CHAOS.md). min-height matches the filled row, so filling it is free. */
+  min-height: 53px;
 }
 .tabs::-webkit-scrollbar { display: none; }
 
@@ -1065,6 +1077,11 @@ body::after {
   display: flex; flex-wrap: wrap; align-items: center; gap: 5px 16px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
+  /* This strip is its own grid row, so it adds its full height to the header
+     when the app fills it: empty 11px, filled 37px. Reserving the filled height
+     removes that growth (with the tab strip's own reservation) - the measured
+     desktop CLS went 0.375 -> 0.006. */
+  min-height: 37px;
   font: 700 calc(10.5px * var(--scale)) / 1 var(--mono);
   letter-spacing: 0.09em;
   color: var(--dim);
@@ -1480,6 +1497,12 @@ html[data-pointer='se'] .hud-corner, html[data-pointer='se'] .hud-ring { transfo
   padding: 7px 22px;
   border-bottom: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(8, 13, 20, 0.9), rgba(5, 7, 11, 0.72));
+  /* The strip is empty in the shell and filled by the deck once the app boots.
+     Reserving the filled height here is what keeps that from pushing <main>
+     down after first paint: Lighthouse measured the whole page shifting 34px
+     (CLS 0.375 on desktop) before this line existed. min-height, not height, so
+     a wrapped row on a narrow screen still grows instead of clipping. */
+  min-height: 49px;
 }
 .deck-wave { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .deck-label { font: 700 calc(9.5px * var(--scale)) / 1 var(--mono); letter-spacing: 0.16em; color: var(--accent-3); white-space: nowrap; }

@@ -77,7 +77,15 @@
       <div class="telemetry" id="telemetry" aria-label="Live system telemetry"></div>
     </header>
 
-    <nav id="tabs" class="tabs" aria-label="Modules" role="tablist"></nav>
+    <!-- The tab list is wrapped in a nav so the module strip is both a
+         navigation landmark and a tablist. Putting role="tablist" directly on
+         the <nav> would override its navigation landmark role, which is what
+         axe-core reported as "content not contained by landmarks". -->
+    <nav aria-label="Modules">
+      <div id="tabs" class="tabs" role="tablist">
+        <!-- Tabs are created by src/app.js, one per module. -->
+      </div>
+    </nav>
 
     <!-- The deck strip: a live activity waveform and a ticker of real readings.
          Both are duplicates of numbers that are already exposed accessibly in
@@ -85,7 +93,10 @@
          technology rather than announced twice. -->
     <div class="deck" id="deck" aria-hidden="true"></div>
 
-    <main id="main" class="main" tabindex="-1"></main>
+    <!-- tabindex="0": the module panels scroll, and a keyboard user has to be
+         able to reach and scroll the region itself (axe-core:
+         scrollable-region-focusable). The skip link still targets it. -->
+    <main id="main" class="main" tabindex="0"></main>
 
     <footer class="footer">
       <span>Zero runtime dependencies · WebCrypto · WebGL2 · Web Workers · IndexedDB · Service Worker</span>

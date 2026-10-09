@@ -11,6 +11,7 @@ const files = readdirSync(here)
 
 let pass = 0;
 let fail = 0;
+let skip = 0;
 for (const file of files) {
   console.log(`\n# ${file}`);
   try {
@@ -24,7 +25,8 @@ for (const file of files) {
   const result = await runTests(collect());
   pass += result.pass;
   fail += result.fail;
+  skip += result.skip;
 }
 
-console.log(`\n${pass} passed, ${fail} failed`);
+console.log(`\n${pass} passed, ${fail} failed${skip ? `, ${skip} skipped (need a browser: run npm run test:browser)` : ''}`);
 process.exit(fail > 0 ? 1 : 0);

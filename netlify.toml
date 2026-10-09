@@ -1,0 +1,31 @@
+# Netlify configuration.
+#
+# The app is a static site with no build step and no dependencies, so Netlify's
+# job here is to publish the repository root exactly as it is. Everything under
+# this directory - index.html, src/, styles/, assets/, tests/ - is the artifact.
+#
+# The security policy deliberately lives in `_headers`, not here:
+#
+#   * Cloudflare Pages reads `_headers` too, so one file serves both hosts.
+#   * the local dev servers (tools/serve.js, tools/serve.py) read that same
+#     file, so the policy is exercised locally before it is deployed.
+#   * a copy in this file would drift from the copy in `_headers`, and the
+#     drift would only ever be visible in production.
+#
+# What Netlify delivers from `_headers` (and what GitHub Pages could not) is
+# verified after deploy with:
+#
+#     node tools/verify-headers.js   # against the local server
+#     curl -sI https://<site>/ | grep -i 'strict-transport\|cross-origin\|content-security'
+#
+# The three directives that a <meta> tag cannot express, and which are the
+# reason for moving off GitHub Pages:
+#
+#   Content-Security-Policy: frame-ancestors 'none'   clickjacking protection
+#   Cross-Origin-Opener-Policy: same-origin           cross-origin isolation
+#   Cross-Origin-Embedder-Policy: require-corp        cross-origin isolation
+
+[build]
+  # No build command: the repository is the deploy artifact.
+  command = ""
+  publish = "."

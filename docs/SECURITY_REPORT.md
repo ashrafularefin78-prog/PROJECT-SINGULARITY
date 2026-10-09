@@ -18,10 +18,11 @@ single biggest limitation of this report.
 | `tests/mesh.test.js` (8 tests) | Ingress handling: relay visibility, room isolation, presence flood control |
 | `tests/webrtc.test.js` (7 tests) | Signaling-code validation, including codes from untrusted sources |
 | `tests/storage.test.js` (8 tests) | Damaged-log recovery, migrations, quota behaviour |
+| `tests/stdlib.test.js` (32 tests) | The C library surface and the preprocessor, including the fail-closed cases (a `strcpy` that would overflow its destination is an error, not silent corruption) |
 | In-app probes (M8 panel) | Live CSP / Trusted Types behaviour, the hostile-input probe that tries `innerHTML` and `eval()` and shows the refusal |
 | Manual browser runs | Header/CSP inspection over the served response, offline shell under a subpath deployment, two-carrier WebRTC channel, encrypted message round-trip |
 
-Total suite: **120 tests across 9 suites**, all green, ~2 s, runnable from the
+Total suite: **152 tests across 10 suites**, all green, ~2.2 s, runnable from the
 site at `/tests/browser.html`.
 
 Fuzz corpora (the numbers in the table are the counts printed by the suite):
@@ -118,7 +119,7 @@ arithmetic, but a correctness and resource-reporting hole.
 ```bash
 python3 tools/serve.py 5173
 # app:      http://127.0.0.1:5173/
-# suite:    http://127.0.0.1:5173/tests/browser.html   (120 tests, 9 suites)
+# suite:    http://127.0.0.1:5173/tests/browser.html   (152 tests, 10 suites)
 ```
 
 The M8 panel shows the live policy state (CSP, Trusted Types, sandbox isolation)

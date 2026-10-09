@@ -36,6 +36,9 @@ test('M6: ops round-trip through IndexedDB in order', async () => {
   store.close();
 });
 
+// These two assert that data outlives the store object, which only the real
+// IndexedDB backend can do; the Node run has an in-memory fallback instead, so
+// they are skipped there rather than reported as failures.
 test('M6: documents and meta survive reopen', async () => {
   const name = uniqueName();
   const first = await openLocalStore(name);
@@ -50,7 +53,7 @@ test('M6: documents and meta survive reopen', async () => {
   assertEquals(meta.name, 'ada');
   assertEquals(await second.getMeta('missing', 'fallback'), 'fallback');
   second.close();
-});
+}, { needs: 'indexeddb' });
 
 test('M6: compaction keeps the snapshot and drops the op log', async () => {
   const name = uniqueName();
@@ -110,7 +113,7 @@ test('M6: upgrading v1 -> v2 adds the files store without losing data', async ()
   assertEquals(rows.length, 1, 'migrated data must survive');
   assertEquals(rows[0].op.c, 'L');
   v2.close();
-});
+}, { needs: 'indexeddb' });
 
 test('M6: every migration step is a function (declarative schema history)', () => {
   assertEquals(MIGRATIONS.length, 2);

@@ -69,9 +69,13 @@ test('M3: the scene layout generator is deterministic', () => {
   assert(mulberry32(42)() !== c(), 'different seeds should diverge');
 });
 
+// The four tests below need a real canvas and a real WebGL2 context; they are
+// skipped (not failed) under bare Node and always run in the browser suite.
+const NEEDS_GL = { needs: ['dom', 'webgl2'] };
+
 test('M3: WebGL2 is available in this browser', () => {
   assert(Renderer.isSupported(), 'WebGL2 context could not be created');
-});
+}, NEEDS_GL);
 
 test('M3: the renderer initialises, instances and describes the scene', () => {
   const canvas = document.createElement('canvas');
@@ -97,7 +101,7 @@ test('M3: the renderer initialises, instances and describes the scene', () => {
   assert(/500 instanced cubes/.test(description.summary), description.summary);
   assertEquals(description.objects.length, 3);
   assert(description.camera.includes('distance'), description.camera);
-});
+}, NEEDS_GL);
 
 test('M3: instance and particle counts are clamped to the engine limits', () => {
   const canvas = document.createElement('canvas');
@@ -106,7 +110,7 @@ test('M3: instance and particle counts are clamped to the engine limits', () => 
   assertEquals(renderer.setInstances(-5), 0);
   assertEquals(renderer.setParticles(10 ** 9), MAX_PARTICLES);
   assertEquals(renderer.setParticles(-1), 0);
-});
+}, { needs: 'dom' });
 
 test('M3: shadows can be toggled and the camera orbits within limits', () => {
   const canvas = document.createElement('canvas');
@@ -119,7 +123,7 @@ test('M3: shadows can be toggled and the camera orbits within limits', () => {
   const stats = renderer.stats();
   assert(stats.camera.elevation <= 1.35, 'elevation must clamp');
   assert(stats.camera.distance >= 14, 'distance must clamp');
-});
+}, NEEDS_GL);
 
 test('M3: a missing WebGL2 context fails loudly instead of silently', () => {
   const fake = {

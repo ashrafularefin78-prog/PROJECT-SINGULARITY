@@ -1,10 +1,31 @@
 # Demo tour script
 
 The brief asks for a 10-minute demo video showing every module working together
-in one session. **That video was not recorded** — see the note at the bottom.
-This is the script a narrator would follow, and it doubles as a manual
-acceptance test: every step names what you should see, so anyone can run the
-tour and check the claims in the README in about ten minutes.
+in one session. The recording is in
+[demo/demo.mp4](demo/demo.mp4) — **15 minutes 19 seconds, 1280×720, 8.8 MiB**, no
+narration, every beat captioned with the script line below. It was recorded from
+the running application by `tools/demo.js`, not staged: the tour is a script, and
+this page is that script. What is *not* in it is a human voice, a red-team
+session, or a distributed load rig — see the end of this file.
+
+This page doubles as a manual acceptance test: every step names what you should
+see, so anyone can run the tour and check the claims in the README in about ten
+minutes.
+
+## Recording it yourself
+
+```bash
+node tools/demo.js                  # record the tour -> docs/demo/demo.mp4
+node tools/demo.js --encode-only     # encode frames a killed run left behind
+```
+
+The recorder drives the real UI over the DevTools Protocol (tabs, buttons,
+ranges, selects, the command palette, real typing), captures the compositor's own
+frames, prints the matching script line into each beat as an on-screen caption,
+and hands the frames to a dev-only ffmpeg (`npm install --prefix .tools/ffmpeg
+ffmpeg-static`) — the app keeps its zero dependencies.`docs/reports/demo.json`
+records which beats performed their interaction and which did not, because a demo
+where a click quietly did nothing is a bug report, not a sales pitch.
 
 Setup, once:
 
@@ -26,13 +47,13 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 4. Press the backslash key: the **module dial** opens with all eight modules on a
    ring, each labelled with the score it is actually carrying. Arrow keys turn
    it, digits jump straight to a module, Enter opens it, Escape closes.
-5. Point at the score ring: **637 / 1000**, points band **Gold**.
+5. Point at the score ring: **652 / 1000**, points band **Gold**.
 6. Point at the tier ladder: Bronze says *requirement: met*, Silver says *not met
    (3 of 4 modules)*. Say out loud that the leading column is the brief's points
    band and the ladder grades the *requirements*, which is why the two disagree.
-7. Point at the budget table: payload **met** (78 KiB gzip of JavaScript plus
-   15 KiB of CSS, against a 170 KB ceiling), frame rate **met**, everything
-   unmeasured labelled *not measured*.
+7. Point at the budget table: payload **met** (112.5 KiB gzip of JavaScript plus
+   14.9 KiB of CSS, against a 170 KB ceiling), frame rate **met**, and everything
+   that was not measured labelled *not measured*.
 
 ## 1. M1 Editor — the CRDT (1.5 min)
 
@@ -118,15 +139,22 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run: **120 tests, 9 suites, all
+Open **/tests/browser.html** and let the suite run: **152 tests, 10 suites, all
 green**, including the fuzzer. Then name the gaps: no red-team session, no
 audited crypto, no TURN, no glTF/IBL, no clang→WASM, no screen-reader pass, and
 no distributed load or chaos rig.
 
-## Why there is no video file here
+## What the recording is, and what it is not
 
-Producing the brief's 10-minute narrated video needs a human narrator and a
-recording setup; what exists in this repository is the script above, the
-automated suite, and the measurements in [LOAD_CHAOS.md](LOAD_CHAOS.md). Calling
-a silent screen capture a "10-minute demo video" would be exactly the kind of
-claim the rest of this project avoids.
+| | |
+|---|---|
+| File | [demo/demo.mp4](demo/demo.mp4) |
+| Length / size | 15:19, 8.8 MiB, 1280×720, H.264, 6 fps |
+| Source | `tools/demo.js` driving the running app; 4,926 compositor frames |
+| Audio | **none** — the script above is printed as captions, it is not spoken |
+| Beats | 22 of 23 performed; the closing caption was on screen when the recording process was interrupted (see `docs/reports/demo.json`) |
+| Recovery | The interrupted run was encoded from its frames with `--encode-only`, pacing rebuilt from the frames' own timestamps |
+
+What it is not: not narrated, not edited, not a substitute for a screen-reader
+session, and not a claim that the parts it shows are the only parts. It is a
+screen recording of a real session, labelled for exactly what it is.

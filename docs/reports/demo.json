@@ -1,0 +1,170 @@
+{
+  "generatedAt": "2026-10-09T06:54:48.427Z",
+  "source": "recorded from the running application by tools/demo.js, then recovered with --encode-only after the recording process was interrupted before encoding",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "video": {
+    "path": "docs\\demo\\demo.mp4",
+    "fps": 6,
+    "crf": 32,
+    "seconds": 919,
+    "codec": "libx264 / yuv420p / +faststart",
+    "narration": "none - the script in docs/DEMO.md is printed as captions, it is not spoken",
+    "recovered": "encoded from frames captured by an earlier run that was interrupted before it could encode",
+    "sizeMiB": 8.8
+  },
+  "capture": {
+    "compositorFrames": 4926,
+    "expandedFrames": 5514,
+    "pacing": "file-mtime",
+    "pacingNote": "the interrupted run died before writing the timestamp sidecar, so pacing was rebuilt from the frame files own timestamps",
+    "expand": "each frame is held for the real interval until the next one, clamped to 8 s, so idle pauses stay in real time"
+  },
+  "beats": {
+    "planned": 23,
+    "performed": 22,
+    "didNotPerform": 0,
+    "listed": [
+      {
+        "index": 0,
+        "title": "Cold boot",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 1,
+        "title": "Dashboard — parallax and the module dial",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 2,
+        "title": "The scores, and what is not measured",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 3,
+        "title": "M1 Editor — a CRDT, not a textarea",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 4,
+        "title": "M1 Editor — a second tab, same document",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 5,
+        "title": "M1 Editor — one document, two peers",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 6,
+        "title": "M2 C Runtime — real C, in a worker",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 7,
+        "title": "M2 C Runtime — diagnostics and the step budget",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 8,
+        "title": "M3 3D Engine — WebGL2, from scratch",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 9,
+        "title": "M3 at maximum settings",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 10,
+        "title": "M4 E2EE — X3DH and the Double Ratchet",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 11,
+        "title": "M4 E2EE — the same ciphertext, the other tab",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 12,
+        "title": "M5 Mesh — an invite code, no server",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 13,
+        "title": "M5 Mesh — the answer, in the other tab",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 14,
+        "title": "M5 Mesh — a real WebRTC data channel",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 15,
+        "title": "M6 Offline — storage that survives",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 16,
+        "title": "M6 Offline — the evidence behind the claim",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 17,
+        "title": "M7 Access — preferences that change real behaviour",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 18,
+        "title": "M7 Access — the command palette and the 3D text alternative",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 19,
+        "title": "M8 Hardening — the hostile environment",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 20,
+        "title": "M8 Hardening — the headers a static host could not send",
+        "result": "performed",
+        "note": null
+      },
+      {
+        "index": 21,
+        "title": "Close · the suite, running in this browser",
+        "result": "performed",
+        "note": null
+      }
+    ],
+    "note": "beat 22, the closing caption, was on screen when the process was killed: its caption is in the video, its interaction was not verified"
+  },
+  "captions": "nothing here is narrated: the script in docs/DEMO.md is printed into each beat as a caption bar injected into the page, not spoken",
+  "reproduce": [
+    "node tools/demo.js",
+    "node tools/demo.js --encode-only"
+  ]
+}

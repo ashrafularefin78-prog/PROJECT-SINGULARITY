@@ -55,9 +55,24 @@ class Env {
  */
 const isPtr = (v) => !!v && typeof v === 'object' && v.__ptr === true;
 const isStruct = (v) => !!v && typeof v === 'object' && typeof v.__struct === 'string';
+const isUnion = (v) => isStruct(v) && v.__union === true;
+
+/**
+ * A union value is a record whose storage is one shared buffer, so writing
+ * `u.i` and reading `u.c` sees the same bytes - the point of a union. A union
+ * carries `__struct` as well, which keeps every other part of the runtime
+ * (sizeof, member lookup, truthiness) working on it unchanged.
+ */
+const unionBytes = (buf, field) => {
+  const dv = new DataView(buf);
+  if (field.base === 'char') return dv.getUint8(0);
+  if (field.base === 'float') return dv.getFloat32(0, true);
+  return dv.getInt32(0, true);
+};
 
 /** The integer a pointer (or a local address) stands for in a comparison. */
-const ptrValue = (v) => (isPtr(v) ? (v.isNull ? 0 : v.offset) : v instanceof Ref ? 1 : v);
+const ptrValue = (v) =>
+  isPtr(v) ? (v.isNull ? 0 : v.offset) : isView(v) ? 1 + v.i : v instanceof Ref ? 1 : v;
 
 /** A null pointer: no arena offset, no extent, and false in a condition. */
 /**
@@ -75,8 +90,52 @@ const makePtr = (offset, elem = 4, structName = null, size = 0) => ({
   isNull: offset === 0 && size === 0,
 });
 
+/**
+ * A pointer into a local array - what `strchr(s, 'o')`, `&s[3]` and
+ * `char *p = s;` hand back. Local arrays live as plain JS arrays rather than in
+ * the malloc arena, so a pointer into one is a (array, index) pair instead of
+ * an arena offset. Everything a C program does with such a pointer (indexing,
+ * dereferencing, `p++`, `%s`, `strlen`, comparison with NULL, difference of two
+ * pointers) goes through the same helpers as an arena pointer.
+ */
+/**
+ * A string literal has no arena address (it is a JS string), so a `char *`
+ * field that holds one stores this tag and keeps the text in a side table.
+ * The tag is far outside the arena (which is at most a few MiB), so it can
+ * never collide with a real allocation offset.
+ */
+const STRING_TAG = 0x7fffffff;
+
+const isView = (v) => !!v && typeof v === 'object' && v.__view === true;
+const makeView = (arr, i) => ({ __view: true, arr, i });
+
+/** A function used as a value: `int (*fp)(int, int) = add;` is a named handle. */
+const isFnPtr = (v) => !!v && typeof v === 'object' && typeof v.__fn === 'string';
+/** The function a pointer value names. */
+const fnPtrName = (v) => (isFnPtr(v) ? v.__fn : null);
+const makeFnPtr = (name, fn) => ({
+  __fn: name,
+  params: (fn && fn.params) || [],
+  retType: (fn && fn.retType) || null,
+});
+
+/** Text from a view to the end of the array (or its NUL). */
+function viewText(view) {
+  let out = '';
+  for (let i = Math.max(0, view.i); i < view.arr.length; i += 1) {
+    const ch = view.arr[i];
+    if (!ch) break;
+    out += String.fromCharCode(ch & 0xff);
+  }
+  return out;
+}
+
+/** The array indefinite article: 'an int[]' reads better than 'a int[]'. */
+const charCodes = (text) => Array.from(String(text), (c) => c.charCodeAt(0) & 0xff);
+
 /** Read a NUL-terminated C string out of a char array. */
 function cStr(value) {
+  if (isView(value)) return viewText(value);
   if (Array.isArray(value)) {
     let out = '';
     for (const ch of value) {
@@ -90,6 +149,8 @@ function cStr(value) {
 
 const truthy = (v) => {
   if (isPtr(v)) return !v.isNull;
+  if (isView(v)) return true; // a pointer into an array is never NULL
+  if (isFnPtr(v)) return true; // a function address is never NULL
   if (typeof v === 'string') return v.length > 0;
   if (isStruct(v)) return true;
   return (v | 0) !== 0;
@@ -164,9 +225,24 @@ export function formatPrintf(fmt, args) {
         text = (asInt() >>> 0).toString(8);
         break;
       case 'f':
-      case 'g':
         text = Number(arg ?? 0).toFixed(prec == null ? 6 : prec);
         break;
+      case 'g':
+      case 'G': {
+        // %g is the shortest of %e and %f: at most `prec` significant digits
+        // (6 by default) with trailing zeros removed.
+        const digits = prec == null ? 6 : Math.max(1, prec);
+        let text2 = Number(arg ?? 0).toPrecision(digits);
+        if (text2.includes('e')) {
+          // toPrecision switches to exponential form for very large or small
+          // values, which is what C prints too - just without the '+0' padding.
+          text2 = text2.replace(/e([+-])0*?(-?\d+)/, 'e$1$2');
+        } else if (text2.includes('.')) {
+          text2 = text2.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+        }
+        text = conv === 'G' ? text2.toUpperCase() : text2;
+        break;
+      }
       default:
         text = `%${conv}`;
     }
@@ -214,6 +290,8 @@ export class Runtime {
     /** Live allocation extents by arena offset: lets a pointer read back out
      *  of memory recover its size and stay fully bounds-checked. */
     this.allocMap = new Map();
+    /** String literals stored in pointer fields, by field address. */
+    this.stringPtrs = new Map();
   }
 
   _arena() {
@@ -225,7 +303,7 @@ export class Runtime {
 
   run(program) {
     for (const fn of program.funcs) this.functions.set(fn.name, fn);
-    for (const def of program.structs || []) this.structs.set(def.name, def);
+    for (const def of program.structs || []) this._registerStruct(def);
     // Predeclared constants, so the ordinary C idioms compile without a header.
     this.globals.declare('NULL', { type: { base: 'int', ptr: 1 }, value: makePtr(0) });
     this.globals.declare('EOF', { type: { base: 'int' }, value: -1 });
@@ -285,7 +363,7 @@ export class Runtime {
       case 'Empty':
         return;
       case 'StructDef':
-        for (const def of stmt.defs) this.structs.set(def.name, def);
+        for (const def of stmt.defs) this._registerStruct(def);
         return;
       case 'VarDecl':
         this._declareVars(env, stmt);
@@ -388,11 +466,59 @@ export class Runtime {
     const def = this.structs.get(type.structName);
     if (!def) throw this._err(`unknown struct type '${type.structName}'`, node);
     if (depth > 16) throw this._err(`struct '${type.structName}' nests too deeply`, node);
+    if (def.kind === 'union') {
+      const size = this._structLayout(type.structName, node).size;
+      const value = { __struct: type.structName, __union: true, __buf: new ArrayBuffer(size) };
+      for (const f of def.fields) {
+        // A nested struct or an array member is held as a value of its own;
+        // every scalar member shares the buffer, and that is the storage that
+        // makes reading a union through another member behave like C.
+        if (f.array) value[f.name] = this._fieldArrayValue(f);
+        else if (f.type.base === 'struct') value[f.name] = this._zeroValue(f.type, node, depth + 1);
+      }
+      return value;
+    }
     const value = { __struct: type.structName };
     for (const f of def.fields) {
-      value[f.name] = f.array ? new Array(4).fill(0) : this._zeroValue(f.type, node, depth + 1);
+      value[f.name] = f.array ? this._fieldArrayValue(f) : this._zeroValue(f.type, node, depth + 1);
     }
     return value;
+  }
+
+  /**
+   * The dimension list of an array declarator or member: every element is a
+   * constant expression (C requires it), evaluated against the globals.
+   */
+  _dimsOf(spec) {
+    const nodes = spec.dims || [spec.size];
+    const dims = nodes.map((n) => (n ? Math.trunc(this._eval(n, this.globals)) : 4));
+    if (!dims.length) dims.push(4);
+    for (const size of dims) {
+      if (!Number.isFinite(size) || size < 0 || size > 40_000_000) {
+        throw new CompileError('Runtime', `invalid array size '${size}'`, spec.line || 1, 1);
+      }
+    }
+    return dims;
+  }
+
+  /** A fresh (zeroed) array value for a struct or union member. */
+  _fieldArrayValue(field) {
+    const dims = this._dimsOf(field);
+    const elemSize = field.type && field.type.ptr > 0 ? 8 : field.type && field.type.base === 'char' ? 1 : 4;
+    const isFloat = !!(field.type && field.type.base === 'float');
+    const build = (level) => {
+      const arr = new Array(dims[level]);
+      for (let i = 0; i < arr.length; i += 1) {
+        arr[i] = level + 1 < dims.length ? build(level + 1) : this._zeroValue(field.type, field, 1);
+      }
+      const rowBytes = elemSize * dims.slice(level + 1).reduce((a, b) => a * b, 1);
+      Object.defineProperty(arr, '__elem', { value: rowBytes, enumerable: false });
+      if (isFloat && level === dims.length - 1) {
+        Object.defineProperty(arr, '__float', { value: true, enumerable: false });
+      }
+      return arr;
+    };
+    return build(0);
   }
 
   _fieldNames(type) {
@@ -405,7 +531,9 @@ export class Runtime {
   _fromInitList(type, list, env, node) {
     const value = this._structValue(type, node, 0);
     const names = this._fieldNames(type);
-    list.items.forEach((item, i) => {
+    // C initialises a union through its first member only.
+    const limit = this.structs.get(type.structName)?.kind === 'union' ? 1 : names.length;
+    list.items.slice(0, limit).forEach((item, i) => {
       if (!names[i]) return;
       value[names[i]] = item.type === 'InitList'
         ? this._fromInitList(this._fieldType(type, names[i]), item, env, node)
@@ -416,6 +544,12 @@ export class Runtime {
 
   _fieldType(type, name) {
     const def = this.structs.get(type.structName);
+    const field = def ? def.fields.find((f) => f.name === name) : null;
+    return field ? field.type : null;
+  }
+
+  _fieldTypeByName(structName, name) {
+    const def = this.structs.get(structName);
     const field = def ? def.fields.find((f) => f.name === name) : null;
     return field ? field.type : null;
   }
@@ -432,7 +566,9 @@ export class Runtime {
     if (this._layoutStack.has(name)) throw this._err(`struct '${name}' contains itself by value`, node);
     this._layoutStack.add(name);
     try {
+      const isUnionKind = def.kind === 'union';
       let offset = 0;
+      let widest = 0;
       const fields = def.fields.map((f) => {
         const ptr = f.type.ptr > 0;
         let size;
@@ -440,53 +576,108 @@ export class Runtime {
         else if (f.type.base === 'char') size = 1;
         else if (f.type.base === 'struct') size = this._structLayout(f.type.structName, node).size;
         else size = 4;
-        if (f.array) size *= 4;
-        const entry = { name: f.name, offset, size, ptr, base: f.type.base, structName: f.type.structName || null };
+        // An array member takes as many bytes as its dimensions ask for
+        // (`int grid[2][3]` is 24), not a fixed 4.
+        if (f.array) size *= this._dimsOf(f).reduce((a, b) => a * b, 1);
+        // Every union member starts at offset 0 and the record is as wide as
+        // its widest member - so writing one member and reading another is the
+        // type punning C guarantees.
+        const entry = {
+          name: f.name,
+          offset: isUnionKind ? 0 : offset,
+          size,
+          ptr,
+          base: f.type.base,
+          structName: f.type.structName || null,
+        };
+        widest = Math.max(widest, size);
         offset += size;
         return entry;
       });
-      def.__layout = { fields, size: Math.max(4, offset) };
+      def.__layout = { fields, size: Math.max(4, isUnionKind ? widest : offset), union: isUnionKind };
       return def.__layout;
     } finally {
       this._layoutStack.delete(name);
     }
   }
 
+  /** Register a record type, and any record defined inside it. */
+  _registerStruct(def) {
+    this.structs.set(def.name, def);
+    for (const nested of def.nested || []) this._registerStruct(nested);
+  }
+
   _declareVars(env, stmt) {
     // A struct definition can arrive attached to a declaration.
-    if (stmt.declType && stmt.declType.structDef) this.structs.set(stmt.declType.structDef.name, stmt.declType.structDef);
+    if (stmt.declType && stmt.declType.structDef) this._registerStruct(stmt.declType.structDef);
     for (const d of stmt.decls) {
       const declType = { ...stmt.declType, ptr: (stmt.declType.ptr || 0) + (d.ptr || 0) };
       let value;
       if (d.array) {
         const size = d.size ? Math.trunc(this._eval(d.size, env)) : 0;
-        if (!Number.isFinite(size) || size < 0 || size > 40_000_000) {
-          throw this._err(`invalid array size '${size}'`, d);
+        const dims = (d.dims || [d.size]).map((n) => (n ? Math.trunc(this._eval(n, env)) : 0));
+        for (const dim of dims) {
+          if (!Number.isFinite(dim) || dim < 0 || dim > 40_000_000) {
+            throw this._err(`invalid array size '${dim}'`, d);
+          }
         }
-        this._chargeHeap(size * 8, d);
+        const total = dims.reduce((a, b) => a * b, 1);
+        this._chargeHeap(Math.max(size * 8, total * 4), d);
         const elemSize = declType.ptr > 0 ? 8 : declType.base === 'char' ? 1 : 4;
-        const arr = new Array(size);
-        for (let i = 0; i < size; i += 1) arr[i] = this._zeroValue(declType, d, 1);
-        // Non-enumerable so iteration and equality are unaffected, but `sizeof`
-        // can report real byte sizes for int and char arrays alike.
-        Object.defineProperty(arr, '__elem', { value: elemSize, enumerable: false });
+        const isFloat = declType.base === 'float';
+        // Rows are built from the inside out, so `int m[2][3]` is two arrays of
+        // three ints - exactly what `m[i][j]` and `sizeof(m[0])` expect.
+        const build = (level, source) => {
+          const count = dims[level];
+          const arr = new Array(count);
+          for (let i = 0; i < count; i += 1) {
+            const item = source && i < source.length ? source[i] : null;
+            if (level + 1 < dims.length) {
+              if (item && item.type === 'Str' && declType.base === 'char') {
+                // `char grid[2][8] = {"ab", "cd"};` - a string initialises a row.
+                const row = build(level + 1, null);
+                for (let k = 0; k < row.length; k += 1) {
+                  row[k] = k < item.value.length ? item.value.charCodeAt(k) : 0;
+                }
+                arr[i] = row;
+              } else {
+                arr[i] = build(level + 1, item && item.type === 'InitList' ? item.items : null);
+              }
+            } else if (item) {
+              const itemValue = item.type === 'InitList'
+                ? this._fromInitList(declType, item, env, d)
+                : this._eval(item, env);
+              // An int array truncates on store; a double array keeps the value.
+              arr[i] = typeof itemValue === 'number' && !isFloat ? Math.trunc(itemValue) : itemValue;
+            } else {
+              arr[i] = this._zeroValue(declType, d, 1);
+            }
+          }
+          // Non-enumerable so iteration and equality are unaffected, but
+          // `sizeof` can report real byte sizes for int and char arrays alike.
+          const rowBytes = elemSize * dims.slice(level + 1).reduce((a, b) => a * b, 1);
+          Object.defineProperty(arr, '__elem', { value: rowBytes, enumerable: false });
+          if (isFloat && level + 1 === dims.length) {
+            Object.defineProperty(arr, '__float', { value: true, enumerable: false });
+          }
+          return arr;
+        };
         if (d.init && d.init.type === 'InitList') {
-          d.init.items.forEach((item, i) => {
-            if (i >= size) return;
-            arr[i] = item.type === 'InitList'
-              ? this._fromInitList(declType, item, env, d)
-              : this._eval(item, env);
-          });
+          value = build(0, d.init.items);
         } else if (d.init && d.init.type === 'Str' && declType.base === 'char') {
           const text = d.init.value;
-          for (let i = 0; i < size; i += 1) arr[i] = i < text.length ? text.charCodeAt(i) : 0;
+          const arr = build(0, null);
+          for (let i = 0; i < dims[0]; i += 1) arr[i] = i < text.length ? text.charCodeAt(i) : 0;
+          value = arr;
+        } else {
+          value = build(0, null);
         }
-        value = arr;
       } else if (d.init && d.init.type === 'InitList') {
         value = this._fromInitList(declType, d.init, env, d);
       } else if (d.init) {
         value = this._eval(d.init, env);
-        if (typeof value === 'number') value = Math.trunc(value);
+        if (isUnion(value)) value = this._cloneUnion(value);
+        if (typeof value === 'number' && declType.base !== 'float') value = Math.trunc(value);
         if (typeof value === 'string') this._chargeHeap(value.length * 2, d);
       } else {
         value = this._zeroValue(declType, d, 0);
@@ -496,6 +687,24 @@ export class Runtime {
   }
 
   // ------------------------------------------------------- heap pointer ops
+
+  /**
+   * Function pointers that live inside arena-allocated structs get a stable
+   * negative id, because an arena field holds an int and a function is not an
+   * address in this runtime.
+   */
+  _fnPtrId(name) {
+    if (!this.fnPtrIds) {
+      this.fnPtrIds = new Map();
+      this.fnPtrNames = new Map();
+    }
+    if (!this.fnPtrIds.has(name)) {
+      const id = this.fnPtrIds.size;
+      this.fnPtrIds.set(name, id);
+      this.fnPtrNames.set(id, name);
+    }
+    return -(this.fnPtrIds.get(name) + 1);
+  }
 
   _alloc(bytes, node) {
     const size = Math.max(4, Math.ceil(bytes / 4) * 4);
@@ -524,8 +733,9 @@ export class Runtime {
     return makePtr(offset, 4, null, size);
   }
 
-  /** Read a NUL-terminated string from a char array or a heap pointer. */
+  /** Read a NUL-terminated string from a char array, a view or a heap pointer. */
   _cStr(value, node) {
+    if (isView(value)) return viewText(value);
     if (Array.isArray(value) || !isPtr(value)) return cStr(value);
     if (value.isNull) return '(null)';
     const elem = value.elem;
@@ -558,7 +768,26 @@ export class Runtime {
     this._allocCheck(ptr, at, size, node);
   }
 
+  /** Bounds-checked read/write at `view.i + index`. */
+  _viewIndex(view, index, node) {
+    const at = view.i + index;
+    if (!Number.isFinite(at) || at < 0 || at >= view.arr.length) {
+      throw this._err(`array index ${at} out of bounds (length ${view.arr.length})`, node);
+    }
+    return at;
+  }
+
+  _viewRead(view, index, node) {
+    return view.arr[this._viewIndex(view, index, node)];
+  }
+
+  _viewWrite(view, index, value, node) {
+    const at = this._viewIndex(view, index, node);
+    view.arr[at] = typeof value === 'number' && !view.arr.__float ? Math.trunc(value) : value;
+  }
+
   _ptrRead(ptr, node) {
+    if (isView(ptr)) return this._viewRead(ptr, 0, node);
     const p = this._arenaAt(ptr, node);
     const dv = new DataView(this._arena());
     if (p.elem === 1) {
@@ -566,10 +795,12 @@ export class Runtime {
       return dv.getUint8(p.offset);
     }
     this._arenaCheck(p, p.offset, 4, node);
+    if (p.float) return dv.getFloat32(p.offset, true);
     return dv.getInt32(p.offset, true);
   }
 
   _ptrWrite(ptr, value, node) {
+    if (isView(ptr)) return this._viewWrite(ptr, 0, value, node);
     const p = this._arenaAt(ptr, node);
     const dv = new DataView(this._arena());
     if (p.elem === 1) {
@@ -578,12 +809,17 @@ export class Runtime {
       return;
     }
     this._arenaCheck(p, p.offset, 4, node);
-    const raw = isPtr(value) ? ptrValue(value) : Math.trunc(value);
+    if (p.float && !isPtr(value) && !isView(value)) {
+      dv.setFloat32(p.offset, Number(value) || 0, true);
+      return;
+    }
+    const raw = isPtr(value) ? ptrValue(value) : isView(value) ? ptrValue(value) : Math.trunc(value);
     dv.setInt32(p.offset, raw | 0, true);
   }
 
   /** `p[i]` for a typed pointer: element size comes from the pointee type. */
   _ptrElem(ptr, index, node) {
+    if (isView(ptr)) return makeView(ptr.arr, ptr.i + Math.trunc(index));
     const p = this._arenaAt(ptr, node);
     return { ...p, offset: p.offset + Math.trunc(index) * p.elem };
   }
@@ -592,6 +828,11 @@ export class Runtime {
     const p = this._arenaAt(ptr, node);
     this.arenaFree.push({ offset: p.base, size: p.size });
     this.allocMap.delete(p.base);
+    // Drop any string literals that lived in this block, so freeing a node
+    // really frees everything it referenced.
+    for (const at of [...this.stringPtrs.keys()]) {
+      if (at >= p.base && at < p.base + p.size) this.stringPtrs.delete(at);
+    }
     this.heapBytes = Math.max(0, this.heapBytes - p.size);
     this.liveAllocs -= 1;
     // A freed handle becomes a null pointer, so a use-after-free is a clean
@@ -601,7 +842,47 @@ export class Runtime {
     ptr.freed = true;
   }
 
+  /** Pointer arithmetic and comparison when either side points into an array. */
+  _viewBinary(op, a, b, node) {
+    const va = isView(a) ? a : null;
+    const vb = isView(b) ? b : null;
+    if (op === '+' && va && typeof b === 'number') return makeView(va.arr, va.i + Math.trunc(b));
+    if (op === '+' && typeof a === 'number' && vb) return makeView(vb.arr, vb.i + Math.trunc(a));
+    if (op === '-' && va && typeof b === 'number') return makeView(va.arr, va.i - Math.trunc(b));
+    if (op === '-' && va && vb) {
+      if (va.arr !== vb.arr) throw this._err('cannot subtract pointers into two different arrays', node);
+      return va.i - vb.i;
+    }
+    if (op === '==' || op === '!=') {
+      // Two pointers are the same address only when they point at the same
+      // element of the same array; anything else (including NULL) differs.
+      const same = !!(va && vb && va.arr === vb.arr && va.i === vb.i);
+      return op === '==' ? (same ? 1 : 0) : same ? 0 : 1;
+    }
+    if (['<', '<=', '>', '>='].includes(op)) {
+      const x = ptrValue(a);
+      const y = ptrValue(b);
+      if (op === '<') return x < y ? 1 : 0;
+      if (op === '<=') return x <= y ? 1 : 0;
+      if (op === '>') return x > y ? 1 : 0;
+      return x >= y ? 1 : 0;
+    }
+    throw this._err(`operator '${op}' is not defined for pointers`, node);
+  }
+
   _ptrBinary(op, a, b, node) {
+    if (isFnPtr(a) || isFnPtr(b)) {
+      if (op === '==' || op === '!=') {
+        const same = isFnPtr(a) && isFnPtr(b) && fnPtrName(a) === fnPtrName(b);
+        return op === '==' ? (same ? 1 : 0) : same ? 0 : 1;
+      }
+      throw this._err(`operator '${op}' is not defined for function pointers`, node);
+    }
+    // An array name decays to a pointer to its first element, so `p - b` and
+    // `b + 1` mean what they mean in C.
+    if (Array.isArray(a)) a = makeView(a, 0);
+    if (Array.isArray(b)) b = makeView(b, 0);
+    if (isView(a) || isView(b)) return this._viewBinary(op, a, b, node);
     const isAddr = (v) => isPtr(v) || v instanceof Ref;
     if (op === '+' && isAddr(a) && typeof b === 'number') {
       const p = this._arenaAt(a, node);
@@ -647,7 +928,12 @@ export class Runtime {
         return node.value;
       case 'Ident': {
         const scope = env.resolve(node.name);
-        if (!scope) throw this._err(`use of undeclared identifier '${node.name}'`, node);
+        if (!scope) {
+          // A function name used as a value is its address: `int (*fp)(int) = square;`
+          const fn = this.functions.get(node.name);
+          if (fn) return makeFnPtr(node.name, fn);
+          throw this._err(`use of undeclared identifier '${node.name}'`, node);
+        }
         return scope.vars.get(node.name).value;
       }
       case 'Cond':
@@ -665,8 +951,12 @@ export class Runtime {
         return this._binary(node, env);
       case 'Unary': {
         const v = this._eval(node.operand, env);
-        if (node.op === '-') return -Math.trunc(v);
-        if (node.op === '+') return Math.trunc(v);
+        // Negating a floating expression keeps its fraction: `-fabs(3.5)` is
+        // -3.5, not -3. Bitwise operators always work on integers.
+        const real = this._floatish(node.operand, env);
+        const num = real ? Number(v) : Math.trunc(v);
+        if (node.op === '-') return -num;
+        if (node.op === '+') return num;
         if (node.op === '!') return truthy(v) ? 0 : 1;
         if (node.op === '~') return ~Math.trunc(v);
         throw this._err(`unsupported unary '${node.op}'`, node);
@@ -674,31 +964,45 @@ export class Runtime {
       case 'Assign': {
         const ref = this._lvalue(node.target, env);
         const value = this._eval(node.value, env);
-        ref.set(typeof value === 'number' ? Math.trunc(value) : value);
-        return typeof value === 'number' ? Math.trunc(value) : value;
+        const stored = this._coerce(ref, value);
+        ref.set(stored);
+        return stored;
       }
       case 'CompoundAssign': {
         const ref = this._lvalue(node.target, env);
-        const next = this._applyBinary(node.op, ref.get(), this._eval(node.value, env), node);
-        ref.set(next);
-        return next;
+        const real =
+          (ref.type && ref.type.base === 'float') || this._floatish(node.value, env);
+        const next = this._applyBinary(node.op, ref.get(), this._eval(node.value, env), node, real);
+        const stored = this._coerce(ref, next);
+        ref.set(stored);
+        return stored;
       }
       case 'Update': {
         const ref = this._lvalue(node.operand, env);
-        const next = Math.trunc(ref.get()) + (node.op === '++' ? 1 : -1);
+        const delta = node.op === '++' ? 1 : -1;
+        const current = ref.get();
+        if (isPtr(current) || isView(current)) {
+          const next = this._ptrBinary('+', current, delta, node);
+          ref.set(next);
+          return node.prefix ? next : current;
+        }
+        const next = Math.trunc(current) + delta;
         ref.set(next);
-        return node.prefix ? next : next - (node.op === '++' ? 1 : -1);
+        return node.prefix ? next : next - delta;
       }
       case 'Index': {
         const target = this._eval(node.array, env);
+        if (isView(target)) return this._viewRead(target, Math.trunc(this._eval(node.index, env)), node);
         const i = this._resolveIndex(node, target, env);
         if (isPtr(target)) return this._ptrRead(this._ptrElem(target, i, node), node);
         return typeof target === 'string' ? target.charCodeAt(i) : target[i];
       }
       case 'Addr':
-        return this._lvalue(node.operand, env);
+        return this._addressOf(node, env);
       case 'Deref': {
         const pointer = this._eval(node.operand, env);
+        // `(*fp)(x)`: dereferencing a function pointer yields the function.
+        if (isFnPtr(pointer)) return pointer;
         if (pointer instanceof Ref) return pointer.get();
         if (isPtr(pointer)) return this._ptrRead(pointer, node);
         if (typeof pointer === 'number') throw this._err('null pointer dereference (the pointer is 0)', node);
@@ -711,12 +1015,155 @@ export class Runtime {
     }
   }
 
+  /**
+   * `&x` is a reference (writable location); `&a[i]` is a pointer into the
+   * array. Both are address-like values a C program can store and pass.
+   */
+  _addressOf(node, env) {
+    const operand = node.operand;
+    // `&square` is the address of a function, exactly like a bare `square`.
+    if (operand.type === 'Ident') {
+      const fn = this.functions.get(operand.name);
+      if (fn && !env.resolve(operand.name)) return makeFnPtr(operand.name, fn);
+    }
+    if (operand.type === 'Index') {
+      const target = this._eval(operand.array, env);
+      const i = Math.trunc(this._eval(operand.index, env));
+      if (Array.isArray(target)) {
+        if (i < 0 || i >= target.length) {
+          throw this._err(`address of a[${i}] is out of bounds (length ${target.length})`, node);
+        }
+        return makeView(target, i);
+      }
+      if (isView(target)) return makeView(target.arr, target.i + i);
+      return this._lvalue(node, env);
+    }
+    return this._lvalue(operand, env);
+  }
+
+  /** A union copy owns its bytes; sharing the buffer would alias two records. */
+  _cloneUnion(value) {
+    const copy = { ...value, __buf: value.__buf.slice(0) };
+    // Aggregate members are values, so they need their own shallow copies too.
+    const def = this.structs.get(value.__struct);
+    for (const f of (def && def.fields) || []) {
+      if (f.array) copy[f.name] = this._cloneArray(value[f.name]);
+      else if (f.type.base === 'struct') copy[f.name] = { ...value[f.name] };
+    }
+    return copy;
+  }
+
+  _cloneArray(arr) {
+    if (!Array.isArray(arr)) return arr;
+    return arr.map((row) => (Array.isArray(row) ? this._cloneArray(row) : row));
+  }
+
+  /** Store through a Ref: floats keep their fraction, integers truncate. */
+  _coerce(ref, value) {
+    if (typeof value !== 'number') {
+      // `b = a` on a union copies the bytes, it does not alias the other record.
+      return isUnion(value) ? this._cloneUnion(value) : value;
+    }
+    if (ref && ref.type && ref.type.base === 'float') return value;
+    return Math.trunc(value);
+  }
+
+  /**
+   * Is this expression floating point? The runtime stores numbers, not tagged
+   * values, so this is decided from the source: a float literal, a float
+   * variable/field, a float cast, or a call to a function that returns one.
+   * It is what makes `int a = 7 / 2` yield 3 and `double d = 7.0 / 2` yield 3.5.
+   */
+  _floatish(node, env) {
+    if (!node) return false;
+    switch (node.type) {
+      case 'Num':
+        return !!node.isFloat;
+      case 'Cast':
+        return !!(node.castType && node.castType.base === 'float');
+      case 'Ident': {
+        const scope = env.resolve(node.name);
+        const type = scope ? scope.vars.get(node.name).type : null;
+        return !!(type && type.base === 'float');
+      }
+      case 'Member':
+      case 'MemberPtr': {
+        const t = this._memberType(node, env);
+        return !!(t && t.base === 'float');
+      }
+      case 'Index':
+      case 'Unary':
+      case 'Addr':
+      case 'Deref':
+        return this._floatish(node.array || node.operand, env);
+      case 'Binary':
+        return this._floatish(node.left, env) || this._floatish(node.right, env);
+      case 'Cond':
+        return this._floatish(node.then, env) || this._floatish(node.alt, env);
+      case 'Assign':
+      case 'CompoundAssign':
+        return this._floatish(node.target, env) || this._floatish(node.value, env);
+      case 'Call':
+        return this._floatishCall(node, env);
+      default:
+        return false;
+    }
+  }
+
+  _floatishCall(node, env) {
+    if (node.callee.type === 'Ident') {
+      if (FLOAT_BUILTINS.has(node.callee.name)) return true;
+      const fn = this.functions.get(node.callee.name);
+      if (fn) return fn.retType && fn.retType.base === 'float';
+      const scope = env.resolve(node.callee.name);
+      const value = scope ? scope.vars.get(node.callee.name).value : null;
+      if (isFnPtr(value)) {
+        const target = this.functions.get(fnPtrName(value));
+        return !!(target && target.retType && target.retType.base === 'float');
+      }
+      return false;
+    }
+    // The callee may be an expression (`ops[i].fn(x)`, `(*fp)(x)`); this is a
+    // pure question about types, so a callee that cannot be read yet simply
+    // answers "not floating point" instead of raising from inside a predicate.
+    try {
+      const callee = this._eval(node.callee, env);
+      if (isFnPtr(callee)) {
+        const target = this.functions.get(fnPtrName(callee));
+        return !!(target && target.retType && target.retType.base === 'float');
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
+  /** The declared type of a member expression, for the float test above. */
+  _memberType(node, env) {
+    if (node.type === 'Member') {
+      const obj = this._eval(node.object, env);
+      if (isStruct(obj)) return this._fieldTypeByName(obj.__struct, node.name);
+      return null;
+    }
+    const raw = this._eval(node.object, env);
+    const target = raw instanceof Ref ? raw.get() : raw;
+    if (isStruct(target)) return this._fieldTypeByName(target.__struct, node.name);
+    if (isPtr(target) && target.struct) {
+      const layout = this._structLayout(target.struct, node);
+      const field = layout.fields.find((f) => f.name === node.name);
+      return field ? { base: field.base, ptr: field.ptr ? 1 : 0 } : null;
+    }
+    return null;
+  }
+
   /** Cast semantics: numeric truncation, pointer retyping, `(void)` passthrough. */
   _cast(node, value) {
     const t = node.castType;
     if (t.base === 'void') return value || 0;
     if (t.ptr > 0) {
-      if (isPtr(value)) return { ...value, elem: t.base === 'char' ? 1 : 4, struct: t.structName || null };
+      if (isPtr(value))
+        return { ...value, elem: t.base === 'char' ? 1 : 4, float: t.base === 'float', struct: t.structName || null };
+      if (isView(value)) return value; // a pointer into an array stays one
       if (value instanceof Ref) return value; // an address is already an address
       if (typeof value === 'number') return value === 0 ? makePtr(0) : value;
       return value;
@@ -724,6 +1171,7 @@ export class Runtime {
     if (typeof value === 'number') {
       // `(char)` narrows to a signed byte, exactly like C on a signed-char target.
       if (t.base === 'char') return ((Math.trunc(value) & 0xff) << 24) >> 24;
+      if (t.base === 'float') return value; // `(double)` keeps the fraction
       return Math.trunc(value);
     }
     if (isPtr(value)) return ptrValue(value);
@@ -735,16 +1183,20 @@ export class Runtime {
   _sizeOf(node, env) {
     if (node.sizeofType) {
       const t = node.sizeofType;
-      if (t.ptr > 0) return 8;
-      if (t.base === 'char') return 1;
-      if (t.base === 'struct') return this._structLayout(t.structName, node).size;
-      return 4;
+      let size;
+      if (t.ptr > 0) size = 8;
+      else if (t.base === 'char') size = 1;
+      else if (t.base === 'struct') size = this._structLayout(t.structName, node).size;
+      else size = 4;
+      // `typedef int Row[4];` - sizeof(Row) is the whole array, not one element.
+      if (t.arraySize) return size * Math.trunc(this._eval(t.arraySize, env));
+      return size;
     }
     const v = this._eval(node.operand, env);
     if (typeof v === 'string') return v.length + 1;
     if (Array.isArray(v)) return v.length * (v.__elem || 4);
     if (isStruct(v)) return this._structLayout(v.__struct, node).size;
-    if (isPtr(v)) return 8;
+    if (isPtr(v) || isView(v)) return 8;
     return 4;
   }
 
@@ -756,17 +1208,24 @@ export class Runtime {
   _memberRef(node, env) {
     if (node.type === 'Member') {
       const obj = this._eval(node.object, env);
+      // `heap->pair.a`: a nested record inside a heap allocation. The member
+      // itself is not a pointer in C, so a dot is right, and the access still
+      // resolves through the same bounds-checked heap path.
+      if (isPtr(obj) && obj.__nested) return this._heapMemberRef(obj, node);
       if (isPtr(obj) || obj instanceof Ref) {
         throw this._err(`that expression is a pointer, not a struct - use '->' to reach '${node.name}'`, node);
       }
       if (!isStruct(obj)) throw this._err('member access on a non-struct value', node);
+      if (isUnion(obj)) return this._unionMemberRef(obj, node);
       if (!(node.name in obj)) throw this._err(`struct '${obj.__struct}' has no member '${node.name}'`, node);
-      return new Ref(
+      const ref = new Ref(
         () => obj[node.name],
         (v) => {
           obj[node.name] = v;
         },
       );
+      ref.type = this._fieldTypeByName(obj.__struct, node.name);
+      return ref;
     }
     const raw = this._eval(node.object, env);
     // `->` needs an address: either a heap pointer or `&value` (which evaluates
@@ -775,26 +1234,111 @@ export class Runtime {
       throw this._err(`'->' needs a pointer to a struct - use '.' for the struct value '${raw.__struct}'`, node);
     }
     const target = raw instanceof Ref ? raw.get() : raw;
+    if (isUnion(target)) return this._unionMemberRef(target, node);
     if (isStruct(target)) {
       if (!(node.name in target)) throw this._err(`struct '${target.__struct}' has no member '${node.name}'`, node);
-      return new Ref(
+      const ref = new Ref(
         () => target[node.name],
         (v) => {
           target[node.name] = v;
         },
       );
+      ref.type = this._fieldTypeByName(target.__struct, node.name);
+      return ref;
     }
-    if (isPtr(target)) {
+    if (isPtr(target)) return this._heapMemberRef(target, node);
+    throw this._err("the left side of '->' must be a pointer to a struct", node);
+  }
+
+  /** `p->field` for a pointer into the arena allocation behind `p`. */
+  _heapMemberRef(target, node) {
+    {
       const layout = this._structLayout(target.struct, node);
       const field = layout.fields.find((f) => f.name === node.name);
       if (!field) throw this._err(`struct '${target.struct}' has no member '${node.name}'`, node);
       const at = target.offset + field.offset;
-      return new Ref(
+      // A nested record inside a heap allocation is reached as a pointer to
+      // that member, so `node->inner.value` walks two levels of offsets and
+      // every access stays bounds-checked against the same allocation.
+      if (field.base === 'struct' && !field.ptr) {
+        return new Ref(
+          () => ({ ...target, offset: at, struct: field.structName, __nested: true }),
+          () => {
+            throw this._err(
+              `assigning the whole nested struct '${node.name}' on the heap is not supported - assign its members instead`,
+              node,
+            );
+          },
+        );
+      }
+      const ref = new Ref(
         () => this._heapFieldRead(target, at, field, node),
         (v) => this._heapFieldWrite(target, at, field, v, node),
       );
+      ref.type = { base: field.base, ptr: field.ptr ? 1 : 0 };
+      return ref;
     }
-    throw this._err("the left side of '->' must be a pointer to a struct", node);
+  }
+
+  /**
+   * A member of a union *value*: reads and writes land in the record's single
+   * shared buffer, at offset 0, sized by the member's own type.
+   */
+  _unionMemberRef(union, node) {
+    const def = this.structs.get(union.__struct);
+    const field = def ? def.fields.find((f) => f.name === node.name) : null;
+    if (!field) throw this._err(`union '${union.__struct}' has no member '${node.name}'`, node);
+    const layout = this._structLayout(union.__struct, node);
+    const entry = layout.fields.find((f) => f.name === node.name);
+    const buf = union.__buf;
+    if (!buf) throw this._err(`union '${union.__struct}' has no storage`, node);
+    if (field.array || field.type.base === 'struct') {
+      const ref = new Ref(
+        () => union[node.name],
+        (v) => {
+          union[node.name] = v;
+        },
+      );
+      ref.type = field.type;
+      return ref;
+    }
+    const ref = new Ref(
+      () => {
+        if (entry.ptr) {
+          // Always the full 32-bit word: a `char *` member is an address, not
+          // a character, so it must not be read as one byte.
+          const raw = new DataView(buf).getInt32(0, true);
+          if (raw === 0) return makePtr(0);
+          if (raw === STRING_TAG && typeof union[node.name] === 'string') return union[node.name];
+          if (raw < 0) {
+            const name = this.fnPtrNames ? this.fnPtrNames.get(-raw - 1) : null;
+            if (name && this.functions.has(name)) return makeFnPtr(name, this.functions.get(name));
+            return makePtr(0);
+          }
+          return makePtr(raw, 4, entry.structName, this.allocMap.get(raw) || 0);
+        }
+        return unionBytes(buf, entry);
+      },
+      (value) => {
+        const dv = new DataView(buf);
+        if (entry.ptr) {
+          if (typeof value === 'string') {
+            union[node.name] = value;
+            dv.setInt32(0, STRING_TAG, true);
+            return;
+          }
+          if (isFnPtr(value)) dv.setInt32(0, this._fnPtrId(fnPtrName(value)), true);
+          else if (isPtr(value) || isView(value)) dv.setInt32(0, ptrValue(value) | 0, true);
+          else dv.setInt32(0, Math.trunc(Number(value) || 0) | 0, true);
+          return;
+        }
+        if (entry.base === 'char') dv.setUint8(0, Math.trunc(Number(value) || 0) & 0xff);
+        else if (entry.base === 'float') dv.setFloat32(0, Number(value) || 0, true);
+        else dv.setInt32(0, Math.trunc(Number(value) || 0) | 0, true);
+      },
+    );
+    ref.type = { base: entry.base, ptr: entry.ptr ? 1 : 0 };
+    return ref;
   }
 
   _heapFieldRead(ptr, at, field, node) {
@@ -805,8 +1349,17 @@ export class Runtime {
     // usable pointer into the same arena.
     if (field.ptr) {
       if (raw === 0) return makePtr(0);
+      if (raw === STRING_TAG) return this.stringPtrs.get(at) ?? '';
+      if (raw < 0) {
+        const name = this.fnPtrNames ? this.fnPtrNames.get(-raw - 1) : null;
+        if (name && this.functions.has(name)) return makeFnPtr(name, this.functions.get(name));
+        throw this._err('that function pointer does not name a function any more', node);
+      }
       return makePtr(raw, 4, field.structName, this.allocMap.get(raw) || 0);
     }
+    // A `double` field is stored as IEEE-754 in the arena, so a struct can
+    // carry fractional values the same way a local does.
+    if (field.base === 'float') return dv.getFloat32(at, true);
     return raw;
   }
 
@@ -815,14 +1368,28 @@ export class Runtime {
     const dv = new DataView(this._arena());
     if (field.ptr) {
       let raw = 0;
-      if (isPtr(value)) raw = ptrValue(value);
+      // A string literal is not an arena address either: remember the text
+      // against this field's address and store the tag.
+      if (typeof value === 'string') {
+        this.stringPtrs.set(at, value);
+        dv.setInt32(at, STRING_TAG, true);
+        return;
+      }
+      // A function pointer cannot be an arena address, so it is stored as a
+      // small negative id and resolved back through the function table.
+      if (isFnPtr(value)) raw = this._fnPtrId(fnPtrName(value));
+      else if (isPtr(value) || isView(value)) raw = ptrValue(value);
       else if (typeof value === 'number') raw = Math.trunc(value);
-      else throw this._err("a pointer field can only hold a pointer (or 0 for NULL)", node);
+      else throw this._err('a pointer field can only hold a pointer (or 0 for NULL)', node);
       dv.setInt32(at, raw | 0, true);
       return;
     }
     if (field.size === 1) {
       dv.setUint8(at, Math.trunc(value) & 0xff);
+      return;
+    }
+    if (field.base === 'float') {
+      dv.setFloat32(at, Number(value) || 0, true);
       return;
     }
     dv.setInt32(at, Math.trunc(value) | 0, true);
@@ -847,16 +1414,27 @@ export class Runtime {
       const scope = env.resolve(node.name);
       if (!scope) throw this._err(`assignment to undeclared identifier '${node.name}'`, node);
       const entry = scope.vars.get(node.name);
-      return new Ref(
+      const ref = new Ref(
         () => entry.value,
         (v) => {
           entry.value = v;
         },
       );
+      ref.type = entry.type || null;
+      return ref;
     }
     if (node.type === 'Member' || node.type === 'MemberPtr') return this._memberRef(node, env);
     if (node.type === 'Index') {
       const target = this._eval(node.array, env);
+      if (isView(target)) {
+        const raw = Math.trunc(this._eval(node.index, env));
+        const viewRef = new Ref(
+          () => this._viewRead(target, raw, node),
+          (v) => this._viewWrite(target, raw, v, node),
+        );
+        viewRef.type = target.arr.__float ? { base: 'float' } : null;
+        return viewRef;
+      }
       const i = this._resolveIndex(node, target, env);
       if (isPtr(target)) {
         const sub = this._ptrElem(target, i, node);
@@ -866,16 +1444,26 @@ export class Runtime {
         );
       }
       if (typeof target === 'string') throw this._err('cannot assign into a string literal', node);
-      return new Ref(
+      const elemRef = new Ref(
         () => target[i],
         (v) => {
-          target[i] = typeof v === 'number' ? Math.trunc(v) : v;
+          target[i] = typeof v === 'number' && !target.__float ? Math.trunc(v) : v;
         },
       );
+      // Tell the store whether this slot holds a double, so `series[0] = 1.5`
+      // keeps its fraction (the element check above would otherwise truncate).
+      elemRef.type = target.__float ? { base: 'float' } : null;
+      return elemRef;
     }
     if (node.type === 'Deref') {
       const pointer = this._eval(node.operand, env);
       if (pointer instanceof Ref) return pointer;
+      if (isView(pointer)) {
+        return new Ref(
+          () => this._viewRead(pointer, 0, node),
+          (v) => this._viewWrite(pointer, 0, v, node),
+        );
+      }
       if (isPtr(pointer)) {
         return new Ref(
           () => this._ptrRead(pointer, node),
@@ -898,14 +1486,39 @@ export class Runtime {
     }
     const a = this._eval(node.left, env);
     const b = this._eval(node.right, env);
-    return this._applyBinary(node.op, a, b, node);
+    const real = this._floatish(node.left, env) || this._floatish(node.right, env);
+    return this._applyBinary(node.op, a, b, node, real);
   }
 
-  _applyBinary(op, a, b, node) {
-    if (isPtr(a) || isPtr(b)) return this._ptrBinary(op, a, b, node);
+  _applyBinary(op, a, b, node, real = false) {
+    if (
+      isPtr(a) || isPtr(b) || isView(a) || isView(b) || isFnPtr(a) || isFnPtr(b) ||
+      Array.isArray(a) || Array.isArray(b)
+    ) {
+      return this._ptrBinary(op, a, b, node);
+    }
     if (op === '+') {
       if (typeof a === 'string' || typeof b === 'string') return String(a) + String(b);
-      return Math.trunc(a) + Math.trunc(b);
+      return real ? Number(a) + Number(b) : Math.trunc(a) + Math.trunc(b);
+    }
+    if (real && ['-', '*', '/', '%'].includes(op)) {
+      const rx = Number(a);
+      const ry = Number(b);
+      if ((op === '/' || op === '%') && ry === 0) {
+        throw this._err(op === '/' ? 'division by zero' : 'modulo by zero', node);
+      }
+      if (op === '/') return rx / ry;
+      if (op === '%') return rx % ry;
+      return op === '-' ? rx - ry : rx * ry;
+    }
+    if (real && ['<', '<=', '>', '>=', '==', '!='].includes(op)) {
+      const rx = Number(a);
+      const ry = Number(b);
+      if (op === '<') return rx < ry ? 1 : 0;
+      if (op === '<=') return rx <= ry ? 1 : 0;
+      if (op === '>') return rx > ry ? 1 : 0;
+      if (op === '>=') return rx >= ry ? 1 : 0;
+      return (op === '==' ? rx === ry : rx !== ry) ? 1 : 0;
     }
     const x = Math.trunc(a);
     const y = Math.trunc(b);
@@ -948,14 +1561,38 @@ export class Runtime {
   }
 
   _call(node, env) {
-    if (node.callee.type !== 'Ident') throw this._err('only named functions can be called', node);
-    const name = node.callee.name;
     const args = node.args.map((a) => this._eval(a, env));
-    const builtin = BUILTINS[name];
-    if (builtin) return builtin(args, this, node);
-    const fn = this.functions.get(name);
-    if (!fn) throw this._err(`call to undefined function '${name}'`, node);
-    return this._callFunction(fn, args);
+    if (node.callee.type === 'Ident') {
+      const name = node.callee.name;
+      const builtin = BUILTINS[name];
+      if (builtin) return builtin(args, this, node);
+      const fn = this.functions.get(name);
+      if (fn) return this._callFunction(fn, args);
+      // Same syntax, but the name may be a variable holding a function address.
+      const scope = env.resolve(name);
+      if (scope) return this._callFunction(this._resolveCallable(scope.vars.get(name).value, name, node), args);
+      throw this._err(`call to undefined function '${name}'`, node);
+    }
+    // `fp(x)`, `ops[i].fn(x)`, `(*fp)(x)`: the callee is an expression.
+    const callee = this._eval(node.callee, env);
+    return this._callFunction(this._resolveCallable(callee, null, node), args);
+  }
+
+  /** The function a callable value refers to, with a useful message if not. */
+  _resolveCallable(value, name, node) {
+    if (isFnPtr(value)) {
+      const named = fnPtrName(value);
+      const fn = this.functions.get(named);
+      if (!fn) throw this._err(`the function pointer names '${named}', which is not defined`, node);
+      return fn;
+    }
+    if (typeof value === 'string' && this.functions.has(value)) return this.functions.get(value);
+    throw this._err(
+      name
+        ? `'${name}' is not a function (it holds ${value === null ? 'null' : typeof value}) - a function pointer holds a function name`
+        : 'this expression is not a function - a function pointer holds a function name',
+      node,
+    );
   }
 
   _callFunction(fn, args) {
@@ -968,10 +1605,13 @@ export class Runtime {
       const env = new Env(this.globals);
       fn.params.forEach((p, i) => {
         let value = args[i] === undefined ? 0 : args[i];
-        if (typeof value === 'number') value = Math.trunc(value);
+        // Integer parameters truncate; `double` parameters keep the fraction.
+        if (typeof value === 'number' && p.type.base !== 'float') value = Math.trunc(value);
         // C passes structs by value: copy, so a callee cannot mutate the
-        // caller's object through a plain (non-pointer) parameter.
-        if (isStruct(value)) value = { ...value };
+        // caller's object through a plain (non-pointer) parameter. A union's
+        // bytes are copied too, so the two records stay independent.
+        if (isUnion(value)) value = this._cloneUnion(value);
+        else if (isStruct(value)) value = { ...value };
         env.declare(p.name, { type: p.type, value, isArray: !!p.isArray });
       });
       try {
@@ -1011,39 +1651,101 @@ function writeScalar(target, value, rt, node) {
   throw rt._err('scanf needs an address to write into - pass &var (or a pointer)', node);
 }
 
-function writeString(target, text, rt, node) {
+/**
+ * Where a C string function may write: a local array, a pointer into one, or
+ * `&x` on such an array. Returns the backing array and the first writable slot,
+ * or null when the destination is a heap pointer (handled separately).
+ */
+function bufferTarget(target) {
+  if (isView(target)) return { arr: target.arr, start: target.i };
+  if (Array.isArray(target)) return { arr: target, start: 0 };
   if (target instanceof Ref) {
     const current = target.get();
-    if (Array.isArray(current)) {
-      if (text.length + 1 > current.length) {
-        throw rt._err(`the destination buffer holds ${current.length} characters but '${text}' needs ${text.length + 1}`, node);
-      }
-      for (let i = 0; i < current.length; i += 1) current[i] = i < text.length ? text.charCodeAt(i) : 0;
-      return;
+    if (Array.isArray(current)) return { arr: current, start: 0 };
+    if (isView(current)) return { arr: current.arr, start: current.i };
+  }
+  return null;
+}
+
+function writeString(target, text, rt, node) {
+  const codes = charCodes(text);
+  const buf = bufferTarget(target);
+  if (buf) {
+    // `scanf("%s", word)` passes the char array itself, which decays to a
+    // pointer in C - write the characters and NUL-terminate. The rest of the
+    // buffer is zeroed so no stale characters survive a shorter write.
+    const room = buf.arr.length - buf.start;
+    if (codes.length + 1 > room) {
+      throw rt._err(`the destination buffer holds ${room} characters but '${text}' needs ${codes.length + 1}`, node);
     }
-    target.set(text);
+    for (let i = buf.start; i < buf.arr.length; i += 1) buf.arr[i] = 0;
+    for (let i = 0; i < codes.length; i += 1) buf.arr[buf.start + i] = codes[i];
     return;
   }
-  if (Array.isArray(target)) {
-    // `scanf("%s", word)` passes the char array itself, which decays to a
-    // pointer in C - write the characters and NUL-terminate.
-    if (text.length + 1 > target.length) {
-      throw rt._err(`the destination buffer holds ${target.length} characters but '${text}' needs ${text.length + 1}`, node);
-    }
-    for (let i = 0; i < target.length; i += 1) target[i] = i < text.length ? text.charCodeAt(i) : 0;
+  if (target instanceof Ref) {
+    target.set(text);
     return;
   }
   if (isPtr(target)) {
     const elem = target.elem;
     const capacity = Math.floor((target.size || 0) / elem);
-    if (text.length + 1 > capacity) {
-      throw rt._err(`the destination buffer holds ${capacity} characters but '${text}' needs ${text.length + 1}`, node);
+    if (codes.length + 1 > capacity) {
+      throw rt._err(`the destination buffer holds ${capacity} characters but '${text}' needs ${codes.length + 1}`, node);
     }
-    for (let i = 0; i < text.length; i += 1) rt._ptrWrite({ ...target, offset: target.offset + i * elem }, text.charCodeAt(i), node);
-    rt._ptrWrite({ ...target, offset: target.offset + text.length * elem }, 0, node);
+    for (let i = 0; i < codes.length; i += 1) rt._ptrWrite({ ...target, offset: target.offset + i * elem }, codes[i], node);
+    rt._ptrWrite({ ...target, offset: target.offset + codes.length * elem }, 0, node);
     return;
   }
   throw rt._err('a %s conversion needs a writable buffer (an array or a pointer)', node);
+}
+
+/**
+ * `strncpy` semantics exactly: copy at most `n` bytes, and when the source is
+ * shorter pad with NULs up to `n`. No implicit terminator when it is not.
+ */
+function writeBytes(target, text, n, rt, node) {
+  if (!Number.isFinite(n) || n < 0) throw rt._err(`strncpy needs a non-negative count, got ${n}`, node);
+  const codes = charCodes(text).slice(0, n);
+  while (codes.length < n) codes.push(0);
+  const buf = bufferTarget(target);
+  if (buf) {
+    const room = buf.arr.length - buf.start;
+    if (n > room) throw rt._err(`the destination buffer holds ${room} characters but ${n} are needed`, node);
+    for (let i = 0; i < n; i += 1) buf.arr[buf.start + i] = codes[i];
+    return;
+  }
+  if (isPtr(target)) {
+    const capacity = Math.floor((target.size || 0) / target.elem);
+    if (n > capacity) throw rt._err(`the destination buffer holds ${capacity} characters but ${n} are needed`, node);
+    for (let i = 0; i < n; i += 1) rt._ptrWrite({ ...target, offset: target.offset + i * target.elem }, codes[i], node);
+    return;
+  }
+  throw rt._err('strncpy needs a writable char buffer (an array or a pointer)', node);
+}
+
+/** Byte-wise string comparison, as <string.h> defines it. */
+function compareCStrings(a, b) {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i += 1) {
+    const d = (a.charCodeAt(i) & 0xff) - (b.charCodeAt(i) & 0xff);
+    if (d !== 0) return d;
+  }
+  if (a.length === b.length) return 0;
+  return a.length < b.length ? -1 : 1;
+}
+
+/**
+ * A pointer to `text[index]` inside whatever the caller passed in.
+ * A string literal is immutable, so the pointer to it is the remainder of the
+ * literal itself; an array or a view becomes a real (array, index) pointer, so
+ * writes through it land back in the caller's buffer.
+ */
+function offsetPointer(original, text, index) {
+  if (typeof original === 'string') return text.slice(index);
+  if (isView(original)) return makeView(original.arr, original.i + index);
+  if (Array.isArray(original)) return makeView(original, index);
+  if (isPtr(original)) return { ...original, offset: original.offset + index * original.elem };
+  return makePtr(0);
 }
 
 /**
@@ -1130,7 +1832,9 @@ const BUILTINS = {
   printf(args, rt) {
     const fmt = args.length ? rt._cStr(args[0]) : '';
     // Char arrays and char pointers print as text, not as '[object Object]'.
-    const rest = args.slice(1).map((a) => (Array.isArray(a) || isPtr(a) ? rt._cStr(a) : a));
+    const rest = args
+      .slice(1)
+      .map((a) => (Array.isArray(a) || isPtr(a) || isView(a) ? rt._cStr(a) : a));
     rt.onOutput(formatPrintf(fmt, rest));
     return fmt.length;
   },
@@ -1152,6 +1856,87 @@ const BUILTINS = {
   },
   strlen(args, rt) {
     return rt._cStr(args[0]).length;
+  },
+  // ------------------------------------------------------------ <string.h>
+  strcpy(args, rt, node) {
+    writeString(args[0], rt._cStr(args[1]), rt, node);
+    return args[0];
+  },
+  strncpy(args, rt, node) {
+    writeBytes(args[0], rt._cStr(args[1]), Math.trunc(Number(args[2]) || 0), rt, node);
+    return args[0];
+  },
+  strcat(args, rt, node) {
+    const joined = rt._cStr(args[0]) + rt._cStr(args[1]);
+    writeString(args[0], joined, rt, node);
+    return args[0];
+  },
+  strncat(args, rt, node) {
+    const n = Math.trunc(Number(args[2]) || 0);
+    const joined = rt._cStr(args[0]) + rt._cStr(args[1]).slice(0, Math.max(0, n));
+    writeString(args[0], joined, rt, node);
+    return args[0];
+  },
+  strcmp(args, rt) {
+    return compareCStrings(rt._cStr(args[0]), rt._cStr(args[1]));
+  },
+  strncmp(args, rt) {
+    const n = Math.max(0, Math.trunc(Number(args[2]) || 0));
+    return compareCStrings(rt._cStr(args[0]).slice(0, n), rt._cStr(args[1]).slice(0, n));
+  },
+  strchr(args, rt) {
+    const hay = rt._cStr(args[0]);
+    const at = hay.indexOf(String.fromCharCode(Math.trunc(Number(args[1]) || 0) & 0xff));
+    return at === -1 ? makePtr(0) : offsetPointer(args[0], hay, at);
+  },
+  strrchr(args, rt) {
+    const hay = rt._cStr(args[0]);
+    const needle = String.fromCharCode(Math.trunc(Number(args[1]) || 0) & 0xff);
+    const at = hay.lastIndexOf(needle);
+    return at === -1 ? makePtr(0) : offsetPointer(args[0], hay, at);
+  },
+  strstr(args, rt) {
+    const hay = rt._cStr(args[0]);
+    const at = hay.indexOf(rt._cStr(args[1]));
+    return at === -1 ? makePtr(0) : offsetPointer(args[0], hay, at);
+  },
+  // ------------------------------------------------------------- <ctype.h>
+  // The C functions below are classified by the C standard for the ASCII
+  // range; outside it they answer 0 rather than guessing a locale.
+  isdigit(args) {
+    const c = Math.trunc(Number(args[0]) || 0);
+    return c >= 48 && c <= 57 ? 1 : 0;
+  },
+  isalpha(args) {
+    const c = Math.trunc(Number(args[0]) || 0);
+    return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) ? 1 : 0;
+  },
+  isalnum(args) {
+    return BUILTINS.isalpha(args) || BUILTINS.isdigit(args) ? 1 : 0;
+  },
+  isspace(args) {
+    const c = Math.trunc(Number(args[0]) || 0);
+    return c === 32 || (c >= 9 && c <= 13) ? 1 : 0;
+  },
+  isupper(args) {
+    const c = Math.trunc(Number(args[0]) || 0);
+    return c >= 65 && c <= 90 ? 1 : 0;
+  },
+  islower(args) {
+    const c = Math.trunc(Number(args[0]) || 0);
+    return c >= 97 && c <= 122 ? 1 : 0;
+  },
+  ispunct(args) {
+    const c = Math.trunc(Number(args[0]) || 0);
+    return c >= 33 && c <= 126 && !BUILTINS.isalnum(args) ? 1 : 0;
+  },
+  toupper(args) {
+    const c = Math.trunc(Number(args[0]) || 0);
+    return c >= 97 && c <= 122 ? c - 32 : c;
+  },
+  tolower(args) {
+    const c = Math.trunc(Number(args[0]) || 0);
+    return c >= 65 && c <= 90 ? c + 32 : c;
   },
   atoi(args, rt) {
     const v = parseInt(rt._cStr(args[0]) || '0', 10);
@@ -1231,6 +2016,46 @@ const BUILTINS = {
     throw EXIT_OK;
   },
 };
+
+// -------------------------------------------------------------- <math.h>
+// Every function here works in double precision and marks the expression as
+// floating point, so `double r = sqrt(2);` keeps 1.4142135623730951 instead of
+// being truncated to 1 on the way into the variable.
+const MATH_FNS = {
+  sqrt: Math.sqrt,
+  cbrt: Math.cbrt,
+  pow: Math.pow,
+  fabs: Math.abs,
+  floor: Math.floor,
+  ceil: Math.ceil,
+  round: Math.round,
+  fmod: (a, b) => a % b,
+  fmin: Math.min,
+  fmax: Math.max,
+  hypot: Math.hypot,
+  exp: Math.exp,
+  log: Math.log,
+  log10: Math.log10,
+  log2: Math.log2,
+  sin: Math.sin,
+  cos: Math.cos,
+  tan: Math.tan,
+  asin: Math.asin,
+  acos: Math.acos,
+  atan: Math.atan,
+  atan2: Math.atan2,
+  sinh: Math.sinh,
+  cosh: Math.cosh,
+  tanh: Math.tanh,
+  trunc: Math.trunc,
+};
+
+for (const [name, fn] of Object.entries(MATH_FNS)) {
+  BUILTINS[name] = (args) => fn.apply(Math, args.map((a) => Number(a) || 0));
+}
+
+/** Builtins whose result is floating point (used by the float-expression test). */
+const FLOAT_BUILTINS = new Set(Object.keys(MATH_FNS));
 
 // ------------------------------------------------------------------ facade
 

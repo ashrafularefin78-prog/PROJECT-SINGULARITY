@@ -1,0 +1,22 @@
+// Local workerd verification of the deploy artifact.
+//
+// This file is NOT what deploys the site - the deployment artifact and its
+// manifest come from `python3 tools/build-site.py`, and the manifest that the
+// hosting uploads is `deploy.site.json` (repo root). This config exists so the
+// generated worker and the built assets can be exercised in workerd - the same
+// runtime Cloudflare runs - before anything is uploaded:
+//
+//   python3 tools/build-site.py
+//   node .tools/wrangler/node_modules/wrangler/bin/wrangler.js dev -c tools/site/wrangler.jsonc
+//
+// It points at build output, so it only works after a build (the output
+// directories are gitignored, and regenerating them is the build's job).
+{
+  "name": "project-singularity-site",
+  "main": "../../dist-site/worker.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "../../dist",
+    "binding": "ASSETS"
+  }
+}

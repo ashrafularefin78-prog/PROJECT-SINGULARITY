@@ -6,6 +6,7 @@
  * subset is built in), handles comments, and reports precise line/column
  * positions so the editor can underline errors exactly.
  */
+import { Preprocessor, joinContinuations } from './preprocess.js';
 
 export class CompileError extends Error {
   constructor(stage, message, line, col) {
@@ -21,7 +22,7 @@ export class CompileError extends Error {
 export const KEYWORDS = new Set([
   'int', 'char', 'void', 'long', 'short', 'unsigned', 'signed', 'float', 'double',
   'if', 'else', 'while', 'for', 'do', 'return', 'break', 'continue', 'sizeof', 'const',
-  'struct', 'static', 'switch', 'case', 'default',
+  'struct', 'union', 'typedef', 'static', 'switch', 'case', 'default',
   'size_t', 'ptrdiff_t', 'uint32_t', 'int32_t',
 ]);
 
@@ -53,9 +54,31 @@ export function tokenize(source) {
   let i = 0;
   let line = 1;
   let col = 1;
+  const pre = new Preprocessor();
 
-  const push = (type, value, startLine, startCol) =>
-    tokens.push({ type, value, line: startLine, col: startCol });
+  /**
+   * Splice the tokens of a macro body in place of the name that was used.
+   * C expansion is recursive but never self-recursive; the `blocked` set is
+   * what stops `#define A A` from looping, and positions are re-pointed at the
+   * use site so a diagnostic underlines the code the user actually wrote.
+   */
+  const expandMacro = (name, atLine, atCol, blocked, depth) => {
+    if (depth > 16) throw new CompileError('Preprocess', `macro '${name}' nests too deeply`, atLine, atCol);
+    const bodyTokens = tokenize(pre.body(name));
+    const out = [];
+    for (const t of bodyTokens) {
+      if (t.type === 'eof') continue;
+      if (t.type === 'id' && pre.macros.has(t.value) && !blocked.has(t.value)) {
+        out.push(...expandMacro(t.value, atLine, atCol, new Set([...blocked, t.value]), depth + 1));
+        continue;
+      }
+      out.push({ ...t, line: atLine, col: atCol });
+    }
+    return out;
+  };
+
+  const push = (type, value, startLine, startCol, extra) =>
+    tokens.push({ type, value, line: startLine, col: startCol, ...(extra || {}) });
 
   while (i < n) {
     const c = source[i];
@@ -73,8 +96,19 @@ export function tokenize(source) {
       col += 1;
       continue;
     }
-    // preprocessor directive: consume to end of line
-    if (c === '#' && [...tokens].length >= 0) {
+    // A preprocessor directive runs to the end of the (possibly continued)
+    // line, and is interpreted rather than discarded: #define bodies, #ifdef
+    // nesting and #error all take effect here.
+    if (c === '#') {
+      const { text, end } = joinContinuations(source, i, n);
+      pre.directive(text, line, col);
+      col += end - i;
+      i = end;
+      continue;
+    }
+    // Outside any active #if branch: skip the line, but keep parsing directives
+    // so the conditional nesting stays balanced.
+    if (!pre.active) {
       while (i < n && source[i] !== '\n') {
         i += 1;
         col += 1;
@@ -135,13 +169,44 @@ export function tokenize(source) {
           i += 1;
           col += 1;
         }
+        // Exponent, so `1e3`, `2.5e-4` and `1E+10` are one token: without this
+        // the lexer stopped at the 'e' and read a variable named `e3`.
+        if ((source[i] === 'e' || source[i] === 'E') && /[0-9+-]/.test(source[i + 1] || '')) {
+          let j = i + 1;
+          if (source[j] === '+' || source[j] === '-') j += 1;
+          if (isDigit(source[j] || '')) {
+            while (i < j) {
+              text += source[i];
+              i += 1;
+              col += 1;
+            }
+            while (i < n && isDigit(source[i])) {
+              text += source[i];
+              i += 1;
+              col += 1;
+            }
+          }
+        }
       }
-      // integer suffixes
+      // A literal is floating-point if it has a fraction, an exponent or an
+      // explicit f/F suffix. The runtime needs to know: `7 / 2` is 3, while
+      // `7.0 / 2` is 3.5.
+      let isFloat = /[.eE]/.test(text);
+      // integer / float suffixes
       while (i < n && /[uUlLfF]/.test(source[i])) {
+        if (source[i] === 'f' || source[i] === 'F') isFloat = true;
         i += 1;
         col += 1;
       }
-      const value = text.includes('.') ? parseFloat(text) : parseInt(text, text.startsWith('0x') || text.startsWith('0X') ? 16 : 10);
+      // `parseInt` would stop at the 'e' of `2e3` and quietly return 2, so an
+      // exponent or a fraction means parseFloat; only plain integers use
+      // parseInt (which is what keeps `010` and `0x10` honest).
+      const isHex = /^0[xX]/.test(text);
+      const value = isHex
+        ? parseInt(text, 16)
+        : /[.eE]/.test(text)
+          ? parseFloat(text)
+          : parseInt(text, 10);
       if (Number.isNaN(value)) throw new CompileError('Lex', `invalid number literal '${text}'`, startLine, startCol);
       // A literal long enough to overflow a double (a 400-digit paste, say)
       // would otherwise become Infinity and flow into arithmetic as a silent
@@ -149,7 +214,7 @@ export function tokenize(source) {
       if (!Number.isFinite(value)) {
         throw new CompileError('Lex', `number literal '${text.slice(0, 20)}${text.length > 20 ? '…' : ''}' is out of range`, startLine, startCol);
       }
-      push('num', value, startLine, startCol);
+      push('num', value, startLine, startCol, { float: isFloat });
       continue;
     }
     // identifier / keyword
@@ -161,6 +226,10 @@ export function tokenize(source) {
         text += source[i];
         i += 1;
         col += 1;
+      }
+      if (pre.has(text)) {
+        tokens.push(...expandMacro(text, startLine, startCol, new Set([text]), 0));
+        continue;
       }
       push(KEYWORDS.has(text) ? 'kw' : 'id', text, startLine, startCol);
       continue;

@@ -22,15 +22,25 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: geolocation=(), camera=(), microphone=()
-  Cache-Control: no-store
 
+# Deliberately NO `Cache-Control` on `/*`, and no extension-glob rules either
+# (`/*.css`, `/*.js`). Both were tried against the live host and measured:
+#
+#   * a catch-all `no-store` combined with a per-type `max-age` is delivered as
+#     the self-cancelling `no-store, public, max-age=300` on Cloudflare's asset
+#     layer, which APPENDS matching rules where Netlify overrides (last match
+#     wins) - so the cacheable intent was silently dropped;
+#   * partial-segment globs like `/*.css` do not match at all on that layer,
+#     while `/*` and exact paths do.
+#
+# What is left is the common denominator both hosts honour. Everything except
+# the worker falls to the host default, `public, max-age=0, must-revalidate` -
+# which is the right answer for this app anyway: its asset names carry no
+# content hash, so revalidate-always is how a deploy never serves a stale file.
+# The service worker is the one exception, and its rule is an exact path.
+
+# The service worker is deliberately revalidated on every load, so a new deploy
+# is picked up on the next visit rather than up to five minutes later. Verified
+# live: this exact-path rule is delivered (`Cache-Control: no-cache`).
 /sw.js
   Cache-Control: no-cache
-
-# The shell is content-addressed by the service worker version, so assets can
-# be cached briefly by the CDN without ever pinning a stale deploy.
-/*.css
-  Cache-Control: public, max-age=300
-
-/*.js
-  Cache-Control: public, max-age=300

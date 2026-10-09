@@ -1,64 +1,86 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 330" width="780" height="330" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 452" width="780" height="452" role="img" aria-labelledby="title desc">
   <title id="title">Performance budget: measured values against the brief's targets</title>
-  <desc id="desc">Horizontal bars compare the measured value with the brief's target for each budget row. Payload and frame rate are met under the tested conditions; paint and interaction timings were measured unthrottled so they are shown as unmeasured; 10,000 concurrent users and node-kill chaos were not run at all.</desc>
+  <desc id="desc">One row per budget row. Each bar is the measured value as a share of the brief's target, so the right-hand end of every track is the target itself: a bar that reaches it meets the row, a bar that stops short falls short, and a bar that would overrun it is clamped and labelled with its ratio. Two rows are grey and dashed because they were not run at all. Every number comes from docs/LOAD_CHAOS.md, and two rows are failures that are reported as failures: the throttled Largest Contentful Paint and the mobile Lighthouse Performance score. Frame rate is met at the defaults and two frames short at maximum settings. Columns are: row, value, and target.</desc>
   <style>
     .bg { fill: #0d131c; }
-    .grid { stroke: #223042; stroke-width: 1; }
     .label { fill: #c9d4e2; font: 12px ui-monospace, monospace; }
     .value { fill: #eaf1f8; font: 11px ui-monospace, monospace; }
     .small { fill: #7f8ea3; font: 10px ui-monospace, monospace; }
     .track { fill: #16202c; }
     .met { fill: #57d68d; }
     .unmet { fill: #f7b955; }
-    .unmeasured { fill: #4a5b70; }
+    .unmeasured { fill: #33404f; }
     .none { fill: none; stroke: #4a5b70; stroke-dasharray: 4 3; }
+    .axis { stroke: #223042; stroke-width: 1; }
   </style>
-  <rect class="bg" x="0" y="0" width="780" height="330" rx="10" />
+  <rect class="bg" x="0" y="0" width="780" height="452" rx="10" />
   <text class="label" x="20" y="26">Measured value as a share of the brief's target</text>
-  <text class="small" x="20" y="44">Bars are value/target. Rows marked unmeasured were taken under the wrong conditions, or not at all.</text>
-  <line class="grid" x1="330" y1="58" x2="330" y2="318" />
-  <text class="small" x="330" y="72" text-anchor="middle">target</text>
+  <text class="small" x="20" y="44">The right-hand end of each track is the target. Bars are clamped at the target; the ratio beside them is the real one.</text>
+  <line class="axis" x1="20" y1="56" x2="768" y2="56" />
 
-  <!-- Initial JS payload: 73.3 KiB vs 170 KB (met) -->
-  <text class="label" x="20" y="96">Initial JS payload</text>
-  <rect class="track" x="330" y="84" width="420" height="16" />
-  <rect class="met" x="330" y="84" width="181" height="16" />
-  <text class="value" x="519" y="96">73.3 KiB gzip of 170 KB - met</text>
+  <!-- Initial JS payload: 112.9 KiB gzip vs 170 KB (met, 66%) -->
+  <text class="label" x="20" y="82">Initial JS payload (gzip)</text>
+  <text class="value" x="768" y="82" text-anchor="end">112.9 KiB of 170 KB - met</text>
+  <rect class="track" x="20" y="88" width="748" height="9" />
+  <rect class="met" x="20" y="88" width="497" height="9" />
 
-  <!-- 3D FPS default: 60 of 60 (met) -->
-  <text class="label" x="20" y="128">3D frame rate, defaults</text>
-  <rect class="track" x="330" y="116" width="420" height="16" />
-  <rect class="met" x="330" y="116" width="420" height="16" />
-  <text class="value" x="20" y="143">60 FPS at 20k instances + 150k particles - met</text>
+  <!-- Throttled LCP: 4705 ms vs 1500 ms (not met, 3.1x) -->
+  <text class="label" x="20" y="114">Largest Contentful Paint, Slow 4G + 4x CPU</text>
+  <text class="value" x="768" y="114" text-anchor="end">4,705 ms of 1,500 ms - not met (3.1x)</text>
+  <rect class="track" x="20" y="120" width="748" height="9" />
+  <rect class="unmet" x="20" y="120" width="748" height="9" />
 
-  <!-- 3D FPS max: 58 of 60 (just under) -->
-  <text class="label" x="20" y="168">3D frame rate, maximum</text>
-  <rect class="track" x="330" y="156" width="420" height="16" />
-  <rect class="unmet" x="330" y="156" width="406" height="16" />
-  <text class="value" x="744" y="168">58 of 60 FPS at 100k + 1M</text>
+  <!-- Lighthouse mobile: 80 vs 95 (not met, 84%) -->
+  <text class="label" x="20" y="146">Lighthouse, mobile Performance</text>
+  <text class="value" x="768" y="146" text-anchor="end">80 of 95 - not met</text>
+  <rect class="track" x="20" y="152" width="748" height="9" />
+  <rect class="unmet" x="20" y="152" width="630" height="9" />
 
-  <!-- Mesh p95: 67 ms of 200 ms (local approximation) -->
-  <text class="label" x="20" y="200">Mesh delivery p95</text>
-  <rect class="track" x="330" y="188" width="420" height="16" />
-  <rect class="unmeasured" x="330" y="188" width="141" height="16" />
-  <text class="value" x="479" y="200">67 ms of the 200 ms p95 target, 10 local peers</text>
+  <!-- Lighthouse mobile: a11y/bp/seo 100/96/100 vs 95 (met) -->
+  <text class="label" x="20" y="178">Lighthouse, mobile Accessibility / Best practices / SEO</text>
+  <text class="value" x="768" y="178" text-anchor="end">100 / 96 / 100 of 95 - met</text>
+  <rect class="track" x="20" y="184" width="748" height="9" />
+  <rect class="met" x="20" y="184" width="748" height="9" />
 
-  <!-- LCP: 711 ms of 1500 ms, but unthrottled -->
-  <text class="label" x="20" y="232">Largest Contentful Paint</text>
-  <rect class="track" x="330" y="220" width="420" height="16" />
-  <rect class="unmeasured" x="330" y="220" width="199" height="16" />
-  <text class="value" x="537" y="232">711 ms of 1.5 s, but unthrottled</text>
+  <!-- Lighthouse desktop: 98/100/100/100 vs 95 (met) -->
+  <text class="label" x="20" y="210">Lighthouse, desktop (all four categories)</text>
+  <text class="value" x="768" y="210" text-anchor="end">98 / 100 / 100 / 100 of 95 - met</text>
+  <rect class="track" x="20" y="216" width="748" height="9" />
+  <rect class="met" x="20" y="216" width="748" height="9" />
 
-  <!-- INP: 32 ms of 100 ms, but without 50 users -->
-  <text class="label" x="20" y="264">Interaction to Next Paint</text>
-  <rect class="track" x="330" y="252" width="420" height="16" />
-  <rect class="unmeasured" x="330" y="252" width="134" height="16" />
-  <text class="value" x="472" y="264">32 ms of 100 ms, but no 50-user session</text>
+  <!-- 3D FPS at defaults: 60 of 60 (met) -->
+  <text class="label" x="20" y="242">3D frame rate, defaults (20k instances, 150k particles)</text>
+  <text class="value" x="768" y="242" text-anchor="end">60 of 60 FPS - met</text>
+  <rect class="track" x="20" y="248" width="748" height="9" />
+  <rect class="met" x="20" y="248" width="748" height="9" />
 
-  <!-- Not run at all -->
-  <text class="label" x="20" y="296">10k users / chaos / 1-hour soak</text>
-  <rect class="none" x="330" y="284" width="420" height="16" />
-  <text class="value" x="744" y="296">not run</text>
+  <!-- 3D FPS at maximum: 58 of 60 (short) -->
+  <text class="label" x="20" y="274">3D frame rate, maximum (100k instances, 1M particles)</text>
+  <text class="value" x="768" y="274" text-anchor="end">58 of 60 FPS - 2 short</text>
+  <rect class="track" x="20" y="280" width="748" height="9" />
+  <rect class="unmet" x="20" y="280" width="723" height="9" />
 
-  <text class="small" x="20" y="320">Raw numbers and method: docs/LOAD_CHAOS.md</text>
+  <!-- Memory after the soak: 1.51 MiB vs 400 MB (met) -->
+  <text class="label" x="20" y="306">Memory after the soak, per the minutes actually run</text>
+  <text class="value" x="768" y="306" text-anchor="end">1.5 MiB of 400 MB - met</text>
+  <rect class="track" x="20" y="312" width="748" height="9" />
+  <rect class="met" x="20" y="312" width="3" height="9" />
+
+  <!-- Durability: reload 0 ms after an edit (met) -->
+  <text class="label" x="20" y="338">Durability: reload immediately after an edit</text>
+  <text class="value" x="768" y="338" text-anchor="end">edit survived at 0 ms - met</text>
+  <rect class="track" x="20" y="344" width="748" height="9" />
+  <rect class="met" x="20" y="344" width="748" height="9" />
+
+  <!-- Concurrent users: not run -->
+  <text class="label" x="20" y="370">10,000 concurrent users, p95 under 200 ms</text>
+  <text class="value" x="768" y="370" text-anchor="end">not measured - no distributed rig, no app server</text>
+  <rect class="none" x="20" y="376" width="748" height="9" />
+
+  <!-- Chaos: not run -->
+  <text class="label" x="20" y="402">Kill any server node, lose zero data</text>
+  <text class="value" x="768" y="402" text-anchor="end">not measured - no server tier to kill</text>
+  <rect class="none" x="20" y="408" width="748" height="9" />
+
+  <text class="small" x="20" y="432">Payload, paint and frame rate were measured; the two grey rows were not run and are named as gaps rather than estimated.</text>
 </svg>

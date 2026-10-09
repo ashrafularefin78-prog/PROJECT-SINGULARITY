@@ -26,13 +26,21 @@ const COMPOUND = new Set(['+=', '-=', '*=', '/=', '%=']);
 const normalizeType = (word) => {
   if (word === 'char') return 'char';
   if (word === 'void') return 'void';
-  return 'int'; // int, long, short, unsigned, signed, float, double
+  // `float`/`double` keep their identity: the runtime stores a fractional
+  // value in them and truncates everything else, so `7 / 2` stays 3 while
+  // `7.0 / 2` is 3.5.
+  if (word === 'float' || word === 'double') return 'float';
+  return 'int'; // int, long, short, unsigned, signed
 };
 
 class Parser {
   constructor(tokens) {
     this.toks = tokens;
     this.pos = 0;
+    /** Named types introduced by `typedef`, visible from that point on. */
+    this.typedefs = new Map();
+    this.anonCount = 0;
+    this.unnamedCount = 0;
   }
 
   peek(k = 0) {
@@ -69,8 +77,20 @@ class Parser {
 
   isTypeStart() {
     const t = this.peek();
+    if (t.type === 'id') return this.typedefs.has(t.value);
     if (t.type !== 'kw') return false;
-    return TYPE_KEYWORDS.has(t.value) || t.value === 'struct';
+    return (
+      TYPE_KEYWORDS.has(t.value) ||
+      t.value === 'struct' ||
+      t.value === 'union' ||
+      t.value === 'typedef'
+    );
+  }
+
+  /** True when the next token is a record tag (`struct` or `union`). */
+  atTag(k = 0) {
+    const t = this.peek(k);
+    return t.type === 'kw' && (t.value === 'struct' || t.value === 'union');
   }
 
   /**
@@ -82,20 +102,48 @@ class Parser {
   parseType() {
     if (!this.isTypeStart()) this.fail('expected a type name');
     const start = this.peek();
+    // A typedef name stands for its type wherever a type is expected.
+    if (start.type === 'id') {
+      this.pos += 1;
+      const stored = this.typedefs.get(start.value);
+      let ptr = stored.ptr || 0;
+      while (this.at('op', '*')) {
+        ptr += 1;
+        this.pos += 1;
+      }
+      return {
+        base: stored.base,
+        ptr,
+        structName: stored.structName || null,
+        structDef: null,
+        arraySize: stored.arraySize || null,
+        fnPtr: stored.fnPtr || null,
+        line: start.line,
+      };
+    }
     let base = null;
     let structName = null;
     let structDef = null;
     while (
       this.at('kw') &&
-      (TYPE_KEYWORDS.has(this.peek().value) || this.peek().value === 'struct')
+      (TYPE_KEYWORDS.has(this.peek().value) || this.atTag())
     ) {
       const w = this.peek().value;
-      if (w === 'struct') {
+      if (w === 'struct' || w === 'union') {
         this.pos += 1;
-        const nameTok = this.expect('id', undefined, 'a struct name');
+        let nameTok = this.at('id') ? this.eat('id') : null;
+        if (!nameTok) {
+          // `struct { int x; } o;` - an untagged record gets a private name, so
+          // the layout machinery can still refer to it.
+          if (!this.at('op', '{')) this.fail(`expected a ${w} name`);
+          this.anonCount += 1;
+          nameTok = { value: `__anon${this.anonCount}`, line: this.peek().line };
+        }
         structName = nameTok.value;
         base = 'struct';
-        if (this.at('op', '{')) structDef = this.parseStructFields(nameTok);
+        if (this.at('op', '{')) {
+          structDef = { ...this.parseStructFields(nameTok), kind: w === 'union' ? 'union' : 'struct' };
+        }
         continue;
       }
       if (w !== 'const' && w !== 'static') base = normalizeType(w);
@@ -109,14 +157,84 @@ class Parser {
     return { base: base || 'int', ptr, structName, structDef, line: start.line };
   }
 
-  /** `{ int x; struct Point inner; char name[8]; ... }` */
+  /**
+   * `typedef int Length;` / `typedef struct Node *NodePtr;`
+   * / `typedef struct { int x; } Point;`
+   *
+   * The name is recorded in this parser and stands for the type from that point
+   * on - which is the whole observable behaviour of a typedef in one
+   * translation unit.
+   */
+  parseTypedef() {
+    const kw = this.expect('kw', 'typedef');
+    const type = this.parseType();
+    do {
+      // `typedef int (*BinOp)(int, int);` - a name for a function pointer type.
+      if (this.at('op', '(') && this.at('op', '*', 1)) {
+        this.pos += 2;
+        const fnName = this.expect('id', undefined, 'a typedef name');
+        this.expect('op', ')');
+        const { params } = this.parseParamList();
+        this.typedefs.set(fnName.value, {
+          base: 'int',
+          ptr: (type.ptr || 0) + 1,
+          structName: null,
+          fnPtr: params,
+          arraySize: null,
+          line: kw.line,
+        });
+        continue;
+      }
+      let ptr = 0;
+      while (this.at('op', '*')) {
+        ptr += 1;
+        this.pos += 1;
+      }
+      const nameTok = this.expect('id', undefined, 'a typedef name');
+      let arraySize = null;
+      if (this.eat('op', '[')) {
+        if (!this.at('op', ']')) arraySize = this.parseExpression();
+        this.expect('op', ']');
+      }
+      this.typedefs.set(nameTok.value, {
+        base: type.base,
+        ptr: (type.ptr || 0) + ptr,
+        structName: type.structName || null,
+        fnPtr: type.fnPtr || null,
+        arraySize,
+        line: kw.line,
+      });
+    } while (this.eat('op', ','));
+    this.expect('op', ';');
+    return { structDef: type.structDef || null, line: kw.line };
+  }
+
+  /** `{ int x; struct Point inner; char name[8]; }` or a union body. */
   parseStructFields(nameTok) {
     this.expect('op', '{');
     const fields = [];
+    const nested = [];
     while (!this.at('op', '}')) {
       if (this.at('eof')) this.fail('unterminated struct: expected "}"', nameTok);
       const fieldType = this.parseType();
+      // A record defined inline is still a type of its own: `union T { struct { int a; } p; };`
+      if (fieldType.structDef) nested.push(fieldType.structDef);
       if (this.eat('op', ';')) continue; // tolerate a stray semicolon
+      // `int (*fn)(int, int);` - a member that is itself a function pointer.
+      if (this.at('op', '(') && this.at('op', '*', 1)) {
+        this.pos += 2;
+        const fnName = this.expect('id', undefined, 'a field name');
+        this.expect('op', ')');
+        const { params } = this.parseParamList();
+        this.expect('op', ';');
+        fields.push({
+          name: fnName.value,
+          type: { ...fieldType, ptr: (fieldType.ptr || 0) + 1, fnPtr: params, base: 'int' },
+          array: false,
+          dims: null,
+        });
+        continue;
+      }
       do {
         let ptr = 0;
         while (this.at('op', '*')) {
@@ -125,19 +243,34 @@ class Parser {
         }
         const name = this.expect('id', undefined, 'a field name');
         let array = false;
+        let size = null;
         if (this.eat('op', '[')) {
-          if (!this.at('op', ']')) this.parseExpression();
+          if (!this.at('op', ']')) size = this.parseExpression();
           this.expect('op', ']');
           array = true;
         }
+        // A member array with more than one dimension: `int grid[2][3];`
+        const extraDims = [];
+        while (this.at('op', '[')) {
+          this.pos += 1;
+          const size = this.at('op', ']') ? null : this.parseExpression();
+          this.expect('op', ']');
+          extraDims.push(size);
+        }
         // parseType already consumed any `*` directly after the type name, so
         // add the ones that came after it (`struct Node **links`).
-        fields.push({ name: name.value, type: { ...fieldType, ptr: fieldType.ptr + ptr }, array });
+        fields.push({
+          name: name.value,
+          type: { ...fieldType, ptr: fieldType.ptr + ptr },
+          array,
+          size,
+          dims: extraDims.length ? extraDims : null,
+        });
       } while (this.eat('op', ','));
       this.expect('op', ';');
     }
     this.expect('op', '}');
-    return { name: nameTok.value, fields, line: nameTok.line };
+    return { name: nameTok.value, fields, nested, line: nameTok.line };
   }
 
   parseProgram() {
@@ -146,8 +279,14 @@ class Parser {
     const structs = [];
     while (!this.at('eof')) {
       if (!this.isTypeStart()) this.fail(`unexpected '${this.peek().value}' at top level`);
+      // `typedef unsigned int U32;` - a named type, not a declaration.
+      if (this.at('kw', 'typedef')) {
+        const info = this.parseTypedef();
+        if (info.structDef) structs.push(info.structDef);
+        continue;
+      }
       // `struct Point { int x; int y; };` - a definition with no declarator.
-      if (this.at('kw', 'struct') && this.at('id', undefined, 1) && this.at('op', '{', 2)) {
+      if (this.atTag() && this.at('id', undefined, 1) && this.at('op', '{', 2)) {
         const defType = this.parseType();
         if (defType.structDef) structs.push(defType.structDef);
         if (this.eat('op', ';')) continue;
@@ -164,7 +303,7 @@ class Parser {
       if (this.at('id') && this.at('op', '(', 1)) {
         funcs.push(this.parseFunction(type));
       } else {
-        globals.push({ type: 'VarDecl', declType: type, decls: this.parseDeclarators(), line: type.line });
+        globals.push({ type: 'VarDecl', declType: type, decls: this.parseDeclarators(type), line: type.line });
       }
     }
     return { type: 'Program', funcs, globals, structs };
@@ -172,25 +311,72 @@ class Parser {
 
   parseFunction(retType) {
     const nameTok = this.expect('id', undefined, 'a function name');
+    const { params } = this.parseParamList();
+    const body = this.parseBlock();
+    return { type: 'FuncDecl', name: nameTok.value, retType, params, body, line: nameTok.line };
+  }
+
+  /**
+   * A parameter list, including the two C shapes that are not plain variables:
+   * an array parameter (`int a[]`, `char grid[][3]`) and a callback
+   * (`int (*f)(int, int)`, and the `int f(int, int)` form, which C adjusts to
+   * a pointer to function exactly the same way).
+   */
+  /** A stable synthetic name for a parameter the source never named. */
+  unnamed(line) {
+    this.unnamedCount += 1;
+    return { value: `__unnamed${this.unnamedCount}`, line: line || 1 };
+  }
+
+  parseParamList() {
     this.expect('op', '(');
     const params = [];
     if (this.at('kw', 'void') && this.at('op', ')', 1)) {
       this.pos += 1; // `f(void)` is idiomatic C for "no parameters"
-    } else if (!this.at('op', ')')) {
+      this.expect('op', ')');
+      return { params };
+    }
+    if (!this.at('op', ')')) {
       do {
-        const ptype = this.parseType();
-        const pname = this.expect('id', undefined, 'a parameter name');
+        let ptype = this.parseType();
+        // `int (*cb)(int, int)`
+        if (this.at('op', '(') && this.at('op', '*', 1)) {
+          this.pos += 2;
+          const pname = this.expect('id', undefined, 'a parameter name');
+          this.expect('op', ')');
+          const inner = this.parseParamList();
+          ptype = { ...ptype, ptr: (ptype.ptr || 0) + 1, fnPtr: inner.params, base: 'int' };
+          params.push({ type: ptype, name: pname.value, isArray: false, line: pname.line });
+          continue;
+        }
+        const pname = this.at('id') ? this.eat('id') : null;
         let isArray = false;
         if (this.eat('op', '[')) {
-          this.eat('op', ']');
+          if (!this.at('op', ']')) this.parseExpression();
+          this.expect('op', ']');
           isArray = true;
+          while (this.eat('op', '[')) {
+            if (!this.at('op', ']')) this.parseExpression();
+            this.expect('op', ']');
+          }
         }
-        params.push({ type: ptype, name: pname.value, isArray, line: pname.line });
+        // `int cb(int, int)`: a function-typed parameter, which C treats as a
+        // pointer to that function.
+        if (this.at('op', '(')) {
+          const inner = this.parseParamList();
+          const named = pname || this.unnamed(peekTokenLine(this));
+          ptype = { ...ptype, ptr: (ptype.ptr || 0) + 1, fnPtr: inner.params, base: 'int' };
+          params.push({ type: ptype, name: named.value, isArray: false, line: named.line });
+          continue;
+        }
+        // A parameter may be unnamed - `int combine(int, int)` is a type, and
+        // `void log(int)` is legal C. It simply cannot be referred to.
+        const named = pname || this.unnamed(this.peek().line);
+        params.push({ type: ptype, name: named.value, isArray, line: named.line });
       } while (this.eat('op', ','));
     }
     this.expect('op', ')');
-    const body = this.parseBlock();
-    return { type: 'FuncDecl', name: nameTok.value, retType, params, body, line: nameTok.line };
+    return { params };
   }
 
   parseBlock() {
@@ -206,6 +392,8 @@ class Parser {
 
   parseStatement() {
     const t = this.peek();
+    // A statement can begin with a typedef name: `Length n = 5;`
+    if (t.type === 'id' && this.typedefs.has(t.value)) return this.parseDeclStatement();
     if (t.type === 'kw') {
       if (TYPE_KEYWORDS.has(t.value)) return this.parseDeclStatement();
       if (t.value === 'if') return this.parseIf();
@@ -218,7 +406,14 @@ class Parser {
         this.expect('op', ';');
         return { type: 'Return', value, line: t.line };
       }
-      if (t.value === 'struct') return this.parseStructStatement();
+      if (t.value === 'struct' || t.value === 'union') return this.parseStructStatement();
+      if (t.value === 'typedef') {
+        // A local typedef still has to register the record it defines.
+        const info = this.parseTypedef();
+        return info.structDef
+          ? { type: 'StructDef', defs: [info.structDef], line: t.line }
+          : { type: 'Empty', line: t.line };
+      }
       if (t.value === 'switch') return this.parseSwitch();
       if (t.value === 'do') return this.parseDoWhile();
       if (t.value === 'break') {
@@ -252,7 +447,7 @@ class Parser {
     return {
       type: 'VarDecl',
       declType: type,
-      decls: this.parseDeclarators(),
+      decls: this.parseDeclarators(type),
       line: type.line,
     };
   }
@@ -262,32 +457,72 @@ class Parser {
     return {
       type: 'VarDecl',
       declType: type,
-      decls: this.parseDeclarators(),
+      decls: this.parseDeclarators(type),
       line: this.toks[Math.max(0, this.pos - 1)].line,
     };
   }
 
-  parseDeclarators() {
+  parseDeclarators(baseType = null) {
     const decls = [];
+    // A typedef may carry an array size (`typedef int Row[4];`): a declarator
+    // with no brackets of its own is an array of that size.
+    const typedefArray = baseType && baseType.arraySize ? baseType.arraySize : null;
     do {
       let ptr = 0;
+      // `int (*fp)(int, int) = add;` - a variable that holds a function.
+      if (this.at('op', '(') && this.at('op', '*', 1)) {
+        this.pos += 2;
+        const fnName = this.expect('id', undefined, 'a variable name');
+        this.expect('op', ')');
+        const { params } = this.parseParamList();
+        let fnInit = null;
+        if (this.eat('op', '=')) {
+          fnInit = this.at('op', '{') ? this.parseInitList() : this.parseExpression();
+        }
+        decls.push({
+          name: fnName.value,
+          array: false,
+          size: null,
+          dims: null,
+          init: fnInit,
+          ptr: 1,
+          fnPtr: params,
+          line: fnName.line,
+        });
+        continue;
+      }
       while (this.at('op', '*')) {
         ptr += 1;
         this.pos += 1;
       }
       const nameTok = this.expect('id', undefined, 'a variable name');
       let array = false;
-      let size = null;
       let init = null;
-      if (this.eat('op', '[')) {
-        if (!this.at('op', ']')) size = this.parseExpression();
+      // One or more dimensions: `int m[2][3];`
+      const dims = [];
+      while (this.at('op', '[')) {
+        this.pos += 1;
+        dims.push(this.at('op', ']') ? null : this.parseExpression());
         this.expect('op', ']');
+        array = true;
+      }
+      if (!dims.length && typedefArray) {
+        dims.push(typedefArray);
         array = true;
       }
       if (this.eat('op', '=')) {
         init = this.at('op', '{') ? this.parseInitList() : this.parseExpression();
       }
-      decls.push({ name: nameTok.value, array, size, init, ptr, line: nameTok.line });
+      decls.push({
+        name: nameTok.value,
+        array,
+        size: dims.length ? dims[0] : null,
+        dims: dims.length > 1 ? dims : null,
+        init,
+        ptr,
+        fnPtr: null,
+        line: nameTok.line,
+      });
     } while (this.eat('op', ','));
     this.expect('op', ';');
     return decls;
@@ -435,11 +670,15 @@ class Parser {
     return left;
   }
 
-  /** True when the next '(' begins a cast such as `(int)` or `(struct Node *)`. */
+  /**
+   * True when the next '(' begins a cast such as `(int)`, `(struct Node *)` or
+   * `(Point *)` for a typedef'd name.
+   */
   isCastStart() {
     if (!this.at('op', '(')) return false;
     const t = this.peek(1);
-    return t.type === 'kw' && (TYPE_KEYWORDS.has(t.value) || t.value === 'struct');
+    if (t.type === 'id') return this.typedefs.has(t.value);
+    return t.type === 'kw' && (TYPE_KEYWORDS.has(t.value) || t.value === 'struct' || t.value === 'union');
   }
 
   parseUnary() {
@@ -528,7 +767,7 @@ class Parser {
     const t = this.peek();
     if (t.type === 'num') {
       this.pos += 1;
-      return { type: 'Num', value: t.value, line: t.line };
+      return { type: 'Num', value: t.value, line: t.line, isFloat: !!t.float };
     }
     if (t.type === 'str') {
       this.pos += 1;
@@ -548,6 +787,8 @@ class Parser {
     return null;
   }
 }
+
+const peekTokenLine = (parser) => parser.peek().line;
 
 export function parse(source) {
   const tokens = Array.isArray(source) ? source : tokenize(source);

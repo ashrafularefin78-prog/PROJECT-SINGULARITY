@@ -1,0 +1,52 @@
+{
+  "measuredAt": "2026-10-08T19:33:16.728Z",
+  "conditions": {
+    "viewport": "412x915 @2.625 (mobile)",
+    "throttled": "CDP Slow 4G: 150 ms RTT, 1.6 Mbps down, 750 Kbps up; 4x CPU slowdown",
+    "unthrottled": "no network or CPU throttling (loopback reference)",
+    "server": "tools/serve.js with the production security headers",
+    "lcpSource": "PerformanceObserver largest-contentful-paint (buffered)"
+  },
+  "slow4g4xcpu": [
+    {
+      "profile": "slow-4g-4x-cpu",
+      "wallClockMs": 8550,
+      "lcpMs": 4705.48,
+      "lcpElement": "P.lede",
+      "fcpMs": 1955.48,
+      "cumulativeLayoutShift": 0.16,
+      "longTasks": 1,
+      "longTaskMs": 52,
+      "ttfbMs": 6.46,
+      "domContentLoadedMs": 2480.58,
+      "loadEventMs": 2490.33,
+      "transferBytes": 5886,
+      "jsHeapUsedMiB": 1.17,
+      "nodes": 1534,
+      "layoutCount": 0,
+      "recalcStyleCount": 0,
+      "taskDurationMs": 0.03
+    }
+  ],
+  "unthrottled": [
+    {
+      "profile": "unthrottled",
+      "wallClockMs": 6176,
+      "lcpMs": 742.2,
+      "lcpElement": "P.lede",
+      "fcpMs": 408.85,
+      "cumulativeLayoutShift": 0,
+      "longTasks": 0,
+      "longTaskMs": 0,
+      "ttfbMs": 7.85,
+      "domContentLoadedMs": 93.19,
+      "loadEventMs": 96.34,
+      "transferBytes": 5886,
+      "jsHeapUsedMiB": 1.81,
+      "nodes": 3108,
+      "layoutCount": 0,
+      "recalcStyleCount": 0,
+      "taskDurationMs": 0.02
+    }
+  ]
+}

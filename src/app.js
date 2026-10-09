@@ -1016,8 +1016,11 @@ function renderEngine(root) {
     type: 'range', min: '0', max: String(MAX_PARTICLES), step: '50000', value: '150000',
     oninput: (e) => state.renderer && state.renderer.setParticles(Number(e.target.value)),
   });
+  // The label below points at this id: a bare checkbox next to a <label>
+  // element has no accessible name, which is an axe-core failure and, more to
+  // the point, an unnamed control to a screen reader.
   shadowToggle = el('input', {
-    type: 'checkbox', checked: true,
+    type: 'checkbox', id: 'shadow-map', checked: true,
     onchange: (e) => state.renderer && state.renderer.setShadows(e.target.checked),
   });
 
@@ -1043,7 +1046,13 @@ function renderEngine(root) {
       el('div', { class: 'grid three' }, [
         field('Instances (0 – 100,000)', instanceSlider),
         field('Particles (0 – 1,000,000)', particleSlider),
-        el('div', {}, [el('label', { text: 'Shadow map' }), el('div', { class: 'row' }, [shadowToggle, el('span', { class: 'small dim', text: 'depth pass + PCF sampling' })])]),
+        el('div', {}, [
+          el('div', { class: 'row' }, [
+            shadowToggle,
+            el('label', { for: 'shadow-map', text: 'Shadow map' }),
+            el('span', { class: 'small dim', text: 'depth pass + PCF sampling' }),
+          ]),
+        ]),
       ]),
       statsBox,
       scopeBox,
@@ -2349,13 +2358,13 @@ const TEST_TOTALS = { total: 120, suites: 9 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch; convergence, causality and undo are tested. Index lookups walk from a cursor instead of rescanning (20k single-character appends visit 0 nodes, benchmarked in tests/rga.test.js), tombstone collection runs under a peer-derived watermark, and the op log is bounded with a snapshot fallback for catch-up. Interior tombstones are retained by design: an op can still name one as its origin.' },
-  { id: 'M2', title: 'In-browser C compiler and runtime', status: 'partial', points: 75, note: 'Real lexer/parser/interpreter in a worker with a step budget, a heap cap, a kill switch and line+column diagnostics. The subset now covers ternary, switch with fall-through, structs (nested, arrays, by-value, heap-linked lists), casts, do/while and the malloc/calloc/realloc/free/memcpy/memset family over a bounds-checked arena, plus scanf/sscanf. Still a subset: no preprocessor beyond #include, no prototypes, typedef or unions, no variadic user functions, no separate compilation.' },
+  { id: 'M2', title: 'In-browser C compiler and runtime', status: 'partial', points: 85, note: 'Real lexer/parser/interpreter in a worker with a step budget, a heap cap, a kill switch and line+column diagnostics. The subset covers ternary, switch with fall-through, structs (nested, arrays, by-value, heap-linked lists), casts, do/while and the malloc/calloc/realloc/free/memcpy/memset family over a bounds-checked arena, plus scanf/sscanf. The preprocessor handles #define/#undef/#ifdef/#if/#elif/#error, and a token that came out of a macro keeps the line and column of its use. typedef, two-dimensional arrays, function pointers and unions all work, and the library surface student C actually reaches for is built in: <string.h> (strcpy, strcat, strcmp, strncpy, strchr, strncmp, strrchr, strstr, strlen), <ctype.h> (toupper, isdigit, isalpha) and <math.h> (sqrt, pow, fabs). The arena fails closed: a strcpy that would overflow its destination is an error, never silent corruption. Still not clang/TCC in WASM; function-like macros are rejected with a message rather than expanded; no variadic user functions; a struct tag is not a type name without a typedef.' },
   { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 70, note: 'WebGL2 with hardware instancing up to 100k objects animated in the vertex shader, a real depth-only shadow pass with hardware PCF, 1M GPU particles from gl_VertexID, and now physically based shading: Cook-Torrance GGX/Smith/Schlick with per-instance metallic/roughness, a hemispheric ambient standing in for image-based lighting, and Reinhard tone mapping. The panel reports measured main-thread CPU per frame. No glTF loader, no HDRI probe, no skeletal animation, no WebGPU.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 92, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD, all WebCrypto. The signed prekey bundle is now verified inside the handshake before any key material is derived - a swapped prekey or a forged signature aborts the session - with negative tests for both. No audited key storage.' },
   { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 80, note: 'Two real carriers feed one mesh: BroadcastChannel for same-browser tabs, and WebRTC data channels for separate machines. Signaling is a copy-pasted invite/answer code, so there is still no server anywhere; STUN is on by default and ICE failures say so. Presence, pruning, reconnect recovery, the relay contract and the flood limiter are shared by both. A TURN relay is not bundled (bandwidth and policy), so symmetric NAT on both ends needs one added.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 92, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1. The service worker, the manifest and the registration are scope-relative, so the offline shell works at a subpath deployment too (verified by stopping the server and reloading under /PROJECT-SINGULARITY/), and the log is trimmed with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 55, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences and a visual-effects switch that also reclaims frame time. Not validated against real screen readers.' },
-  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 78, note: 'Strict CSP with Trusted Types enforced, and the policy now travels with the file as a meta tag so it survives a static host that cannot send headers; a _headers file covers the directives meta cannot express (frame-ancestors, COOP/COEP) wherever the host reads it. No markup sinks anywhere, sandbox isolation, per-peer ingress rate limiting on presence traffic, and a STRIDE model that admits its limits. No live red-team session and no SRI: hashes would go stale without a build step and break the app.' },
+  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 83, note: 'Strict CSP with Trusted Types enforced, and now actually delivered: the site is hosted where _headers is read, so frame-ancestors, COOP and COEP arrive as real response headers (they cannot be expressed in a meta tag, which is exactly why the site left GitHub Pages), and tools/verify-headers.js checks them header by header. No markup sinks anywhere, sandbox isolation, per-peer ingress rate limiting on presence traffic, SRI generated at deploy time with the service-worker cache keyed to the build so a stale hash cannot brick a cached page, and a STRIDE model that admits its limits. Still missing: no third-party red-team session, and the OWASP ZAP baseline scan was not run (no Docker or ZAP in this environment).' },
 ];
 
 function renderDashboard(root) {

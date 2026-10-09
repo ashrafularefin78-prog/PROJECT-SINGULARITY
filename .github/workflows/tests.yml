@@ -1,0 +1,81 @@
+# Continuous integration for Project Singularity.
+#
+# Three jobs, in increasing order of what they need:
+#
+#   node     - the fast suite in bare Node: no browser, no GPU, no IndexedDB.
+#              Tests that need those skip themselves with a reason instead of
+#              failing, so a red run here means a real regression.
+#   browser  - the authoritative run in headless Chrome: all 152 tests,
+#              including the WebGL2 renderer and the IndexedDB store.
+#   deploy   - builds the deploy artifact (SRI, service-worker cache bump,
+#              `_headers` policy) and asserts the headers the built server
+#              delivers match `_headers`. A build that cannot deliver its own
+#              security policy fails here instead of in production.
+#
+# Nothing is installed into the project: there are no dependencies to install,
+# which is the point of the challenge. The only third-party step is the Chrome
+# binary the `browser` job needs, and it is pinned to a released action.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: suite in bare Node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node tests/run.js
+
+  browser:
+    name: suite in headless Chrome
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+      - name: run the full suite in headless Chrome
+        env:
+          # tools/cdp.js prefers BROWSER_PATH, which is how CI points at the
+          # browser it just installed instead of guessing a path.
+          BROWSER_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tools/browser-run.js
+
+  deploy:
+    name: deploy build and header policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+      - name: build the deploy artifact
+        run: python3 tools/build-site.py
+      - name: the built server must deliver the _headers policy
+        run: node tools/verify-headers.js
+      - name: the built artifact must boot and pass the suite
+        env:
+          BROWSER_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          python3 tools/serve.py 5223 --root dist &
+          sleep 1
+          node tools/browser-run.js --url=http://127.0.0.1:5223/tests/browser.html
