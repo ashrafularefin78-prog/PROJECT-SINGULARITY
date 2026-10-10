@@ -1,8 +1,12 @@
 // Dependency-free static server used only for local development / verification.
 // It mirrors the production security headers (M8) so the app is tested under the
-// same policy it ships with. Zero runtime dependencies - Node built-ins only.
+// same policy it ships with, and it compresses text the way the hosts do, so a
+// local Lighthouse run measures the bytes a visitor actually downloads instead
+// of the uncompressed ones on disk. Zero runtime dependencies - Node built-ins
+// only.
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { brotliCompressSync, gzipSync } from 'node:zlib';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { headersFor, loadHeaderRules } from './headers.js';
@@ -39,6 +43,32 @@ if (!HEADER_RULES.length) {
   console.log(`policy: ${HEADER_RULES.length} rule sets from _headers`);
 }
 
+// Brotli/gzip for the text types, mirroring what Cloudflare Pages and Netlify
+// do at the edge. Without this, `uses-text-compression` in Lighthouse would be
+// failing for the dev server alone and every byte-inflated metric (LCP above
+// all) would measure the local rig rather than the deployed site. Binary types
+// and responses under 1 KiB are passed through untouched; the cache is keyed by
+// path, size and mtime so an edited file is never served from a stale entry.
+const COMPRESSIBLE = /^(?:text\/|application\/(?:javascript|json|manifest\+json)|image\/svg\+xml)/;
+const MIN_COMPRESS_BYTES = 1024;
+const compressed = new Map();
+
+function chooseEncoding(req) {
+  const accept = String(req.headers['accept-encoding'] || '');
+  if (/\bbr\b/.test(accept)) return 'br';
+  if (/\bgzip\b/.test(accept)) return 'gzip';
+  return null;
+}
+
+function compress(path, info, encoding, body) {
+  const key = `${path}:${info.size}:${info.mtimeMs}:${encoding}`;
+  const hit = compressed.get(key);
+  if (hit) return hit;
+  const out = encoding === 'br' ? brotliCompressSync(body) : gzipSync(body, { level: 9 });
+  compressed.set(key, out);
+  return out;
+}
+
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -58,18 +88,26 @@ const server = createServer(async (req, res) => {
     }
     const file = info.isDirectory() ? join(target, 'index.html') : target;
     const body = await readFile(file);
+    const contentType = TYPES[extname(file)] || 'application/octet-stream';
     const headers = {
-      'content-type': TYPES[extname(file)] || 'application/octet-stream',
+      'content-type': contentType,
       // Development keeps everything fresh; the host honours the Cache-Control
       // rules in _headers, which would otherwise pin edited files for 300s.
       'cache-control': 'no-store',
     };
+    let payload = body;
+    const encoding = COMPRESSIBLE.test(contentType) && body.length >= MIN_COMPRESS_BYTES ? chooseEncoding(req) : null;
+    if (encoding) {
+      payload = compress(file, info, encoding, body);
+      headers['content-encoding'] = encoding;
+      headers.vary = 'accept-encoding';
+    }
     for (const { name, value } of headersFor(HEADER_RULES, pathname)) {
       if (name.toLowerCase() === 'cache-control') continue;
       headers[name.toLowerCase()] = value;
     }
     res.writeHead(200, headers);
-    res.end(body);
+    res.end(payload);
   } catch (err) {
     res.writeHead(500, { 'content-type': 'text/plain' }).end('Server error: ' + err.message);
   }

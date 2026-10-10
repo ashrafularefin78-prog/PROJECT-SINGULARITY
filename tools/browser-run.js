@@ -22,7 +22,10 @@ const target = args.url || '/tests/browser.html';
 
 async function main() {
   const site = absolute ? null : await serveProject();
-  const browser = await Browser.launch({ headless: !args['no-headless'] });
+  // softwareGl: headless has no GPU, and Chrome refuses software WebGL unless
+  // it is asked for by name - without it the WebGL2 tests would report
+  // "skipped" instead of running. See Browser.launchOnce for the cost.
+  const browser = await Browser.launch({ headless: !args['no-headless'], softwareGl: true });
   const version = await browser.send('Browser.getVersion');
   console.log(`# ${version.product} (${version.jsVersion})`);
   console.log(`# ${absolute ? target : site.origin + target}\n`);

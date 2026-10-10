@@ -86,7 +86,16 @@ body::before {
   mask-image: radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 78%);
 }
 
-body > * { position: relative; z-index: 1; }
+/* The shell is a grid, and a grid item's automatic minimum size is its content's
+   min-content width - so one unshrinkable row stretches the entire document.
+   The nine module tabs (white-space: nowrap) did exactly that: measured at a
+   412px viewport the document was 1179px wide, which is a horizontal scrollbar
+   on a phone and a 10px reflow of everything once a desktop scrollbar appears.
+   min-width: 0 lets the column shrink to the viewport and leaves the tab strip
+   scrolling inside its own box, which is what `.tabs` already asks for with
+   `overflow-x: auto` (fixed and verified with .tools/scratch/overflow-probe.mjs,
+   now tools/overflow.js). */
+body > * { position: relative; z-index: 1; min-width: 0; }
 
 ::selection { background: rgba(110, 168, 254, 0.32); color: #fff; }
 
@@ -160,10 +169,19 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
 
 .chips {
   display: flex; flex-wrap: wrap; gap: 6px;
-  /* Deliberately NOT reserved. On a wide viewport the chips share a row with
-     the brand, so filling them costs nothing; on a narrow one they take their
-     own row, and reserving it made the header taller at first paint than it
-     ends up (a shift in the other direction - measured, then removed). */
+  /* One chip is 24.5px tall (10.5px line + 12px padding + 2 borders). The
+     strip is empty in the shell and fills at boot; an empty div in a
+     centre-aligned 30.5px grid row sits at a different offset from a filled
+     one, so it moves even though the row does not. Measured contribution:
+     0.005 of CLS on desktop. */
+  min-height: 24.5px;
+  /* Reserved on narrow viewports only, and measured rather than guessed. On a
+     wide viewport the chips share a row with the brand and filling them costs
+     nothing (24.5px of chips inside a 30.5px row at 1350px). Below ~790px they
+     take their own grid row, which is 0px tall until boot fills it and 55px
+     after - a measured 0.048 of CLS at 412x915. Reserving that row at every
+     width was tried first and rejected: it makes the desktop header 25px
+     taller from the first paint for a row that never grows there. */
 }
 
 .chip {
@@ -311,6 +329,20 @@ p { margin: 0 0 8px; }
   margin-bottom: 12px;
 }
 .hero-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+/* The hero is static HTML (see index.html) so that the largest contentful paint
+   does not have to wait for the module script, IndexedDB and the CRDT rebuild.
+   src/app.js adopts these very nodes when it renders M0 instead of building a
+   second hero, and the four rules below are what make "a child of <main>" and
+   "the first child of .panel" the same place on screen - so adopting it, and
+   filling in the two dynamic parts, cannot move anything already painted. */
+#hero { max-width: 1200px; margin: 0 auto; }
+/* `.panel > *` fades its children in on arrival. The hero is already on screen
+   by then, so animating it would blink it out first. */
+.panel > #hero { animation: none; }
+/* No space needs reserving for the badge row or the ring: the markup in
+   index.html is the same four chips and the same 188px track, and the script
+   rewrites only their text, so the boxes are already their final size. */
 
 /* Score ring: an SVG, so the dynamic value rides on presentation attributes
    (which the CSP permits) instead of an inline style (which it does not). */
@@ -1098,6 +1130,18 @@ body::after {
   box-shadow: 0 0 12px 0 var(--accent-3);
   animation: blip 2.6s ease-in-out infinite;
 }
+/* The telemetry strip is static markup that the app fills after boot, so the
+   strip has to reserve the height it will have *filled*, at every width where
+   its items wrap. It does not have one fixed height: measured with the strip
+   filled, it is 37px on a wide window, 52.5px from ~500px to ~880px and 68px
+   below ~440px. Reserving only 37px made the header grow by 15-31px mid-boot
+   and pushed the whole page down - a measured 0.061 of CLS at 412x915, which
+   is what these two steps exist to prevent. Over-reserving costs a little
+   blank space; under-reserving moves the page under the reader's eyes. */
+@media (max-width: 899px) { .telemetry { min-height: 53px; } }
+@media (max-width: 499px) { .telemetry { min-height: 68px; } }
+@media (max-width: 789px) { .chips { min-height: 55px; } }
+
 @keyframes blip {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.3; transform: scale(0.7); }

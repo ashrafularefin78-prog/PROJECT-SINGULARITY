@@ -270,6 +270,8 @@ export class Runtime {
     this.depth = 0;
     this.globals = new Env();
     this.functions = new Map();
+    /** Function prototypes seen in the translation unit, by name. */
+    this.protos = new Map();
     /** Registered `struct` definitions, by name. */
     this.structs = new Map();
     this._layoutStack = new Set();
@@ -303,10 +305,19 @@ export class Runtime {
 
   run(program) {
     for (const fn of program.funcs) this.functions.set(fn.name, fn);
+    for (const proto of program.protos || []) this.protos.set(proto.name, proto);
     for (const def of program.structs || []) this._registerStruct(def);
+    for (const def of program.enums || []) this._registerEnum(def, this.globals);
     // Predeclared constants, so the ordinary C idioms compile without a header.
     this.globals.declare('NULL', { type: { base: 'int', ptr: 1 }, value: makePtr(0) });
     this.globals.declare('EOF', { type: { base: 'int' }, value: -1 });
+    // The three standard streams are the POSIX descriptors. There are no FILE
+    // objects in this runtime - one input, reachable as `stdin`, shared by
+    // scanf and getchar - so `fgets(buf, n, stdin)` passes 0 and the stream
+    // argument is accepted and ignored rather than faked as a pointer.
+    this.globals.declare('stdin', { type: { base: 'int' }, value: 0 });
+    this.globals.declare('stdout', { type: { base: 'int' }, value: 1 });
+    this.globals.declare('stderr', { type: { base: 'int' }, value: 2 });
     for (const decl of program.globals) this._declareVars(this.globals, decl);
     const main = this.functions.get('main');
     if (!main) {
@@ -364,6 +375,12 @@ export class Runtime {
         return;
       case 'StructDef':
         for (const def of stmt.defs) this._registerStruct(def);
+        return;
+      case 'EnumDef':
+        for (const def of stmt.defs) this._registerEnum(def, env);
+        return;
+      case 'FuncProto':
+        this.protos.set(stmt.name, stmt);
         return;
       case 'VarDecl':
         this._declareVars(env, stmt);
@@ -601,6 +618,25 @@ export class Runtime {
     }
   }
 
+  /**
+   * Register an `enum`: every enumerator becomes an integer constant in the
+   * surrounding scope, and one written `= expr` takes that value. Constants
+   * are evaluated in declaration order, so `B = A + 1` sees the A before it.
+   * An enum's own type is `int` - which is what C says it is, and why
+   * `sizeof(enum Color)`, arithmetic and `switch` need no special case.
+   */
+  _registerEnum(def, env = this.globals) {
+    let next = 0;
+    for (const item of def.items) {
+      if (item.valueExpr) {
+        const value = this._eval(item.valueExpr, env);
+        next = typeof value === 'number' ? Math.trunc(value) : 0;
+      }
+      env.declare(item.name, { type: { base: 'int' }, value: next });
+      next += 1;
+    }
+  }
+
   /** Register a record type, and any record defined inside it. */
   _registerStruct(def) {
     this.structs.set(def.name, def);
@@ -610,6 +646,7 @@ export class Runtime {
   _declareVars(env, stmt) {
     // A struct definition can arrive attached to a declaration.
     if (stmt.declType && stmt.declType.structDef) this._registerStruct(stmt.declType.structDef);
+    if (stmt.declType && stmt.declType.enumDef) this._registerEnum(stmt.declType.enumDef, env);
     for (const d of stmt.decls) {
       const declType = { ...stmt.declType, ptr: (stmt.declType.ptr || 0) + (d.ptr || 0) };
       let value;
@@ -817,6 +854,52 @@ export class Runtime {
     dv.setInt32(p.offset, raw | 0, true);
   }
 
+  /**
+   * The i-th element of the array qsort was handed: a pointer for the
+   * comparator, plus read/write for the swap. `size` is the stride the caller
+   * declared (C's qsort uses exactly that, not the pointee type), and a local
+   * array, a pointer into one and an arena block all take the same path here.
+   */
+  _elementSlot(base, index, size, node) {
+    if (isView(base)) {
+      const element = base.arr[base.i + index];
+      if (element === undefined && base.i + index >= base.arr.length) {
+        throw this._err(`qsort walked past the end of the array (element ${index})`, node);
+      }
+      // An element that is itself an array (`char words[4][8]`) is addressed as
+      // a pointer to its first character, which is what C's `(char *)a` expects
+      // of a `void *` to a row.
+      if (Array.isArray(element)) {
+        return {
+          pointer: makeView(element, 0),
+          read: () => element,
+          write: (value) => {
+            base.arr[base.i + index] = value;
+          },
+        };
+      }
+      // A view steps one JS slot at a time; the declared size is the C caller's
+      // business, and the view's own bounds check is what protects the array.
+      return {
+        pointer: makeView(base.arr, base.i + index),
+        read: () => this._viewRead(base, index, node),
+        write: (value) => this._viewWrite(base, index, value, node),
+      };
+    }
+    if (Array.isArray(base)) return this._elementSlot(makeView(base, 0), index, size, node);
+    if (isPtr(base)) {
+      const p = this._arenaAt(base, node);
+      const offset = p.base + index * size;
+      const ptr = { ...p, offset, elem: size };
+      return {
+        pointer: ptr,
+        read: () => this._ptrRead({ ...ptr }, node),
+        write: (value) => this._ptrWrite(ptr, value, node),
+      };
+    }
+    throw this._err('qsort needs an array or a pointer to sort', node);
+  }
+
   /** `p[i]` for a typed pointer: element size comes from the pointee type. */
   _ptrElem(ptr, index, node) {
     if (isView(ptr)) return makeView(ptr.arr, ptr.i + Math.trunc(index));
@@ -1004,6 +1087,9 @@ export class Runtime {
         // `(*fp)(x)`: dereferencing a function pointer yields the function.
         if (isFnPtr(pointer)) return pointer;
         if (pointer instanceof Ref) return pointer.get();
+        // A pointer into a local array dereferences like any other: this is what
+        // `*(int*)a` inside a qsort comparator does.
+        if (isView(pointer)) return this._viewRead(pointer, 0, node);
         if (isPtr(pointer)) return this._ptrRead(pointer, node);
         if (typeof pointer === 'number') throw this._err('null pointer dereference (the pointer is 0)', node);
         throw this._err('cannot dereference a non-pointer value', node);
@@ -1148,6 +1234,10 @@ export class Runtime {
     const raw = this._eval(node.object, env);
     const target = raw instanceof Ref ? raw.get() : raw;
     if (isStruct(target)) return this._fieldTypeByName(target.__struct, node.name);
+    if (isView(target)) {
+      const element = this._viewRead(target, 0, node);
+      return isStruct(element) ? this._fieldTypeByName(element.__struct, node.name) : null;
+    }
     if (isPtr(target) && target.struct) {
       const layout = this._structLayout(target.struct, node);
       const field = layout.fields.find((f) => f.name === node.name);
@@ -1216,16 +1306,7 @@ export class Runtime {
         throw this._err(`that expression is a pointer, not a struct - use '->' to reach '${node.name}'`, node);
       }
       if (!isStruct(obj)) throw this._err('member access on a non-struct value', node);
-      if (isUnion(obj)) return this._unionMemberRef(obj, node);
-      if (!(node.name in obj)) throw this._err(`struct '${obj.__struct}' has no member '${node.name}'`, node);
-      const ref = new Ref(
-        () => obj[node.name],
-        (v) => {
-          obj[node.name] = v;
-        },
-      );
-      ref.type = this._fieldTypeByName(obj.__struct, node.name);
-      return ref;
+      return this._structMemberRef(obj, node);
     }
     const raw = this._eval(node.object, env);
     // `->` needs an address: either a heap pointer or `&value` (which evaluates
@@ -1235,19 +1316,34 @@ export class Runtime {
     }
     const target = raw instanceof Ref ? raw.get() : raw;
     if (isUnion(target)) return this._unionMemberRef(target, node);
-    if (isStruct(target)) {
-      if (!(node.name in target)) throw this._err(`struct '${target.__struct}' has no member '${node.name}'`, node);
-      const ref = new Ref(
-        () => target[node.name],
-        (v) => {
-          target[node.name] = v;
-        },
-      );
-      ref.type = this._fieldTypeByName(target.__struct, node.name);
-      return ref;
-    }
+    if (isStruct(target)) return this._structMemberRef(target, node);
     if (isPtr(target)) return this._heapMemberRef(target, node);
+    if (isView(target)) {
+      // A pointer into an array of structs - `struct Student *s = (struct
+      // Student *)base;` in the comparator a student is asked to write - points
+      // at its current element, so `s->grade` reaches that struct's field.
+      const element = this._viewRead(target, 0, node);
+      if (isStruct(element) || isUnion(element)) return this._structMemberRef(element, node);
+      throw this._err(
+        `'->' needs a pointer to a struct, but this pointer addresses a '${Array.isArray(element) ? 'array' : typeof element}'`,
+        node,
+      );
+    }
     throw this._err("the left side of '->' must be a pointer to a struct", node);
+  }
+
+  /** `value.name` for a struct or union object, as an assignable Ref. */
+  _structMemberRef(value, node) {
+    if (isUnion(value)) return this._unionMemberRef(value, node);
+    if (!(node.name in value)) throw this._err(`struct '${value.__struct}' has no member '${node.name}'`, node);
+    const ref = new Ref(
+      () => value[node.name],
+      (v) => {
+        value[node.name] = v;
+      },
+    );
+    ref.type = this._fieldTypeByName(value.__struct, node.name);
+    return ref;
   }
 
   /** `p->field` for a pointer into the arena allocation behind `p`. */
@@ -1568,6 +1664,11 @@ export class Runtime {
       if (builtin) return builtin(args, this, node);
       const fn = this.functions.get(name);
       if (fn) return this._callFunction(fn, args);
+      // A prototype with no definition is a different mistake from a typo, and
+      // the line of the declaration is what makes it findable.
+      if (this.protos.has(name)) {
+        throw this._err(`'${name}' is declared at line ${this.protos.get(name).line} but never defined`, node);
+      }
       // Same syntax, but the name may be a variable holding a function address.
       const scope = env.resolve(name);
       if (scope) return this._callFunction(this._resolveCallable(scope.vars.get(name).value, name, node), args);
@@ -1838,6 +1939,21 @@ const BUILTINS = {
     rt.onOutput(formatPrintf(fmt, rest));
     return fmt.length;
   },
+  /**
+   * `sprintf(buf, fmt, ...)` - printf into a buffer, returning the length.
+   * The runtime is bounds-checked, so a formatted text that does not fit is an
+   * error instead of the silent overflow C would hand back: the buffer is only
+   * written once the room for the text and its NUL has been established.
+   */
+  sprintf(args, rt, node) {
+    const fmt = rt._cStr(args[1]);
+    const rest = args
+      .slice(2)
+      .map((a) => (Array.isArray(a) || isPtr(a) || isView(a) ? rt._cStr(a) : a));
+    const text = formatPrintf(fmt, rest);
+    writeString(args[0], text, rt, node);
+    return text.length;
+  },
   puts(args, rt) {
     const s = rt._cStr(args[0]);
     rt.onOutput(s + '\n');
@@ -1854,8 +1970,58 @@ const BUILTINS = {
     rt.stdinPos += 1;
     return ch;
   },
+  /**
+   * `fgets(buf, n, stream)` - read at most n-1 characters, stopping after a
+   * newline, and NUL-terminate. Returns NULL at end of input, like C. The
+   * stream argument is accepted and ignored (see `stdin` in run()).
+   */
+  fgets(args, rt, node) {
+    const size = Math.trunc(args[1]);
+    if (!Number.isFinite(size) || size <= 0) throw rt._err('fgets needs a positive buffer size', node);
+    if (rt.stdinPos >= rt.stdin.length) return makePtr(0);
+    let text = '';
+    while (text.length < size - 1 && rt.stdinPos < rt.stdin.length) {
+      const ch = rt.stdin[rt.stdinPos];
+      rt.stdinPos += 1;
+      text += ch;
+      if (ch === '\n') break;
+    }
+    writeString(args[0], text, rt, node);
+    return args[0];
+  },
   strlen(args, rt) {
     return rt._cStr(args[0]).length;
+  },
+  /**
+   * `qsort(base, count, size, cmp)` - sort in place, comparator first.
+   *
+   * The comparator is an interpreted function, so the sort is a selection sort
+   * rather than quicksort: the C contract is the ordered result, not the
+   * algorithm, and every comparison here is a scripted call. The swap goes
+   * through the same bounds-checked pointer helpers as everything else, so a
+   * comparator that scribbles out of bounds is stopped by the arena.
+   */
+  qsort(args, rt, node) {
+    const count = Math.trunc(args[1]);
+    const size = Math.trunc(args[2]);
+    if (!Number.isFinite(count) || count < 0) throw rt._err('qsort needs a non-negative element count', node);
+    if (!Number.isFinite(size) || size <= 0) throw rt._err('qsort needs a positive element size (sizeof(...) is the usual way)', node);
+    const fn = rt._resolveCallable(args[3], null, node);
+    const slot = (i) => rt._elementSlot(args[0], i, size, node);
+    for (let i = 0; i + 1 < count; i += 1) {
+      let best = i;
+      for (let j = i + 1; j < count; j += 1) {
+        if (rt._callFunction(fn, [slot(j).pointer, slot(best).pointer]) < 0) best = j;
+      }
+      if (best !== i) {
+        const a = slot(i);
+        const b = slot(best);
+        const av = a.read();
+        a.write(b.read());
+        b.write(av);
+      }
+    }
+    return 0;
   },
   // ------------------------------------------------------------ <string.h>
   strcpy(args, rt, node) {

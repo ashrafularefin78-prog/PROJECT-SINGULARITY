@@ -208,7 +208,10 @@ function tierLadder(current) {
 }
 
 /** The score ring: track + arc + centre label, all as SVG attributes. */
-function scoreRing(score, max, tierName) {
+/* The ring's contents, without the wrapper. The static hero in index.html
+   already owns a .ring-wrap of exactly this size, so boot replaces the insides
+   of that box rather than building a second one somewhere else. */
+function ringContents(score, max, tierName) {
   const radius = 82;
   const circumference = 2 * Math.PI * radius;
   const arc = Math.max(0, Math.min(1, score / max)) * circumference;
@@ -217,7 +220,7 @@ function scoreRing(score, max, tierName) {
     svgEl('stop', { offset: '55%', 'stop-color': '#b39ddb' }),
     svgEl('stop', { offset: '100%', 'stop-color': '#4dd0e1' }),
   ]);
-  return el('div', { class: 'ring-wrap' }, [
+  return [
     svgEl('svg', {
       class: 'ring',
       viewBox: '0 0 188 188',
@@ -239,7 +242,11 @@ function scoreRing(score, max, tierName) {
       svgEl('text', { class: 'ring-max', x: '94', y: '118', 'text-anchor': 'middle', text: `OF ${max}` }),
     ]),
     el('span', { class: 'ring-cap', text: `points band: ${tierName}` }),
-  ]);
+  ];
+}
+
+function scoreRing(score, max, tierName) {
+  return el('div', { class: 'ring-wrap' }, ringContents(score, max, tierName));
 }
 
 function chip(text, kind = '') {
@@ -2354,7 +2361,12 @@ async function remeasurePayload() {
 // The suite's own totals, kept in one place so the dashboard cannot drift from
 // the runner: tests/browser.html loads 9 suites and tests/run.js exits non-zero
 // unless every one of these passes. The count is the runner's, not an estimate.
-const TEST_TOTALS = { total: 120, suites: 9 };
+// Counted from the suite itself, not maintained by hand: `npm test` reports
+// 146 passed + 6 skipped and the browser run reports all 152, over 10 files
+// (tests/*.test.js). It was 120/9 until the M2 additions, and the hero chip
+// went on saying so - which is why index.html carries the same number in its
+// static hero and tools/check-docs.js asserts the two agree.
+const TEST_TOTALS = { total: 152, suites: 10 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch; convergence, causality and undo are tested. Index lookups walk from a cursor instead of rescanning (20k single-character appends visit 0 nodes, benchmarked in tests/rga.test.js), tombstone collection runs under a peer-derived watermark, and the op log is bounded with a snapshot fallback for catch-up. Interior tombstones are retained by design: an op can still name one as its origin.' },
@@ -2366,6 +2378,55 @@ const MODULE_STATUS = [
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 55, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences and a visual-effects switch that also reclaims frame time. Not validated against real screen readers.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 83, note: 'Strict CSP with Trusted Types enforced, and now actually delivered: the site is hosted where _headers is read, so frame-ancestors, COOP and COEP arrive as real response headers (they cannot be expressed in a meta tag, which is exactly why the site left GitHub Pages), and tools/verify-headers.js checks them header by header. No markup sinks anywhere, sandbox isolation, per-peer ingress rate limiting on presence traffic, SRI generated at deploy time with the service-worker cache keyed to the build so a stale hash cannot brick a cached page, and a STRIDE model that admits its limits. Still missing: no third-party red-team session, and the OWASP ZAP baseline scan was not run (no Docker or ZAP in this environment).' },
 ];
+
+/* The hero lives in index.html so that the largest contentful paint does not
+ * have to wait for this script, IndexedDB and the CRDT rebuild. This adopts the
+ * nodes the document already painted and fills in the two parts that need
+ * code: the test-count chip and the score ring. It is called again on every M0
+ * redraw, so it is written to be idempotent - and it moves the same node rather
+ * than building a new one, which is why switching tabs and coming back cannot
+ * cost a repaint of the hero or shift anything below it. */
+const HERO_LEDE =
+  'One website that behaves like an operating system, a collaborative workspace, a game engine and a secure messenger at once - with zero runtime dependencies and no framework in the shipped bundle. Everything below runs in your browser right now.';
+
+function adoptHero(score, band) {
+  let hero = refs.hero || document.getElementById('hero');
+  if (!hero) {
+    // No static hero in this document (a page that ships without it): build the
+    // same thing from script so the dashboard is never headless.
+    hero = el('section', { class: 'hero' }, [
+      el('div', { class: 'hero-grid' }, [
+        el('div', {}, [
+          el('p', { class: 'hero-kicker', text: 'The impossible website challenge' }),
+          el('h1', { class: 'hero-title', text: 'Project Singularity' }),
+          el('p', { class: 'lede', text: HERO_LEDE }),
+          el('div', { class: 'hero-badges' }),
+        ]),
+        el('div', { class: 'ring-wrap' }),
+      ]),
+    ]);
+  }
+  refs.hero = hero;
+
+  const badges = hero.querySelector('.hero-badges');
+  if (badges) {
+    badges.replaceChildren(
+      chip('8 MODULES', 'accent'),
+      chip('0 RUNTIME DEPS', 'ok'),
+      chip(`${TEST_TOTALS.total} TESTS GREEN`, 'ok'),
+      chip('TRUSTED TYPES ENFORCED', 'ok'),
+    );
+  }
+
+  const ring = hero.querySelector('.ring-wrap');
+  if (ring) {
+    ring.replaceChildren(...ringContents(score, 1000, band));
+    // The placeholder ring is hidden from assistive technology because it carries
+    // no score; the real one is an image with a label, so the attribute goes.
+    ring.removeAttribute('aria-hidden');
+  }
+  return hero;
+}
 
 function renderDashboard(root) {
   const measured = el('div');
@@ -2447,25 +2508,7 @@ function renderDashboard(root) {
 
   root.appendChild(
     el('div', { class: 'panel' }, [
-      el('section', { class: 'hero' }, [
-        el('div', { class: 'hero-grid' }, [
-          el('div', {}, [
-            el('p', { class: 'hero-kicker', text: 'The impossible website challenge' }),
-            el('h1', { class: 'hero-title', text: 'Project Singularity' }),
-            el('p', {
-              class: 'lede',
-              text: 'One website that behaves like an operating system, a collaborative workspace, a game engine and a secure messenger at once - with zero runtime dependencies and no framework in the shipped bundle. Everything below runs in your browser right now.',
-            }),
-            el('div', { class: 'hero-badges' }, [
-              chip('8 MODULES', 'accent'),
-              chip('0 RUNTIME DEPS', 'ok'),
-              chip(`${TEST_TOTALS.total} TESTS GREEN`, 'ok'),
-              chip('TRUSTED TYPES ENFORCED', 'ok'),
-            ]),
-          ]),
-          scoreRing(score, 1000, band),
-        ]),
-      ]),
+      adoptHero(score, band),
       el('div', { class: 'stats' }, [
         statCard('Honest score', `${score} / 1000`, `points band: ${band} · requirement column: ${achieved}`),
         statCard('Automated tests', String(TEST_TOTALS.total), `${TEST_TOTALS.suites} suites, all green, runnable from the site`),
@@ -2686,10 +2729,54 @@ function renderPanel(id) {
   if (previous) state.hud?.warp(container);
 }
 
+/* Yield past a paint. A deferred module script runs before the browser's first
+ * paint, so without this the static hero waits for everything below it in
+ * boot() - preferences, IndexedDB, the CRDT rebuild and the mesh handshake.
+ * `requestAnimationFrame` lands before the next paint and the timeout resumes
+ * after it, which is the documented way to hand the frame back. */
+function afterFirstPaint() {
+  return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+}
+
+/* styles/app.css is applied from here rather than from a <link> in the head,
+ * because a stylesheet in the head blocks the first paint - and the first paint
+ * is now the largest contentful paint. index.html carries the first viewport's
+ * share of the sheet inline under a CSP hash and preloads this file, so by the
+ * time this runs the bytes are usually already in the cache; boot awaits the
+ * result before rendering any panel, so nothing is ever shown unstyled. */
+const FULL_STYLESHEET = 'styles/app.css';
+
+function loadFullStylesheet() {
+  const already = [...document.styleSheets].some((sheet) => (sheet.href || '').endsWith(FULL_STYLESHEET));
+  if (already) return Promise.resolve('already applied');
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = FULL_STYLESHEET;
+  return new Promise((resolve) => {
+    // Resolve on failure too: a missing sheet must not stop the app from
+    // booting, it must show up in the boot log and in the console instead.
+    link.addEventListener('load', () => resolve('applied'), { once: true });
+    link.addEventListener('error', () => resolve('failed to load'), { once: true });
+    document.head.appendChild(link);
+  });
+}
+
 async function boot() {
+  // The full sheet is requested immediately (index.html preloads it) but applied
+  // asynchronously, and boot waits for it further down before drawing anything.
+  const stylesheet = loadFullStylesheet();
+
+  // Then let the document paint. The hero is already in the HTML and already
+  // styled by the inline critical CSS, so the largest contentful paint happens
+  // here rather than at the end of boot.
+  await afterFirstPaint();
+
+  logBoot(`stylesheet ${await stylesheet}`);
+
   refs.chips = document.getElementById('status-chips');
   refs.tabs = document.getElementById('tabs');
   refs.main = document.getElementById('main');
+  refs.hero = document.getElementById('hero');
   refs.footer = document.getElementById('footer-build');
   refs.telemetry = document.getElementById('telemetry');
   logBoot('shell initialising · 9 modules registered');

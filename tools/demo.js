@@ -794,7 +794,15 @@ if (!findFfmpeg()) console.log('# warning: ffmpeg is missing, frames will be kep
 // The recorded surface is a fixed 1280x720 viewport: every frame the compositor
 // hands over is then exactly the same size, which is what makes the JPEG
 // sequence a valid ffmpeg input.
-const browser = await Browser.launch({ width: WIDTH, height: HEIGHT, scale: 1, extraArgs: ['--hide-scrollbars'] });
+// softwareGl: the recording walks through the M3 panel, and a headless browser
+// only has a WebGL2 context if the software rasteriser is requested by name.
+const browser = await Browser.launch({
+  width: WIDTH,
+  height: HEIGHT,
+  scale: 1,
+  extraArgs: ['--hide-scrollbars'],
+  softwareGl: true,
+});
 const a = await browser.newSession(origin + '/');
 a.origin = origin;
 

@@ -159,6 +159,7 @@ export class Browser {
         headless: false,
         extraArgs: [...(rest.extraArgs || []), '--window-position=-2400,-1600'],
       });
+
     }
   }
 
@@ -168,6 +169,7 @@ export class Browser {
     height = 915,
     scale = 2,
     extraArgs = [],
+    softwareGl = false,
     env = {},
   } = {}) {
     const exe = findBrowser();
@@ -181,11 +183,18 @@ export class Browser {
       '--disable-background-networking',
       '--disable-component-update',
       '--disable-features=Translate,OptimizationHints,MediaRouter',
-      // Software WebGL2, so the 3D tests and the renderer genuinely run here.
-      '--enable-unsafe-swiftshader',
-      '--use-gl=angle',
-      '--use-angle=swiftshader',
       `--window-size=${width},${height}`,
+      // Software WebGL2 is opt-in. It is what makes the 3D tests and the
+      // recorded demo run in a headless browser, but forcing it makes *every*
+      // paint a software rasterisation: measured first contentful paint on the
+      // same page was 286 ms with SwiftShader and 118 ms without, which is the
+      // difference between a performance number about this app and a
+      // performance number about the rasteriser. So the WebGL callers ask for
+      // it (see tools/browser-run.js, tools/demo.js) and the measurement tools
+      // get the browser's default raster path, as a stock Lighthouse does.
+      ...(softwareGl
+        ? ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader']
+        : []),
       'about:blank',
     ];
     if (headless) args.unshift('--headless=new');

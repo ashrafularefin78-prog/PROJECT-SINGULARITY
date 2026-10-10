@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-09T06:21:16.744Z",
+  "measuredAt": "2026-10-10T03:42:37.030Z",
   "url": "http://127.0.0.1:5231/",
   "viewport": {
     "width": 412,
@@ -7,7 +7,7 @@
     "shrunk": 780,
     "mobile": true
   },
-  "mode": "current build",
+  "label": "current build",
   "note": "layout-shift PerformanceObserver installed before first paint; the layout viewport is resized twice to imitate the mobile URL bar moving",
   "steps": [
     {
@@ -15,89 +15,110 @@
       "height": 915,
       "geometry": {
         "inset": [
-          "0px",
-          "0px",
-          "0px",
-          "0px"
+          "-183px",
+          "-82.3906px",
+          "-183px",
+          "-82.3906px"
         ],
-        "transform": "matrix(1.40535, 0, 0, 1.40535, -26.7226, -35.3942)",
+        "transform": "matrix(1.00441, 0, 0, 1.00441, -12.8635, -17.0158)",
         "rect": [
-          -266,
-          -566,
-          1657,
-          3681
+          -97,
+          -203,
+          579,
+          1287
         ],
         "renderedShareOfViewport": [
           141,
           141
         ],
         "viewport": [
-          1179,
-          2619
+          412,
+          915
         ]
       },
-      "cls": 0,
-      "shiftEntries": []
+      "cls": 0.002,
+      "shiftEntries": [
+        {
+          "value": 0.0022485368329899368,
+          "sources": [
+            "FOOTER.footer"
+          ]
+        }
+      ]
     },
     {
       "label": "after the visual viewport shrank (URL bar appears)",
       "height": 780,
       "geometry": {
         "inset": [
-          "0px",
-          "0px",
-          "0px",
-          "0px"
+          "-156px",
+          "-82.3906px",
+          "-156px",
+          "-82.3906px"
         ],
-        "transform": "matrix(1.41484, 0, 0, 1.41484, -21.8367, -24.2889)",
+        "transform": "matrix(1.01134, 0, 0, 1.01134, -10.4225, -11.5644)",
         "rect": [
-          -266,
-          -487,
-          1668,
-          3159
+          -96,
+          -174,
+          583,
+          1104
         ],
         "renderedShareOfViewport": [
-          141,
-          141
+          142,
+          142
         ],
         "viewport": [
-          1179,
-          2233
+          412,
+          780
         ]
       },
-      "cls": 0,
-      "shiftEntries": []
+      "cls": 0.002,
+      "shiftEntries": [
+        {
+          "value": 0.0022485368329899368,
+          "sources": [
+            "FOOTER.footer"
+          ]
+        }
+      ]
     },
     {
       "label": "after the visual viewport grew back (URL bar hides)",
       "height": 915,
       "geometry": {
         "inset": [
-          "0px",
-          "0px",
-          "0px",
-          "0px"
+          "-183px",
+          "-82.3906px",
+          "-183px",
+          "-82.3906px"
         ],
-        "transform": "matrix(1.42887, 0, 0, 1.42887, -14.6155, -18.2796)",
+        "transform": "matrix(1.02148, 0, 0, 1.02148, -6.84713, -8.5127)",
         "rect": [
-          -267,
-          -580,
-          1685,
-          3742
+          -95,
+          -205,
+          589,
+          1309
         ],
         "renderedShareOfViewport": [
           143,
           143
         ],
         "viewport": [
-          1179,
-          2619
+          412,
+          915
         ]
       },
-      "cls": 0,
-      "shiftEntries": []
+      "cls": 0.002,
+      "shiftEntries": [
+        {
+          "value": 0.0022485368329899368,
+          "sources": [
+            "FOOTER.footer"
+          ]
+        }
+      ]
     }
   ],
-  "finalCls": 0,
+  "finalCls": 0.002,
   "auroraOverflowPreserved": true
 }

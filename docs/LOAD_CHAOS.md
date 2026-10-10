@@ -23,7 +23,7 @@ throwaway scripts.
 | Server | `python3 tools/serve.py 5173` / `node tools/serve.js` on 127.0.0.1, serving the **real `_headers` policy** (strict CSP, COOP/COEP, Trusted Types) |
 | Instrumentation | `PerformanceObserver` installed before first paint (LCP, FCP, layout shift, long tasks), `Performance.getMetrics`, `Runtime.getHeapUsage` after an explicit GC, `HeapProfiler.takeHeapSnapshot`, the browser accessibility tree, axe-core |
 | Repetition | every timing row was run at least twice under each profile; the tables show each run, not a best case |
-| Drift control | `node tools/check-docs.js` re-measures the payload from the import graph, reads every JSON report, and asserts that the exact strings this document and the chart publish are still the ones the artifacts produce (25 numbers). It found the one real drift during the final pass — a 4-line code change moved the payload from 112.9 to 113.2 KiB gzip — which is why the row above is 113.2. `--self-test` injects a wrong number and asserts the check fails, so a checker that passes on everything cannot pass for the wrong reason |
+| Drift control | `node tools/check-docs.js` re-measures the payload from the import graph, reads every JSON report, and asserts that the exact strings this document and the chart publish are still the ones the artifacts produce. It has caught three real drifts: a 4-line code change that moved the payload from 112.9 to 113.2 KiB gzip; a soak figure that predated the completed hour; and - the one that matters most - moving the application module behind the deferred boot hid `src/app.js` from the walk, so the same command cheerfully reported a *smaller* bundle. `tools/payload.js` now reads the module's specifier out of the bootstrap, the walk is back to 18 modules, and the row above is 116.1 KiB. `--self-test` injects a wrong number and asserts the check fails, so a checker that passes on everything cannot pass for the wrong reason |
 
 Two environments are reported on purpose:
 
@@ -51,12 +51,12 @@ row is marked unmeasured on the in-app dashboard too.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **113.2 KiB gzip JS** (436.1 KiB raw over 18 modules) + 15.6 KiB gzip CSS, measured from the import graph | **met** (cold load, every module loaded, worker included) |
-| Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **4,705 ms** (FCP 1,955 ms) under Slow 4G + 4x CPU at 412×915, against 742 ms unthrottled on loopback | **not met** — see the analysis below |
+| Initial JS payload | ≤ 170 KB gzip | **116.1 KiB gzip JS** (446.6 KiB raw over 18 modules) + 16.9 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
+| Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **603 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 72 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
-| Lighthouse | ≥ 95 in all four categories | desktop **98 / 100 / 100 / 100**, mobile **80 / 100 / 96 / 100** (Performance / Accessibility / Best practices / SEO) | desktop **met**, mobile **not met** on Performance — see section 2b |
-| Cumulative layout shift | (implicit: under 0.1) | **0** in three of four mobile runs, **1.000** in the first (unexplained, section 2b); desktop 0.005 | **met**, with one unreproduced outlier reported rather than hidden |
+| Lighthouse | ≥ 95 in all four categories | desktop **100 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100** (Performance / Accessibility / Best practices / SEO) | **met in both form factors** — see section 2b |
+| Cumulative layout shift | (implicit: under 0.1) | **0.002** on the mobile viewport and **0.005** desktop (`tools/cls.js`); Lighthouse agrees at 0.003 / 0.005 | **met**, with one unreproduced outlier from an earlier build reported rather than hidden (section 2b) |
 | Memory after 1 hour | ≤ 400 MB, no leaks | a **60-minute soak**, one sample per minute through all nine modules: JS heap after GC **1.10 → 1.53 MiB** (peak 1.56 MiB at minute 52), and the minute-60 heap snapshot holds **fewer nodes (70,231 vs 77,490) and less memory (5.99 vs 6.71 MiB)** than the minute-10 one | **met on the conditions run** — desktop browser, JS heap after a forced GC, not RSS or GPU memory |
 | Concurrent users | 10,000 @ p95 < 200 ms | not run; the local approximations are listed below | not measured |
 | Chaos survival | kill any server node, lose zero data | not run; the local failure injections below are the closest thing that exists here | not measured |
@@ -67,84 +67,127 @@ row is marked unmeasured on the in-app dashboard too.
 ### 1. Initial JS payload — met
 
 `node tools/payload.js` walks the `import` graph from the entry points a cold
-load actually fetches (the module scripts in `index.html`, the linked
-stylesheet, and the runtime worker) and gzips every file:
+load actually fetches (the scripts `index.html` loads, the linked stylesheet, the
+bootstrap `src/boot-note.js` - which names the module the deferral starts - and the runtime worker) and gzips every file:
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk (this report's measurement) | **113.2 KiB gzip JS over 18 modules**, 15.6 KiB gzip CSS, 436.1 KiB raw total |
+| Import-graph walk (this report's measurement) | **116.1 KiB gzip JS over 18 modules**, 16.9 KiB gzip CSS, 446.6 KiB raw total |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts the same files live and is visible on the M0 dashboard |
 
-The two largest files are `src/app.js` (40.7 KiB gzip of 126.4 KiB raw) and
+The two largest files are `src/app.js` (42.3 KiB gzip of 130.5 KiB raw) and
 `src/runtime/interpreter.js` (19.6 KiB gzip of 76.2 KiB raw) — the second grew
 during the M2 work that added `<string.h>`, `<ctype.h>`, `<math.h>`, the
 preprocessor, typedefs, two-dimensional arrays, function pointers and unions,
 and `src/runtime/preprocess.js` (4.0 KiB gzip) is new from the same work. The brief's
-ceiling is 170 KB gzip, so the bundle uses ~67% of it with every module loaded
-and nothing deferred.
+ceiling is 170 KB gzip, so the bundle uses ~68% of it with every module counted,
+including the ones the first paint no longer waits for.
 
-### 2. Throttled LCP — 4,705 ms, not met
+### 2. Throttled LCP — 603 ms cold, met
 
-`node tools/perf.js lcp --repeat=2` navigates the app under CDP
-network emulation (Slow 4G: 150 ms RTT, 1.6 Mbps down, 750 Kbps up) and 4x CPU
-throttling at a 412×915 mobile viewport, against the real dev server, then reads
-`largest-contentful-paint` from a buffered `PerformanceObserver`. Raw runs:
-`docs/reports/lcp.json`.
+`node tools/perf.js lcp --repeat=2` navigates the app under CDP network
+emulation (Slow 4G: 150 ms RTT, 1.6 Mbps down, 750 Kbps up) and 4x CPU
+throttling at a 412×915 mobile viewport, against the real dev server — which now
+compresses text the way the hosts do — then reads `largest-contentful-paint`
+from a buffered `PerformanceObserver`. Raw runs: `docs/reports/lcp.json`.
 
 | Profile | LCP | LCP element | FCP | TTFB | CLS | Long tasks | JS heap |
 |---------|-----|-------------|-----|------|-----|-----------|---------|
-| Slow 4G + 4x CPU | **4,705 ms** | `P.lede` (the hero paragraph) | 1,955 ms | 6.5 ms | 0.16 | 1 (52 ms) | 1.17 MiB |
-| unthrottled loopback | 742 ms | `P.lede` | 409 ms | 7.9 ms | 0 | 0 | 1.81 MiB |
+| Slow 4G + 4x CPU, cold | **603 ms** | `P.lede` (the hero paragraph) | 603 ms | 45.2 ms | 0 | 1 (61 ms) | 1.2 MiB |
+| Slow 4G + 4x CPU, second navigation | 82 ms | `P.lede` | 82 ms | 7.2 ms | 0 | 0 | 2.5 MiB |
+| unthrottled loopback | 72 ms | `P.lede` | 72 ms | 8.5 ms | 0 | 0 | 1.91 MiB |
 
-An earlier unthrottled run in this report measured 711/960 ms LCP; the spread
-between runs is reported rather than averaged away.
+The second throttled row is published because the gap is instructive rather than
+flattering: it is the *same browser profile* navigating a second time, so the
+document and the inline block come back out of the memory cache and the 4G
+profile never sees them. It is not a claim about a first visit. The cold run is,
+and it meets the 1.5 s target with about 897 ms of headroom where the
+build before this work missed it by a factor of three (**4,705 ms**, FCP
+1,955 ms, and 86% of LCP spent waiting to paint).
 
-**What this means, honestly:** the row fails its 1.5 s target by a factor of
-three under a mid-range-Android profile, and the same page renders in 742 ms on
-loopback. The gap is CPU, not network: TTFB is 6.5 ms because the profile is
-emulated from a local server, FCP is 1,955 ms because ~113 KiB gzip of JS must
-be parsed and executed under a 4x slowdown before the view paints, and LCP is
-2.7 s after that because the largest element is filled in at the end of boot.
+**What moved it, in the order it was done — including the attempts that failed:**
 
-CLS is 0.16, above the 0.1 "good" threshold: something moves after first paint.
-It is recorded here rather than rounded to zero.
+1. **The hero paragraph is static HTML.** `P.lede` used to be built by
+   `src/app.js` during boot, so it could not paint until the whole module graph
+   had been fetched, parsed and executed: under 4x CPU that was 1,955 ms of FCP
+   and 4,705 ms of LCP. It now lives in `index.html`, and the module *adopts* the
+   node (`adoptHero`), replacing only the ring and the badge strip.
+2. **The first viewport's CSS is inlined.** `styles/critical.css` (generated by
+   `tools/critical-css.py`, 20.9 KiB raw / 5.3 KiB gzip) is inlined into `index.html` under a
+   `style-src` SHA-256 — so the policy keeps `'self'` and no `'unsafe-inline'` —
+   and `styles/app.css` is applied by the module once it runs. The split is not a
+   hand-copied subset: the script owns it, and `--check` fails if `index.html`,
+   `_headers` and the generated file drift apart.
+3. **The module boots after the first paint.** `src/boot-note.js` waits for the
+   browser's own `first-contentful-paint` paint entry and only then starts
+   `src/app.js` with a dynamic `import()`. Two earlier attempts are recorded
+   because they failed: a plain deferred module script still executes before
+   the first paint, and starting the module from a double
+   `requestAnimationFrame` was coalesced into the frame that would have painted,
+   measuring FCP 683 ms.
+4. **The reference server compresses.** `tools/serve.js` now negotiates brotli
+   or gzip like the hosts do; before that, every local metric was measured
+   against bytes the deployed site never sends (Lighthouse estimated the
+   difference at 239 KiB).
 
-Two obvious levers are **not** implemented, and the reason is stated rather than
-implied: splitting the modules behind dynamic `import()` (every module is
-currently a static import, so one slow file delays the whole graph), and
-painting the hero paragraph as static HTML instead of building it during boot.
-Both are real work with real regression risk against a suite that currently
-passes 152/152, and neither is claimed until it is done.
+**What is left, stated rather than implied:** the measurement runs against
+`tools/serve.js` on loopback, so TTFB is 45.2 ms and says nothing about a
+real network; the cold run still spends one 61 ms task starting the module
+after the paint; and the page is still one module graph, so a slow link waits
+for it after the paint rather than before it. The row is about when the page
+becomes readable, which is what the brief asks.
 
 ### 2b. Lighthouse — run in both form factors
 
 `node tools/lighthouse.js --form-factor=mobile|desktop` runs the real Lighthouse
 CLI (12.8.2, installed under `.tools/`, not a project dependency) against the
-local build, with the **real `_headers` policy** served. Reports:
-`docs/reports/lighthouse-mobile.json`, `docs/reports/lighthouse-desktop.json`.
+local build, with the **real `_headers` policy** served, now over a compressing
+server. Reports: `docs/reports/lighthouse-mobile.json`,
+`docs/reports/lighthouse-desktop.json`.
 
 | Category | Mobile (412×915, simulated 4G) | Desktop | Target | Verdict |
 |----------|-------------------------------|---------|--------|---------|
-| Performance | **80** | **98** | ≥ 95 | met on desktop, short on mobile |
+| Performance | **100** | **100** | ≥ 95 | met in both form factors |
 | Accessibility | **100** | **100** | ≥ 95 | met |
 | Best practices | **96** | **100** | ≥ 95 | met |
 | SEO | **100** | **100** | ≥ 95 | met |
 
-Mobile key metrics: FCP 2.4 s, LCP 4.7 s, TBT 0 ms, **CLS 0**, Speed Index 3.0 s,
-TTI 4.7 s, 584 KiB total. The desktop run: FCP 0.5 s, LCP 1.0 s, CLS 0.005,
-Speed Index 1.0 s, 584 KiB. Required audits failing on mobile:
-`unused-javascript` (estimated 76 KiB — every module is a static import) and
-`render-blocking-resources` (estimated 300 ms, the stylesheet).
+Mobile key metrics: FCP 0.9 s, LCP 1.1 s,
+TBT 0 ms, **CLS 0.003**, Speed Index 1.1 s, TTI
+1.1 s, 185 KiB total. The desktop run: FCP 0.3 s,
+LCP 0.7 s, CLS 0.005, Speed Index 0.5 s, 187 KiB total.
+`render-blocking-resources` and `uses-text-compression` now pass — they were
+the two audits failing on the earlier build (an estimated 300 ms and an
+estimated 239 KiB of savings), and they are what the inline block and the
+compressing server fixed. The remaining non-perfect audits on mobile are
+`first-contentful-paint` and `largest-contentful-paint` at 0.99 (both inside
+Lighthouse's top scoring band) and `font-size` at 0 in best practices: one
+selector (`.small`) computes to 11.48px, just below the 12px legibility
+threshold, in the footer and a panel — not in the hero.
 
-Lighthouse cannot run its own browser here any more: current Edge launches a
-stub that writes the debug port into the profile and exits 0 without ever
-printing `DevTools listening on …`, which is what Lighthouse's launcher greps
-for, so every attempt died with *waiting for dynamic debugging port in
-chrome-err.log*. `tools/lighthouse.js` now launches the browser with the
-project's own CDP client and passes `--port`; `tools/cdp.js` accepts either
-endpoint (stderr line or `DevToolsActivePort` file) and closes the browser over
-CDP, so no renderer processes are left behind. None of that changes what is
-measured — it is the difference between a measurement and a stack trace.
+#### The layout shifts the inline block introduced, and how each was fixed
+
+Deferring the stylesheet means the first paint is styled by the inline block
+alone, so *any* shell rule the block omits shows up as a layout shift when the
+sheet lands. Chasing the first desktop run — Performance **88**, CLS 0.219 —
+found six, each confirmed by loading the page with `styles/app.css` blocked and
+comparing the geometry to the styled page (`.tools/scratch/cls-trace2.mjs`):
+
+| Element | Deferred, so at first paint it… | Shift | Fix |
+|---------|--------------------------------|-------|-----|
+| `.spark` (topbar sparkline svg) | fell back to an intrinsic 213px height, inflating the header to 308px | 0.219 desktop | allowlisted (138×26) |
+| `button, .button` (base rule) | left the command button with no padding, so the header row grew 14px once the sheet arrived | 0.219 / 0.092 | allowlisted |
+| `h1, h2, h3` and `p` (base margins) | made the hero about 16px taller than the styled one | 0.007 | allowlisted |
+| `.hud` (fixed-position chrome) | stayed in the body grid and took a row, so the deck strip landed on the `1fr` row and measured **413px** instead of 49px | 0.197 desktop | allowlisted exactly (with `#hero`, for its own `max-width: 1200px`) |
+| `.wave` (deck strip chart svg) | same intrinsic-size fallback inside an empty deck | (with `.hud`) | allowlisted |
+| telemetry strip, status-chip row | reserved 37px and 0px but fill to 68/52.5px and 55px as boot fills them | 0.061 / 0.048 | `min-height` steps at the widths where their contents wrap (measured at 13 widths) |
+
+The result is `tools/cls.js` — its own `layout-shift` observer installed before
+first paint, with the visual viewport resized twice to imitate the mobile URL
+bar: **CLS 0.002** on the mobile viewport and 0.005 on the desktop one, down from
+0.092 and 0.219. `tools/critical-css.py --check` keeps the split honest from
+here: a rule that leaves the inline block by accident fails
+`tests/policy.test.js` instead of silently painting late.
 
 #### One mobile CLS reading did not reproduce — and the change made for it was reverted
 
@@ -164,10 +207,13 @@ Then the numbers refused to cooperate:
 | mobile #2 | transform geometry | 82 | **0** | 4.4 s |
 | mobile #3 (control) | **original restored** | 80 | **0** | 4.7 s |
 | mobile #4 (shipped, idle machine) | original | 80 | **0** | 4.7 s |
+| mobile #5 (shipped: inline critical CSS, deferred boot, compressing server) | original | **100** | **0.003** | 1.1 s |
 | desktop (shipped, idle machine) | original | 98 | 0.005 | 1.0 s |
 
-Mobile #4 is the run the numbers above are taken from, on the shipped build with
-nothing else on the machine. The layout-shifts audit lists **no shift entries at
+Mobile #5 is the run the section-2b numbers are taken from: the same machine, the
+shipped build, with the hero static, the critical CSS inline and the module
+booting after the first paint.
+Run #4 was the last build before that work. The layout-shifts audit lists **no shift entries at
 all** in it, and the same audit in run #1 is where the 1.000 came from.
 
 The control run is the one that matters: with the pre-fix rule put back, CLS was

@@ -83,8 +83,17 @@ class Parser {
       TYPE_KEYWORDS.has(t.value) ||
       t.value === 'struct' ||
       t.value === 'union' ||
+      t.value === 'enum' ||
       t.value === 'typedef'
     );
+  }
+
+  /** True at `struct S {`, `union S {`, `enum S {` and their untagged forms. */
+  atRecordDef(k = 0) {
+    const record = this.at('kw', 'struct', k) || this.at('kw', 'union', k) || this.at('kw', 'enum', k);
+    if (!record) return false;
+    if (this.at('id', undefined, k + 1) && this.at('op', '{', k + 2)) return true;
+    return this.at('op', '{', k + 1);
   }
 
   /** True when the next token is a record tag (`struct` or `union`). */
@@ -116,6 +125,7 @@ class Parser {
         ptr,
         structName: stored.structName || null,
         structDef: null,
+        enumName: stored.enumName || null,
         arraySize: stored.arraySize || null,
         fnPtr: stored.fnPtr || null,
         line: start.line,
@@ -124,11 +134,24 @@ class Parser {
     let base = null;
     let structName = null;
     let structDef = null;
+    let enumDef = null;
+    let enumName = null;
     while (
       this.at('kw') &&
-      (TYPE_KEYWORDS.has(this.peek().value) || this.atTag())
+      (TYPE_KEYWORDS.has(this.peek().value) || this.atTag() || this.at('kw', 'enum'))
     ) {
       const w = this.peek().value;
+      if (w === 'enum') {
+        // `enum Color { RED, GREEN = 4 };` defines constants of type int.
+        // The tag itself needs no layout: C says an enum's type is int, so the
+        // enumerators travel as ordinary integer constants and `enum Color c`
+        // is `int c` with a name that reads better.
+        this.pos += 1;
+        if (this.at('id')) enumName = this.eat('id').value;
+        if (this.at('op', '{')) enumDef = this.parseEnumBody(enumName);
+        base = 'int';
+        continue;
+      }
       if (w === 'struct' || w === 'union') {
         this.pos += 1;
         let nameTok = this.at('id') ? this.eat('id') : null;
@@ -154,7 +177,25 @@ class Parser {
       ptr += 1;
       this.pos += 1;
     }
-    return { base: base || 'int', ptr, structName, structDef, line: start.line };
+    return { base: base || 'int', ptr, structName, structDef, enumDef, enumName, line: start.line };
+  }
+
+  /** `{ RED, GREEN = 4, BLUE, }` - named integer constants, in order. */
+  parseEnumBody(name) {
+    const open = this.expect('op', '{');
+    const items = [];
+    while (!this.at('op', '}')) {
+      if (this.at('eof')) this.fail('unterminated enum: expected "}"', open);
+      const nameTok = this.expect('id', undefined, 'an enumerator name');
+      let valueExpr = null;
+      if (this.eat('op', '=')) valueExpr = this.parseExpression();
+      items.push({ name: nameTok.value, valueExpr, line: nameTok.line });
+      // A trailing comma is legal C and easier to keep correct when a list is
+      // edited by hand.
+      if (!this.eat('op', ',')) break;
+    }
+    this.expect('op', '}');
+    return { name: name || null, items, line: open.line };
   }
 
   /**
@@ -168,6 +209,8 @@ class Parser {
   parseTypedef() {
     const kw = this.expect('kw', 'typedef');
     const type = this.parseType();
+    // `typedef enum { A, B } Flag;` defines the constants as well as the name.
+    const enumDef = type.enumDef || null;
     do {
       // `typedef int (*BinOp)(int, int);` - a name for a function pointer type.
       if (this.at('op', '(') && this.at('op', '*', 1)) {
@@ -200,13 +243,14 @@ class Parser {
         base: type.base,
         ptr: (type.ptr || 0) + ptr,
         structName: type.structName || null,
+        enumName: type.enumName || null,
         fnPtr: type.fnPtr || null,
         arraySize,
         line: kw.line,
       });
     } while (this.eat('op', ','));
     this.expect('op', ';');
-    return { structDef: type.structDef || null, line: kw.line };
+    return { structDef: type.structDef || null, enumDef, line: kw.line };
   }
 
   /** `{ int x; struct Point inner; char name[8]; }` or a union body. */
@@ -277,43 +321,51 @@ class Parser {
     const funcs = [];
     const globals = [];
     const structs = [];
+    const enums = [];
+    const protos = [];
     while (!this.at('eof')) {
       if (!this.isTypeStart()) this.fail(`unexpected '${this.peek().value}' at top level`);
       // `typedef unsigned int U32;` - a named type, not a declaration.
       if (this.at('kw', 'typedef')) {
         const info = this.parseTypedef();
         if (info.structDef) structs.push(info.structDef);
+        if (info.enumDef) enums.push(info.enumDef);
         continue;
       }
       // `struct Point { int x; int y; };` - a definition with no declarator.
-      if (this.atTag() && this.at('id', undefined, 1) && this.at('op', '{', 2)) {
+      if (this.atRecordDef()) {
         const defType = this.parseType();
         if (defType.structDef) structs.push(defType.structDef);
+        if (defType.enumDef) enums.push(defType.enumDef);
         if (this.eat('op', ';')) continue;
         globals.push({
           type: 'VarDecl',
           declType: defType,
-          decls: this.parseDeclarators(),
+          decls: this.parseDeclarators(defType),
           line: defType.line,
         });
         continue;
       }
       const type = this.parseType();
       if (type.structDef) structs.push(type.structDef);
+      if (type.enumDef) enums.push(type.enumDef);
       if (this.at('id') && this.at('op', '(', 1)) {
-        funcs.push(this.parseFunction(type));
+        const nameTok = this.eat('id');
+        const { params } = this.parseParamList();
+        // `int f(int a);` is a prototype: the definition may come later in the
+        // file (or, for a call the linker would resolve, not at all - which the
+        // runtime reports at the call with the line of the declaration).
+        if (this.eat('op', ';')) {
+          protos.push({ type: 'FuncProto', name: nameTok.value, retType: type, params, line: nameTok.line });
+        } else {
+          const body = this.parseBlock();
+          funcs.push({ type: 'FuncDecl', name: nameTok.value, retType: type, params, body, line: nameTok.line });
+        }
       } else {
         globals.push({ type: 'VarDecl', declType: type, decls: this.parseDeclarators(type), line: type.line });
       }
     }
-    return { type: 'Program', funcs, globals, structs };
-  }
-
-  parseFunction(retType) {
-    const nameTok = this.expect('id', undefined, 'a function name');
-    const { params } = this.parseParamList();
-    const body = this.parseBlock();
-    return { type: 'FuncDecl', name: nameTok.value, retType, params, body, line: nameTok.line };
+    return { type: 'Program', funcs, globals, structs, enums, protos };
   }
 
   /**
@@ -407,12 +459,13 @@ class Parser {
         return { type: 'Return', value, line: t.line };
       }
       if (t.value === 'struct' || t.value === 'union') return this.parseStructStatement();
+      if (t.value === 'enum') return this.parseEnumStatement();
       if (t.value === 'typedef') {
-        // A local typedef still has to register the record it defines.
+        // A local typedef still has to register the record or enum it defines.
         const info = this.parseTypedef();
-        return info.structDef
-          ? { type: 'StructDef', defs: [info.structDef], line: t.line }
-          : { type: 'Empty', line: t.line };
+        if (info.structDef) return { type: 'StructDef', defs: [info.structDef], line: t.line };
+        if (info.enumDef) return { type: 'EnumDef', defs: [info.enumDef], line: t.line };
+        return { type: 'Empty', line: t.line };
       }
       if (t.value === 'switch') return this.parseSwitch();
       if (t.value === 'do') return this.parseDoWhile();
@@ -452,8 +505,36 @@ class Parser {
     };
   }
 
+  /**
+   * `enum Color { RED };` or `enum Color c = RED;` inside a function - the
+   * statement form of the same two shapes the top level accepts.
+   */
+  parseEnumStatement() {
+    const type = this.parseType();
+    if (this.eat('op', ';')) {
+      return { type: 'EnumDef', defs: type.enumDef ? [type.enumDef] : [], line: type.line };
+    }
+    return {
+      type: 'VarDecl',
+      declType: type,
+      decls: this.parseDeclarators(type),
+      line: type.line,
+    };
+  }
+
   parseDeclStatement() {
     const type = this.parseType();
+    // `int f(int a);` at block scope is a prototype. A body here would be a
+    // nested function, which C does not have - say so rather than reporting a
+    // stray '{'.
+    if (this.at('id') && this.at('op', '(', 1)) {
+      const nameTok = this.eat('id');
+      const { params } = this.parseParamList();
+      if (!this.eat('op', ';')) {
+        this.fail('a function body here would be a nested function, which C does not support - define it at file scope', this.peek());
+      }
+      return { type: 'FuncProto', name: nameTok.value, retType: type, params, line: nameTok.line };
+    }
     return {
       type: 'VarDecl',
       declType: type,

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 452" width="780" height="452" role="img" aria-labelledby="title desc">
   <title id="title">Performance budget: measured values against the brief's targets</title>
-  <desc id="desc">One row per budget row. Each bar is the measured value as a share of the brief's target, so the right-hand end of every track is the target itself: a bar that reaches it meets the row, a bar that stops short falls short, and a bar that would overrun it is clamped and labelled with its ratio. Two rows are grey and dashed because they were not run at all. Every number comes from docs/LOAD_CHAOS.md, and two rows are failures that are reported as failures: the throttled Largest Contentful Paint and the mobile Lighthouse Performance score. Frame rate is met at the defaults and two frames short at maximum settings. The soak row is a full hour of samples in which the heap ended smaller than it started. Columns are: row, value, and target.</desc>
+  <desc id="desc">One row per budget row. Each bar is the measured value as a share of the brief's target, so the right-hand end of every track is the target itself: a bar that reaches it meets the row, a bar that stops short falls short, and a bar that would overrun it is clamped and labelled with its ratio. Two rows are grey and dashed because they were not run at all. Every number comes from docs/LOAD_CHAOS.md. The only row short of its target is the frame rate at maximum settings, two frames short, and it is labelled as such. The soak row is a full hour of samples in which the heap ended smaller than it started. Columns are: row, value, and target.</desc>
   <style>
     .bg { fill: #0d131c; }
     .label { fill: #c9d4e2; font: 12px ui-monospace, monospace; }
@@ -18,23 +18,23 @@
   <text class="small" x="20" y="44">The right-hand end of each track is the target. Bars are clamped at the target; the ratio beside them is the real one.</text>
   <line class="axis" x1="20" y1="56" x2="768" y2="56" />
 
-  <!-- Initial JS payload: 113.2 KiB gzip vs 170 KB (met, 67%) -->
+  <!-- Initial JS payload: 116.1 KiB gzip vs 170 KB (met, 68%) -->
   <text class="label" x="20" y="82">Initial JS payload (gzip)</text>
-  <text class="value" x="768" y="82" text-anchor="end">113.2 KiB of 170 KB - met</text>
+  <text class="value" x="768" y="82" text-anchor="end">116.1 KiB of 170 KB - met</text>
   <rect class="track" x="20" y="88" width="748" height="9" />
-  <rect class="met" x="20" y="88" width="498" height="9" />
+  <rect class="met" x="20" y="88" width="511" height="9" />
 
-  <!-- Throttled LCP: 4705 ms vs 1500 ms (not met, 3.1x) -->
+  <!-- Throttled LCP: 603 ms vs 1500 ms (met, 0.40x) -->
   <text class="label" x="20" y="114">Largest Contentful Paint, Slow 4G + 4x CPU</text>
-  <text class="value" x="768" y="114" text-anchor="end">4,705 ms of 1,500 ms - not met (3.1x)</text>
+  <text class="value" x="768" y="114" text-anchor="end">603 ms of 1,500 ms - met</text>
   <rect class="track" x="20" y="120" width="748" height="9" />
-  <rect class="unmet" x="20" y="120" width="748" height="9" />
+  <rect class="met" x="20" y="120" width="301" height="9" />
 
-  <!-- Lighthouse mobile: 80 vs 95 (not met, 84%) -->
+  <!-- Lighthouse mobile: 100 vs 95 (met) -->
   <text class="label" x="20" y="146">Lighthouse, mobile Performance</text>
-  <text class="value" x="768" y="146" text-anchor="end">80 of 95 - not met</text>
+  <text class="value" x="768" y="146" text-anchor="end">100 of 95 - met</text>
   <rect class="track" x="20" y="152" width="748" height="9" />
-  <rect class="unmet" x="20" y="152" width="630" height="9" />
+  <rect class="met" x="20" y="152" width="748" height="9" />
 
   <!-- Lighthouse mobile: a11y/bp/seo 100/96/100 vs 95 (met) -->
   <text class="label" x="20" y="178">Lighthouse, mobile Accessibility / Best practices / SEO</text>
@@ -42,9 +42,9 @@
   <rect class="track" x="20" y="184" width="748" height="9" />
   <rect class="met" x="20" y="184" width="748" height="9" />
 
-  <!-- Lighthouse desktop: 98/100/100/100 vs 95 (met) -->
+  <!-- Lighthouse desktop: 100 / 100 / 100 / 100 vs 95 (met) -->
   <text class="label" x="20" y="210">Lighthouse, desktop (all four categories)</text>
-  <text class="value" x="768" y="210" text-anchor="end">98 / 100 / 100 / 100 of 95 - met</text>
+  <text class="value" x="768" y="210" text-anchor="end">100 / 100 / 100 / 100 of 95 - met</text>
   <rect class="track" x="20" y="216" width="748" height="9" />
   <rect class="met" x="20" y="216" width="748" height="9" />
 

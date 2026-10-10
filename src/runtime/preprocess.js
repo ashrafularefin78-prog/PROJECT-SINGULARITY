@@ -17,9 +17,12 @@
  *   #error <text>                     reported as a compile error with position
  *   #pragma / #line                   accepted and ignored
  *
- * Function-like macros (`#define SQ(x) ((x)*(x))`) are *not* expanded, and are
- * rejected with a clear message instead of being silently ignored. That is the
- * one deliberate hole, and it is stated in the docs rather than papered over.
+ *   #define F(a, b) <text>            function-like macros, expanded at the use
+ *                                      site: arguments are macro-expanded
+ *                                      before substitution, `#a` stringizes an
+ *                                      argument, `a ## b` pastes two tokens,
+ *                                      and `...` / `__VA_ARGS__` passes the
+ *                                      rest of the arguments through
  *
  * Positions survive expansion: a token that came out of a macro carries the
  * line and column of the *use*, which is where the user's caret belongs.
@@ -31,6 +34,57 @@ const KNOWN = new Set([
   'include', 'define', 'undef', 'ifdef', 'ifndef', 'if', 'elif', 'else', 'endif',
   'error', 'pragma', 'line', 'warning',
 ]);
+
+/**
+ * Parse the parameter list of a function-like macro definition.
+ *
+ * `text` starts at the '(' that immediately follows the macro name, and the
+ * return value is the parameters, whether the macro is variadic, and the
+ * replacement text after the closing ')'. A double `(` opens nested parens,
+ * which C allows in a parameter list only as `(void)`-style noise - either way
+ * the scan is balanced rather than naive, so a stray '(' cannot silently move
+ * the body boundary.
+ */
+function parseMacroParams(text, name, fail) {
+  let i = 1;
+  let depth = 1;
+  let current = '';
+  const params = [];
+  let va = false;
+  const finish = (param) => {
+    const trimmed = param.trim();
+    if (trimmed === '') return;
+    if (trimmed === '...') {
+      va = true;
+      return;
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
+      fail(`'${trimmed}' is not a parameter name in '#define ${name}(...)'`);
+    }
+    if (params.includes(trimmed)) fail(`duplicate parameter '${trimmed}' in '#define ${name}'`);
+    params.push(trimmed);
+  };
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '(') depth += 1;
+    else if (c === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        finish(current);
+        return { params, va, body: text.slice(i + 1) };
+      }
+    } else if (c === ',' && depth === 1) {
+      finish(current);
+      current = '';
+      i += 1;
+      continue;
+    }
+    current += c;
+    i += 1;
+  }
+  fail(`'#define ${name}(' has no closing ')'`);
+  return null;
+}
 
 /** Join continued lines: a directive ending in `\` continues on the next one. */
 function joinContinuations(source, start, n) {
@@ -338,11 +392,17 @@ export class Preprocessor {
         const macroName = dm[1];
         const after = dm[2];
         if (after.startsWith('(')) {
-          this.fail(
-            `function-like macro '${macroName}' is not supported - this compiler expands object-like constants (#define NAME value); write it as a function instead`,
+          // C: a '(' *immediately* after the name makes it function-like. A
+          // space first (`#define SIZE (4)`) leaves it object-like.
+          const parsed = parseMacroParams(after, macroName, (message) => this.fail(message, line, col));
+          this.macros.set(macroName, {
+            params: parsed.params,
+            va: parsed.va,
+            body: parsed.body.trim(),
             line,
             col,
-          );
+          });
+          return;
         }
         this.macros.set(macroName, { body: after.trim(), line, col });
         return;

@@ -294,7 +294,12 @@ async function soakReport() {
   const { proc, origin } = await startServer();
   const rawDir = '.tools/soak';
   mkdirSync(rawDir, { recursive: true });
-  mkdirSync(OUT_DIR, { recursive: true });  const browser = await Browser.launch({ width: 1440, height: 900, scale: 1 });
+  mkdirSync(OUT_DIR, { recursive: true });
+  // softwareGl: the soak samples the app including its 3D panel for minutes at
+  // a time. It is a stability measurement, not a paint-timing one, and the
+  // published soak numbers were taken with the software rasteriser, so the soak
+  // keeps asking for it rather than changing the thing it measures.
+  const browser = await Browser.launch({ width: 1440, height: 900, scale: 1, softwareGl: true });
   const product0 = (await browser.send('Browser.getVersion')).product;
   const session = await browser.newSession(origin + '/');
   const samples = [];
