@@ -105,7 +105,7 @@ node .tools/wrangler/node_modules/wrangler/bin/wrangler.js dev -c tools/site/wra
 node tools/browser-run.js --url=http://127.0.0.1:8788/tests/browser.html
 ```
 
-Last run: **152 passed, 0 failed, 0 skipped** against the worker-served build
+Last run: **183 passed, 0 failed, 0 skipped** against the worker-served build
 (`[dom=true webgl2=true indexeddb=true]`), with the strict CSP arriving from the
 generated worker rather than from a dev server. A build that cannot deliver its
 own security policy, or whose suite fails once served by the deploy artifact,

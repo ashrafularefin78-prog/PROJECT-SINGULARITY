@@ -84,7 +84,7 @@ silently normalised non-canonical base64 — which is the argument for having it
 
 | Reading | Answer | Why |
 |---------|--------|-----|
-| Points (of the brief's 1000) | **652** | 95 + 85 + 70 + 92 + 80 + 92 + 55 + 83 across the eight modules, before the budget and integration rows. M2 moved 75 → 85 when the standard-library, preprocessor, typedef, two-dimensional array, function pointer and union gaps closed; M8 moved 78 → 83 when the site moved to a host that delivers `_headers`. |
+| Points (of the brief's 1000) | **668** | 95 + 88 + 78 + 92 + 85 + 92 + 55 + 83 across the eight modules, before the budget and integration rows. M2 85 → 88 (function-like macros confirmed + sprintf/qsort/fgets); M3 70 → 78 (glTF 2.0 loader added with 12 tests); M5 80 → 85 (ICE restart on disconnect implemented). |
 | Points band | **Gold** (450–750) | Purely arithmetic. |
 | Tier by *requirement* | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete (M1, M4, M6) and five are partial, so Silver misses by one module. |
 | Budget row (100 pts) | **Partly evidenced, not claimable** | Payload is met (116.1 KiB gzip vs 170 KB), the 3D frame rate is met at the defaults (60 FPS) and short at maximum settings (58), the throttled-4G LCP is met at **603 ms** under Slow 4G plus 4x CPU throttling, Lighthouse passes in both form factors (desktop **100 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**), and the full 60-minute memory soak is met (the heap at minute 60 holds fewer nodes and less memory than at minute 10). 10,000 concurrent users and node-kill chaos were not run: there is no server tier to kill. See [LOAD_CHAOS.md](LOAD_CHAOS.md). |
@@ -93,7 +93,7 @@ silently normalised non-canonical base64 — which is the argument for having it
 ## 6. Definition of done for this pass
 
 - [x] Site boots from one URL with no install and no plugins
-- [x] 152 automated tests green across 10 suites, runnable from the site itself
+- [x] 183 automated tests across 11 suites (177 pass, 6 browser-only skips), runnable from the site itself
 - [x] A deterministic fuzzer for the C front end, the CRDT, the crypto decoders
       and the signaling parser
 - [x] Every module panel does something real, or says what it does not do

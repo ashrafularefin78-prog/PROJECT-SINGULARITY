@@ -47,7 +47,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 4. Press the backslash key: the **module dial** opens with all eight modules on a
    ring, each labelled with the score it is actually carrying. Arrow keys turn
    it, digits jump straight to a module, Enter opens it, Escape closes.
-5. Point at the score ring: **652 / 1000**, points band **Gold**.
+5. Point at the score ring: **668 / 1000**, points band **Gold**.
 6. Point at the tier ladder: Bronze says *requirement: met*, Silver says *not met
    (3 of 4 modules)*. Say out loud that the leading column is the brief's points
    band and the ladder grades the *requirements*, which is why the two disagree.
@@ -140,8 +140,8 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run: **152 tests, 10 suites, all
-green**, including the fuzzer. Then name the gaps: no red-team session, no
+Open **/tests/browser.html** and let the suite run: **183 tests, 11 suites, 177
+green, 6 browser-only skips**, including the fuzzer. Then name the gaps: no red-team session, no
 audited crypto, no TURN, no glTF/IBL, no clang→WASM, no screen-reader pass, and
 no distributed load or chaos rig.
 

@@ -116,10 +116,40 @@ class Link {
     this.channel = null;
     this.state = 'new';
     this.openedAt = null;
+    this._restartTimer = null;
+
     pc.addEventListener('iceconnectionstatechange', () => {
       const s = pc.iceConnectionState;
-      if (s === 'failed') carrier._note(`${label}: ICE failed - both peers may be behind symmetric NAT (a TURN server is required)`, 'bad');
-      else if (s === 'disconnected') carrier._note(`${label}: connection interrupted`, 'warn');
+      if (s === 'failed') {
+        clearTimeout(this._restartTimer);
+        carrier._note(`${label}: ICE failed - both peers may be behind symmetric NAT (a TURN server is required)`, 'bad');
+        this.state = 'failed';
+        carrier.onClose(this);
+      } else if (s === 'disconnected') {
+        carrier._note(`${label}: connection interrupted, ICE restart in 2 s…`, 'warn');
+        // ICE restart: a new offer with iceRestart:true re-gathers candidates
+        // without tearing down the data channel, so messages already buffered
+        // in the channel are not lost.  The remote peer must accept the new SDP
+        // via the out-of-band signaling path the user already used; we emit the
+        // new code into the carrier's state log so the user can copy-paste it.
+        clearTimeout(this._restartTimer);
+        this._restartTimer = setTimeout(async () => {
+          if (pc.iceConnectionState !== 'disconnected') return;
+          try {
+            const offer = await pc.createOffer({ iceRestart: true });
+            await pc.setLocalDescription(offer);
+            await waitForIce(pc);
+            const code = encodeSignal('offer', pc.localDescription.sdp);
+            carrier._note(`${label}: ICE restart code ready — paste it to the remote peer and apply their answer`, 'ok');
+            carrier.lastRestartCode = code;
+          } catch (err) {
+            carrier._note(`${label}: ICE restart failed (${err.message})`, 'bad');
+          }
+        }, 2000);
+      } else if (s === 'connected' || s === 'completed') {
+        clearTimeout(this._restartTimer);
+        this._restartTimer = null;
+      }
     });
   }
 
@@ -197,6 +227,8 @@ export class RtcCarrier {
     this.ownUfrags = new Set();
     this.stats = { sent: 0, received: 0, dropped: 0, bytesOut: 0, bytesIn: 0, links: 0 };
     this.lastError = null;
+    /** Set by an ICE restart; contains the new offer code to send to the peer. */
+    this.lastRestartCode = null;
   }
 
   static supported() {
@@ -325,6 +357,27 @@ export class RtcCarrier {
 
   channels() {
     return [...this.links.values()].filter((l) => l.state === 'open' && l.peer).map((l) => l.peer);
+  }
+
+  /**
+   * Apply the answer to an ICE restart offer.  After a `disconnected` event the
+   * carrier emits a new offer code via `lastRestartCode`.  The remote peer pastes
+   * it through `acceptInvite` as if it were a fresh invite, pastes the answer
+   * back, and the local side calls this method with that answer code to complete
+   * the restart without tearing down the data channel.
+   */
+  async acceptRestartAnswer(code) {
+    const signal = decodeSignal(code);
+    if (signal.kind !== 'answer') throw new Error('that is an invite code - paste it on the other side');
+    this._rejectOwnCode(signal);
+    // Find the link whose PC is in have-local-offer state following the restart.
+    const link = [...this.links.values()].find(
+      (l) => l.pc.signalingState === 'have-local-offer' || l.pc.iceConnectionState === 'disconnected',
+    );
+    if (!link) throw new Error('no ICE restart is pending - create one first with a disconnected link');
+    await link.pc.setRemoteDescription({ type: 'answer', sdp: signal.sdp });
+    this.lastRestartCode = null;
+    this._note('ICE restart answer applied - reconnecting…', 'ok');
   }
 
   close() {

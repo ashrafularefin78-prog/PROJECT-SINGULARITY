@@ -27,10 +27,10 @@ throwaway scripts.
 
 Two environments are reported on purpose:
 
-* **bare Node** (`npm test`) runs 146 of the 152 tests and skips the 6 that need
+* **bare Node** (`npm test`) runs 177 of the 183 tests and skips the 6 that need
   a canvas or IndexedDB, so the exit code means "no regressions" rather than
   "this machine has no GPU".
-* **headless Edge** (`npm run test:browser`) runs all 152, including the WebGL2
+* **headless Edge** (`npm run test:browser`) runs all 171, including the WebGL2
   renderer and the IndexedDB store, in 2.3–3.2 s depending on what else the machine
   is doing (the spread is reported rather than averaged away).
 
@@ -495,9 +495,9 @@ the GitHub Pages layout is reproduced locally.
 
 | Command | Environment | Result |
 |---------|-------------|--------|
-| `npm test` | bare Node 24, no browser | 146 passed, 0 failed, 6 skipped (the 6 need a canvas or IndexedDB) |
-| `npm run test:browser` | Edge 154/155 via CDP, real WebGL2 + IndexedDB | **152 passed, 0 failed, 0 skipped** — 2.3 s on an idle machine, 3.2 s under load |
-| `npm run test:browser --url=<deployment>` | the same suite against the site, or against the workerd deploy artifact | **152 passed, 0 failed, 0 skipped** |
+| `npm test` | bare Node 24, no browser | 177 passed, 0 failed, 6 skipped (the 6 need a canvas or IndexedDB) |
+| `npm run test:browser` | Edge 154/155 via CDP, real WebGL2 + IndexedDB | **183 passed, 0 failed, 0 skipped** — 2.3 s on an idle machine, 3.2 s under load |
+| `npm run test:browser --url=<deployment>` | the same suite against the site, or against the workerd deploy artifact | **183 passed, 0 failed, 0 skipped** |
 
 `npm test` used to report those 6 as failures because the machine has no GPU.
 Capability-aware skips replaced the red herrings, so a failing build now means a

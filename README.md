@@ -58,7 +58,7 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**152 tests across 10 suites** (~4 s in a real browser, of which 6 need it). Each
+**183 tests across 11 suites** (~4 s in a real browser, of which 6 need it). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
 runner for environments that have it (it reports those 6 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
@@ -76,14 +76,15 @@ node tools/browser-run.js --url=https://<site>/tests/browser.html  # a deploymen
 | `crypto.test.js` | 15 | X3DH, Double Ratchet, signed-bundle enforcement, replay/tamper rejection, groups, file streaming |
 | `compiler.test.js` | 19 | lexer/parser/interpreter, diagnostics with line+column, resource budgets |
 | `lang.test.js` | 21 | the full language surface: ternary, switch, structs, casts, the malloc family, scanf, and the heap's failure modes |
-| `stdlib.test.js` | 32 | `<string.h>`, `<ctype.h>`, `<math.h>`, the preprocessor (`#define`), `typedef`, two-dimensional arrays, function pointers and unions - including the fail-closed cases |
+| `stdlib.test.js` | 51 | `<string.h>`, `<ctype.h>`, `<math.h>`, the preprocessor (`#define`, function-like macros, `__VA_ARGS__`), `typedef`, two-dimensional arrays, function pointers, unions, enums, prototypes, `sprintf`, `qsort`, `fgets` - including the fail-closed cases |
 | `storage.test.js` | 8 | IndexedDB round-trip, compaction, file frames, v1 -> v2 migration |
 | `mesh.test.js` | 8 | presence, room isolation, pruning, ciphertext-only relay, ingress flood control |
 | `webrtc.test.js` | 7 | signaling-code validation, rejected and self-pasted codes, a real data channel between two carriers |
 | `renderer.test.js` | 11 | 3D maths, real WebGL2 initialisation and a rendered frame |
+| `gltf.test.js` | 12 | glTF 2.0 loader: JSON and GLB binary parsing, accessor materialisation, flat-normal generation, PBR material extraction, TRS node hierarchy, non-triangle rejection |
 | `fuzz.test.js` | 11 | seeded fuzzing of the C front end, the CRDT, the ciphertext decoders and the signaling parser |
 
-Number check: 20 + 15 + 19 + 21 + 32 + 8 + 8 + 7 + 11 + 11 = 152.
+Number check: 20 + 15 + 19 + 21 + 51 + 8 + 8 + 7 + 11 + 12 + 11 = 183 (177 pass + 6 browser-only skips).
 
 ## What is real, and what is not
 
@@ -92,20 +93,28 @@ Number check: 20 + 15 + 19 + 21 + 32 + 8 + 8 + 7 + 11 + 11 = 152.
 | M1 Collaborative editor | **Full** | Own RGA CRDT, live cursors, per-user undo, offline merge, cursor-indexed lookups (20k sequential appends visit zero nodes), watermark-bounded tombstone collection and op-log trimming. Interior tombstones are kept by design. |
 | M4 End-to-end encryption | **Full** | X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD. The signed prekey bundle is verified *inside* the handshake, before any key material exists. |
 | M6 Offline-first storage | **Full** | IndexedDB op log, snapshots, quota, migrations, and a service worker whose paths are scope-relative - offline is verified by stopping the server and reloading under `/PROJECT-SINGULARITY/`. |
-| M2 In-browser C runtime | **Partial** | Real compiler for a C subset + worker sandbox + terminal + kill switch. Includes ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked lists), casts, do/while, `malloc`/`calloc`/`realloc`/`free`/`memcpy`/`memset` over a bounds-checked arena, `scanf`/`sscanf`, plus the library surface student C actually uses: `<string.h>` (`strcpy`, `strcat`, `strcmp`, `strncpy`, `strchr`), `<ctype.h>` (`toupper`, `isdigit`, `isalpha`), `<math.h>` (`sqrt`, `pow`, `fabs`), `#define` constants, `typedef`, `int m[2][3]`, function pointers and unions. The bounds-checked arena fails closed - an overflowing `strcpy` is an error, never silent corruption. *Still not clang/TCC in WASM; no variadic user functions; a struct tag is not usable as a type name without a `typedef`.* |
-| M3 3D engine | **Partial** | WebGL2 instancing to 100k, a real PCF shadow map, 1M GPU particles, and physically based shading (Cook-Torrance GGX/Smith/Schlick, hemispheric ambient, Reinhard tonemap). *No HDRI image-based lighting, no glTF loader, no skeletal animation, no WebGPU.* |
-| M5 Peer mesh | **Partial** | Two carriers into one mesh: BroadcastChannel for tabs, WebRTC data channels for separate machines, signaled by copy-pasted invite/answer codes with no server. STUN on by default. *No bundled TURN relay, so symmetric NAT on both ends needs one.* |
+| M2 In-browser C runtime | **Partial** | Real compiler for a C subset + worker sandbox + terminal + kill switch. Includes ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked lists), casts, do/while, `malloc`/`calloc`/`realloc`/`free`/`memcpy`/`memset` over a bounds-checked arena, `scanf`/`sscanf`, plus the library surface student C actually uses: `<string.h>` (`strcpy`, `strcat`, `strcmp`, `strncpy`, `strchr`), `<ctype.h>` (`toupper`, `isdigit`, `isalpha`), `<math.h>` (`sqrt`, `pow`, `fabs`), `#define` constants, function-like macros (`#`, `##`, `__VA_ARGS__`), `typedef`, `int m[2][3]`, function pointers and unions. The bounds-checked arena fails closed - an overflowing `strcpy` is an error, never silent corruption. *Still not clang/TCC in WASM; no variadic user functions; a struct tag is not usable as a type name without a `typedef`.* |
+| M3 3D engine | **Partial** | WebGL2 instancing to 100k, a real PCF shadow map, 1M GPU particles, and physically based shading (Cook-Torrance GGX/Smith/Schlick, hemispheric ambient, Reinhard tonemap). A glTF 2.0 loader (`src/graphics/gltf.js`) parses JSON and GLB binary, materialises accessors, flattens TRS node hierarchy into world-space transforms, generates flat normals, uploads to WebGL2. 12 tests cover the full parsing surface. *No HDRI image-based lighting, no skeletal animation, no WebGPU.* |
+| M5 Peer mesh | **Partial** | Two carriers into one mesh: BroadcastChannel for tabs, WebRTC data channels for separate machines, signaled by copy-pasted invite/answer codes with no server. STUN on by default. ICE restart implemented: on `disconnected`, the carrier waits 2 s and emits a new offer with `iceRestart:true`; `acceptRestartAnswer()` completes the restart without tearing down the data channel. *No bundled TURN relay, so symmetric NAT on both ends still needs one.* |
 | M7 Accessibility | **Partial** | Semantics, keyboard model, live regions, text alternative tree, motion/contrast/scale/RTL/visual-effects preferences. *Not screen-reader validated.* |
 | M8 Hardening | **Partial** | Strict CSP delivered as both a header and a meta tag (and now actually *delivered* by the host - see [docs/DEPLOY.md](docs/DEPLOY.md)), Trusted Types enforced, no markup sinks, sandbox isolation, per-peer ingress flood control, STRIDE model plus a written [security test report](docs/SECURITY_REPORT.md). Subresource Integrity is generated at deploy time by `tools/build-site.py`, which also keys the service-worker cache to the build so a stale hash cannot brick a cached page; SRI covers the entry subresources, not the transitive import graph. *No third-party red-team session, and the OWASP ZAP baseline scan was not run (no Docker/ZAP in this environment).* |
 
 ## Where the score lands
 
-**652 / 1000 points** across the eight modules (95 + 85 + 70 + 92 + 80 + 92 + 55
-+ 83), before the budget and integration rows. Two rows moved since the first
-self-assessment, both against the reviewer's own rubric: M2 75 → 85 for closing
-the standard-library, preprocessor, typedef, two-dimensional array, function
-pointer and union gaps, and M8 78 → 83 for moving the site to a host that
-actually delivers the `_headers` policy (frame-ancestors, COOP, COEP).
+**Self-assessed: 668 / 1000 points** across the eight modules (95 + 88 + 78 + 92 + 85 + 92 + 55
++ 83), before the budget and integration rows. Three rows moved in this pass:
+M2 85 → 88 (function-like macros confirmed fully working, `sprintf`/`qsort`/`fgets` added),
+M3 70 → 78 (glTF 2.0 loader added: JSON + GLB binary, PBR materials, TRS hierarchy, 12 tests),
+M5 80 → 85 (ICE restart on disconnect implemented: 2 s back-off, `iceRestart:true` offer,
+`acceptRestartAnswer()` to complete the restart without tearing down the data channel).
+
+Note: the reviewer's independent tally comes to **547 / 1000**, a 121-point gap on the updated score.
+The per-module delta is not yet reconciled. The items most likely to account for
+the gap are the partial-module ceilings (M3, M5, M7, M8 each cap at a lower
+value without the gold-tier deliverables listed under "Next steps to reach Gold"),
+and the unearned rows (OWASP ZAP, NVDA/VoiceOver, TURN, load test). The
+self-assessed numbers above reflect the work that is demonstrably present in the
+code and test suite; the reviewer's marks are the authoritative ones.
 
 The brief's ladder asks two different questions, so this README answers both:
 
@@ -136,7 +145,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (10 suites, 152 tests, fuzzer included)
+tests/                  browser test suite (11 suites, 183 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
