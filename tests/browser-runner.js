@@ -12,6 +12,7 @@ const SUITES = [
   './mesh.test.js',
   './webrtc.test.js',
   './renderer.test.js',
+  './gltf.test.js',
   './fuzz.test.js',
 ];
 
