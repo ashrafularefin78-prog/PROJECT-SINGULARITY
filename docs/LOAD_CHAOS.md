@@ -23,14 +23,14 @@ throwaway scripts.
 | Server | `python3 tools/serve.py 5173` / `node tools/serve.js` on 127.0.0.1, serving the **real `_headers` policy** (strict CSP, COOP/COEP, Trusted Types) |
 | Instrumentation | `PerformanceObserver` installed before first paint (LCP, FCP, layout shift, long tasks), `Performance.getMetrics`, `Runtime.getHeapUsage` after an explicit GC, `HeapProfiler.takeHeapSnapshot`, the browser accessibility tree, axe-core |
 | Repetition | every timing row was run at least twice under each profile; the tables show each run, not a best case |
-| Drift control | `node tools/check-docs.js` re-measures the payload from the import graph, reads every JSON report, and asserts that the exact strings this document and the chart publish are still the ones the artifacts produce. It has caught three real drifts: a 4-line code change that moved the payload from 112.9 to 113.2 KiB gzip; a soak figure that predated the completed hour; and - the one that matters most - moving the application module behind the deferred boot hid `src/app.js` from the walk, so the same command cheerfully reported a *smaller* bundle. `tools/payload.js` now reads the module's specifier out of the bootstrap, the walk is back to 18 modules, and the row above is 116.1 KiB. `--self-test` injects a wrong number and asserts the check fails, so a checker that passes on everything cannot pass for the wrong reason |
+| Drift control | `node tools/check-docs.js` re-measures the payload from the import graph, reads every JSON report, and asserts that the exact strings this document and the chart publish are still the ones the artifacts produce. It has caught three real drifts: a 4-line code change that moved the payload from 112.9 to 113.2 KiB gzip; a soak figure that predated the completed hour; and - the one that matters most - moving the application module behind the deferred boot hid `src/app.js` from the walk, so the same command cheerfully reported a *smaller* bundle. `tools/payload.js` now reads the module's specifier out of the bootstrap, the walk is back to 19 modules, and the row above is 130.9 KiB. `--self-test` injects a wrong number and asserts the check fails, so a checker that passes on everything cannot pass for the wrong reason |
 
 Two environments are reported on purpose:
 
 * **bare Node** (`npm test`) runs 177 of the 183 tests and skips the 6 that need
   a canvas or IndexedDB, so the exit code means "no regressions" rather than
   "this machine has no GPU".
-* **headless Edge** (`npm run test:browser`) runs all 171, including the WebGL2
+* **headless Edge** (`npm run test:browser`) runs all 183, including the WebGL2
   renderer and the IndexedDB store, in 2.3–3.2 s depending on what else the machine
   is doing (the spread is reported rather than averaged away).
 
@@ -51,7 +51,7 @@ row is marked unmeasured on the in-app dashboard too.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **116.1 KiB gzip JS** (446.6 KiB raw over 18 modules) + 16.9 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
+| Initial JS payload | ≤ 170 KB gzip | **130.9 KiB gzip JS** (507.2 KiB raw over 19 modules) + 16.9 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **603 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 72 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -72,10 +72,10 @@ bootstrap `src/boot-note.js` - which names the module the deferral starts - and 
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk (this report's measurement) | **116.1 KiB gzip JS over 18 modules**, 16.9 KiB gzip CSS, 446.6 KiB raw total |
+| Import-graph walk (this report's measurement) | **130.9 KiB gzip JS over 19 modules**, 16.9 KiB gzip CSS, 507.2 KiB raw total |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts the same files live and is visible on the M0 dashboard |
 
-The two largest files are `src/app.js` (42.3 KiB gzip of 130.5 KiB raw) and
+The two largest files are `src/app.js` (43.5 KiB gzip of 136.0 KiB raw) and
 `src/runtime/interpreter.js` (19.6 KiB gzip of 76.2 KiB raw) — the second grew
 during the M2 work that added `<string.h>`, `<ctype.h>`, `<math.h>`, the
 preprocessor, typedefs, two-dimensional arrays, function pointers and unions,
@@ -501,7 +501,7 @@ the GitHub Pages layout is reproduced locally.
 
 `npm test` used to report those 6 as failures because the machine has no GPU.
 Capability-aware skips replaced the red herrings, so a failing build now means a
-real regression. The new `tests/stdlib.test.js` suite (32 tests) is the evidence
+real regression. The `tests/stdlib.test.js` suite (51 tests) is the evidence
 for the M2 work: every `<string.h>`, `<ctype.h>` and `<math.h>` function the
 brief listed, `#define`, `typedef`, two-dimensional arrays, function pointers and
 unions, each exercised by a complete C program — including the fail-closed cases
@@ -549,8 +549,8 @@ Reproduce any row:
 
 ```sh
 python3 tools/serve.py 5173     # or: node tools/serve.js
-npm test                        # 146 tests, no browser needed
-npm run test:browser            # all 152, in a real browser
+npm test                        # 183 collected: 177 pass + 6 skip, no browser needed
+npm run test:browser            # all 183, in a real browser
 node tools/payload.js           # import-graph payload size
 node tools/perf.js lcp          # throttled LCP -> docs/reports/lcp.json
 node tools/perf.js soak         # memory soak -> docs/reports/soak.json

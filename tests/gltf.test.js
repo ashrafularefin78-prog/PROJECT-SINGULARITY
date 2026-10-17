@@ -249,6 +249,13 @@ test('M3: GLB parsing — load triangle from ArrayBuffer', async () => {
   const meshes = await loadGltf(glb, true);
   assertEquals(meshes.length, 1, 'one mesh from GLB');
   assertEquals(meshes[0].positions.length, 9, 'positions from GLB binary chunk');
+
+  // The same binary over a URL must be detected from its magic and parsed as
+  // GLB, not handed to JSON.parse because the call had no isGlb flag.
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(glb)));
+  const urlMeshes = await loadGltf(`data:model/gltf-binary;base64,${b64}`);
+  assertEquals(urlMeshes.length, 1, 'one mesh from a GLB data: URL');
+  assertEquals(urlMeshes[0].positions.length, 9, 'positions from the GLB URL path');
 });
 
 test('M3: glTF loader rejects invalid GLB magic', async () => {

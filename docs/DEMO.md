@@ -51,7 +51,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 6. Point at the tier ladder: Bronze says *requirement: met*, Silver says *not met
    (3 of 4 modules)*. Say out loud that the leading column is the brief's points
    band and the ladder grades the *requirements*, which is why the two disagree.
-7. Point at the budget table: payload **met** (116.1 KiB gzip of JavaScript plus
+7. Point at the budget table: payload **met** (130.9 KiB gzip of JavaScript plus
    16.9 KiB of CSS, against a 170 KB ceiling), the hour-long memory soak **met**
    (the heap at minute 60 is smaller than at minute 10), frame rate **met**, and
    everything that was not measured labelled *not measured*.
@@ -140,9 +140,9 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run: **183 tests, 11 suites, 177
-green, 6 browser-only skips**, including the fuzzer. Then name the gaps: no red-team session, no
-audited crypto, no TURN, no glTF/IBL, no clang→WASM, no screen-reader pass, and
+Open **/tests/browser.html** and let the suite run: **183 tests, 11 suites, all
+green, no skips**, including the fuzzer. Then name the gaps: no red-team session, no
+audited crypto, no TURN, no texture sampling/IBL, no clang→WASM, no screen-reader pass, and
 no distributed load or chaos rig.
 
 ## What the recording is, and what it is not

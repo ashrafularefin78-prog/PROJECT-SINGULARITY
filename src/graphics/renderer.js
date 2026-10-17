@@ -10,6 +10,10 @@
  *     hardware PCF comparison sampling, plus a shadow-receiving ground plane
  *   - a GPU-computed particle system: 1,000,000 points generated from
  *     gl_VertexID with no vertex buffers at all
+ *   - a glTF 2.0 model loaded from a real GLB (assets/models/singularity-core
+ *     .glb), one draw call per primitive, shaded through the *same*
+ *     Cook-Torrance BRDF chunk as the instanced cubes - material values come
+ *     from the file, not from a seed
  *   - physically based shading: a Cook-Torrance BRDF (GGX distribution, Smith
  *     geometry, Schlick Fresnel) with per-instance metallic/roughness, a
  *     hemispheric ambient standing in for image-based lighting, and Reinhard
@@ -17,7 +21,7 @@
  *     perspective/orbit camera
  *
  * Deliberately not implemented (declared in docs/ARCHITECTURE.md): PBR with
- * a real HDRI probe, a glTF 2.0 loader, skeletal animation. Shipping those
+ * a real HDRI probe, skeletal animation, texture sampling. Shipping those
  * badly would be worse than declaring the gap.
  */
 import {
@@ -31,6 +35,7 @@ import {
   TAU,
   vec3,
 } from './math.js';
+import { uploadMesh } from './gltf.js';
 
 const CUBE_VERTICES = new Float32Array([
   // +X
@@ -81,36 +86,12 @@ void main() {
   gl_Position = uViewProj * vec4(world, 1.0);
 }`;
 
-const OBJECT_FS = `#version 300 es
-precision highp float;
-in vec3 vNormal;
-in vec3 vWorld;
-in vec4 vLightSpace;
-in float vSeed;
-uniform vec3 uLightDir;      // direction the light travels
-uniform vec3 uCamera;
-uniform highp sampler2DShadow uShadow;  // ES 3.00 requires an explicit precision
-uniform float uShadows;
-out vec4 outColor;
-
-const float PI = 3.14159265359;
-
-float shadowFactor() {
-  vec3 p = vLightSpace.xyz / vLightSpace.w;
-  p = p * 0.5 + 0.5;
-  if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0) return 1.0;
-  float sum = 0.0;
-  vec2 texel = 1.0 / vec2(textureSize(uShadow, 0));
-  for (int x = -1; x <= 1; ++x) {
-    for (int y = -1; y <= 1; ++y) {
-      sum += texture(uShadow, vec3(p.xy + vec2(float(x), float(y)) * texel, p.z - 0.0022));
-    }
-  }
-  return mix(1.0, sum / 9.0, uShadows);
-}
-
-// --- Cook-Torrance BRDF -----------------------------------------------------
-
+/**
+ * The Cook-Torrance BRDF and the PCF shadow lookup, written once and spliced
+ * into every shader that needs them. The instanced cubes and the glTF model
+ * are lit by the *same* code, not by two similar copies that can drift apart.
+ */
+const PBR_BRDF = `
 float distributionGGX(vec3 N, vec3 H, float roughness) {
   float a = roughness * roughness;
   float a2 = a * a;
@@ -130,6 +111,40 @@ float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
 vec3 fresnelSchlick(float cosTheta, vec3 F0) {
   return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
+`;
+
+const SHADOW_PCF = `
+uniform highp sampler2DShadow uShadow;  // ES 3.00 requires an explicit precision
+uniform float uShadows;
+
+float shadowFactor(vec4 lightSpace) {
+  vec3 p = lightSpace.xyz / lightSpace.w;
+  p = p * 0.5 + 0.5;
+  if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0) return 1.0;
+  float sum = 0.0;
+  vec2 texel = 1.0 / vec2(textureSize(uShadow, 0));
+  for (int x = -1; x <= 1; ++x) {
+    for (int y = -1; y <= 1; ++y) {
+      sum += texture(uShadow, vec3(p.xy + vec2(float(x), float(y)) * texel, p.z - 0.0022));
+    }
+  }
+  return mix(1.0, sum / 9.0, uShadows);
+}
+`;
+
+const OBJECT_FS = `#version 300 es
+precision highp float;
+in vec3 vNormal;
+in vec3 vWorld;
+in vec4 vLightSpace;
+in float vSeed;
+uniform vec3 uLightDir;      // direction the light travels
+uniform vec3 uCamera;
+out vec4 outColor;
+
+const float PI = 3.14159265359;
+${SHADOW_PCF}
+${PBR_BRDF}
 
 void main() {
   vec3 N = normalize(vNormal);
@@ -146,7 +161,7 @@ void main() {
 
   float NdotL = max(dot(N, L), 0.0);
   float NdotV = max(dot(N, V), 0.0);
-  float shadow = shadowFactor();
+  float shadow = shadowFactor(vLightSpace);
 
   vec3 radiance = vec3(1.0, 0.97, 0.92) * 3.2;
   vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
@@ -168,6 +183,99 @@ void main() {
 
   vec3 color = direct + ambient + envSpecular;
   // Reinhard tone map, so the specular highlights roll off instead of clipping.
+  outColor = vec4(color / (color + vec3(1.0)), 1.0);
+}`;
+
+// --- glTF model --------------------------------------------------------------
+// The loader (src/graphics/gltf.js) flattens the file's node hierarchy into a
+// world matrix per primitive; this pair draws each primitive with that matrix
+// and the material values as uniforms. Same BRDF chunk, different material
+// source: the file instead of the instance seed.
+
+const MODEL_VS = `#version 300 es
+in vec3 aPos;
+in vec3 aNormal;
+uniform mat4 uViewProj;
+uniform mat4 uLightViewProj;
+uniform mat4 uWorld;      // the node's flattened world matrix, from the GLB
+uniform float uTime;
+uniform float uSpin;      // radians per second about the world Y axis
+out vec3 vNormal;
+out vec3 vWorld;
+out vec4 vLightSpace;
+void main() {
+  vec4 world = uWorld * vec4(aPos, 1.0);
+  float a = uTime * uSpin;
+  float c = cos(a), s = sin(a);
+  vec3 spun = vec3(world.x * c + world.z * s, world.y, -world.x * s + world.z * c);
+  // The sample model uses uniform scale only, so mat3(uWorld) is enough for
+  // the normals; a skewing node would need the inverse-transpose instead.
+  vec3 n = mat3(uWorld) * aNormal;
+  vNormal = vec3(n.x * c + n.z * s, n.y, -n.x * s + n.z * c);
+  vWorld = spun;
+  vLightSpace = uLightViewProj * vec4(spun, 1.0);
+  gl_Position = uViewProj * vec4(spun, 1.0);
+}`;
+
+const MODEL_DEPTH_VS = `#version 300 es
+in vec3 aPos;
+uniform mat4 uLightViewProj;
+uniform mat4 uWorld;
+uniform float uTime;
+uniform float uSpin;
+void main() {
+  vec4 world = uWorld * vec4(aPos, 1.0);
+  float a = uTime * uSpin;
+  float c = cos(a), s = sin(a);
+  gl_Position = uLightViewProj * vec4(world.x * c + world.z * s, world.y, -world.x * s + world.z * c, 1.0);
+}`;
+
+const MODEL_FS = `#version 300 es
+precision highp float;
+in vec3 vNormal;
+in vec3 vWorld;
+in vec4 vLightSpace;
+uniform vec3 uLightDir;
+uniform vec3 uCamera;
+uniform vec4 uBaseColor;   // baseColorFactor from the glTF material
+uniform float uMetallic;
+uniform float uRoughness;
+out vec4 outColor;
+
+const float PI = 3.14159265359;
+${SHADOW_PCF}
+${PBR_BRDF}
+
+void main() {
+  vec3 N = normalize(vNormal);
+  vec3 V = normalize(uCamera - vWorld);
+  vec3 L = normalize(-uLightDir);
+  vec3 H = normalize(V + L);
+
+  float metallic = clamp(uMetallic, 0.0, 1.0);
+  float roughness = clamp(uRoughness, 0.04, 1.0);
+  vec3 albedo = uBaseColor.rgb;
+  vec3 F0 = mix(vec3(0.04), albedo, metallic);
+
+  float NdotL = max(dot(N, L), 0.0);
+  float NdotV = max(dot(N, V), 0.0);
+  float shadow = shadowFactor(vLightSpace);
+
+  vec3 radiance = vec3(1.0, 0.97, 0.92) * 3.2;
+  vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+  float D = distributionGGX(N, H, roughness);
+  float G = geometrySmith(N, V, L, roughness);
+  vec3 specular = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-4);
+  vec3 diffuse = (1.0 - F) * (1.0 - metallic) * albedo / PI;
+  vec3 direct = (diffuse + specular) * radiance * NdotL * shadow;
+
+  vec3 sky = vec3(0.17, 0.23, 0.36);
+  vec3 floorBounce = vec3(0.05, 0.055, 0.075);
+  vec3 ambientSource = mix(floorBounce, sky, N.y * 0.5 + 0.5);
+  vec3 ambient = ambientSource * albedo * (1.0 - metallic) * 0.55;
+  vec3 envSpecular = ambientSource * F0 * (1.0 - roughness) * 1.35;
+
+  vec3 color = direct + ambient + envSpecular;
   outColor = vec4(color / (color + vec3(1.0)), 1.0);
 }`;
 
@@ -332,6 +440,8 @@ export class Renderer {
      */
     this.cpuMs = 0;
     this.cpuSamples = 0;
+    /** Attached glTF model: { meshes: [...], triangles, spin } or null. */
+    this.model = null;
     this.lastState = { instances: 0, particles: 0, drawCalls: 0, triangles: 0 };
   }
 
@@ -432,6 +542,13 @@ export class Renderer {
     ]);
     this.depthProgram = program(gl, DEPTH_VS, DEPTH_FS);
     this.depthUniforms = uniforms(gl, this.depthProgram, ['uLightViewProj', 'uTime']);
+    this.modelProgram = program(gl, MODEL_VS, MODEL_FS);
+    this.modelUniforms = uniforms(gl, this.modelProgram, [
+      'uViewProj', 'uLightViewProj', 'uLightDir', 'uCamera', 'uShadow', 'uShadows',
+      'uTime', 'uSpin', 'uWorld', 'uBaseColor', 'uMetallic', 'uRoughness',
+    ]);
+    this.modelDepthProgram = program(gl, MODEL_DEPTH_VS, DEPTH_FS);
+    this.modelDepthUniforms = uniforms(gl, this.modelDepthProgram, ['uLightViewProj', 'uWorld', 'uTime', 'uSpin']);
     this.particleProgram = program(gl, PARTICLE_VS, PARTICLE_FS);
     this.particleUniforms = uniforms(gl, this.particleProgram, ['uViewProj', 'uTime']);
   }
@@ -506,6 +623,56 @@ export class Renderer {
   }
 
   // ---------------------------------------------------------------- control
+
+  /**
+   * Upload a glTF model (the flat DrawMesh list `loadGltf` returns) and draw
+   * it with the same PBR shader as everything else. Replaces any previous
+   * model. Returns a small summary for the UI.
+   *
+   * @param {Array} meshes   DrawMesh[] from src/graphics/gltf.js
+   * @param {{ spin?: number }} [options]  radians/second about the world Y axis
+   */
+  attachModel(meshes, options = {}) {
+    if (!this.gl) throw new Error('attachModel() needs an initialised renderer');
+    this.detachModel();
+    const uploaded = (meshes || []).map((mesh) => {
+      const glMesh = uploadMesh(this.gl, mesh, { position: 0, normal: 1 });
+      return {
+        ...glMesh,
+        material: {
+          baseColor: new Float32Array(mesh.material.baseColor),
+          metallic: mesh.material.metallic,
+          roughness: mesh.material.roughness,
+          doubleSided: mesh.material.doubleSided,
+        },
+        worldMatrix: mesh.worldMatrix,
+        triangles: (mesh.indices ? mesh.indices.length : mesh.positions.length / 3) / 3,
+      };
+    });
+    this.model = {
+      meshes: uploaded,
+      triangles: uploaded.reduce((n, m) => n + m.triangles, 0),
+      spin: options.spin ?? 0.25,
+    };
+    return {
+      meshes: uploaded.length,
+      triangles: this.model.triangles,
+      nodes: meshes.length,
+    };
+  }
+
+  /** Drop the attached model and release its GPU buffers. */
+  detachModel() {
+    if (!this.model) return;
+    const gl = this.gl;
+    if (gl) {
+      for (const mesh of this.model.meshes) {
+        gl.deleteVertexArray(mesh.vao);
+        for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
+      }
+    }
+    this.model = null;
+  }
 
   setInstances(n) {
     this.instanceCount = Math.max(0, Math.min(Math.round(n), MAX_INSTANCES));
@@ -607,6 +774,19 @@ export class Renderer {
       gl.bindVertexArray(this.cubeVao);
       gl.drawElementsInstanced(gl.TRIANGLES, CUBE_INDICES.length, gl.UNSIGNED_SHORT, 0, this.instanceCount);
       drawCalls += 1;
+      if (this.model) {
+        gl.useProgram(this.modelDepthProgram);
+        gl.uniformMatrix4fv(this.modelDepthUniforms.uLightViewProj, false, lightViewProj);
+        gl.uniform1f(this.modelDepthUniforms.uTime, seconds);
+        gl.uniform1f(this.modelDepthUniforms.uSpin, this.model.spin);
+        for (const mesh of this.model.meshes) {
+          gl.uniformMatrix4fv(this.modelDepthUniforms.uWorld, false, mesh.worldMatrix);
+          gl.bindVertexArray(mesh.vao);
+          if (mesh.indexed) gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_INT, 0);
+          else gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
+          drawCalls += 1;
+        }
+      }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
@@ -643,6 +823,32 @@ export class Renderer {
       drawCalls += 1;
     }
 
+    // 2b) glTF model: one draw call per primitive, material straight from the
+    // file, shaded by the same Cook-Torrance BRDF as the instances above.
+    if (this.model) {
+      gl.useProgram(this.modelProgram);
+      gl.uniformMatrix4fv(this.modelUniforms.uViewProj, false, viewProj);
+      gl.uniformMatrix4fv(this.modelUniforms.uLightViewProj, false, lightViewProj);
+      gl.uniform1f(this.modelUniforms.uTime, seconds);
+      gl.uniform1f(this.modelUniforms.uSpin, this.model.spin);
+      gl.uniform3fv(this.modelUniforms.uLightDir, l);
+      gl.uniform3fv(this.modelUniforms.uCamera, eye);
+      gl.uniform1i(this.modelUniforms.uShadow, 0);
+      gl.uniform1f(this.modelUniforms.uShadows, this.shadows ? 1 : 0);
+      for (const mesh of this.model.meshes) {
+        if (mesh.material.doubleSided) gl.disable(gl.CULL_FACE);
+        gl.uniformMatrix4fv(this.modelUniforms.uWorld, false, mesh.worldMatrix);
+        gl.uniform4fv(this.modelUniforms.uBaseColor, mesh.material.baseColor);
+        gl.uniform1f(this.modelUniforms.uMetallic, mesh.material.metallic);
+        gl.uniform1f(this.modelUniforms.uRoughness, mesh.material.roughness);
+        gl.bindVertexArray(mesh.vao);
+        if (mesh.indexed) gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_INT, 0);
+        else gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
+        if (mesh.material.doubleSided) gl.enable(gl.CULL_FACE);
+        drawCalls += 1;
+      }
+    }
+
     // 3) GPU particles: one draw call, zero buffers touched per frame
     if (this.particleCount > 0) {
       gl.enable(gl.BLEND);
@@ -659,11 +865,14 @@ export class Renderer {
     }
 
     gl.bindVertexArray(null);
+    const modelTriangles = this.model ? Math.round(this.model.triangles) : 0;
     this.lastState = {
       instances: this.instanceCount,
       particles: this.particleCount,
+      modelMeshes: this.model ? this.model.meshes.length : 0,
+      modelTriangles,
       drawCalls,
-      triangles: this.instanceCount * (CUBE_INDICES.length / 3) + 2,
+      triangles: this.instanceCount * (CUBE_INDICES.length / 3) + 2 + modelTriangles,
       shadows: this.shadows,
     };
 
@@ -690,12 +899,18 @@ export class Renderer {
    * tree. This is the data behind that tree.
    */
   describeScene() {
+    const model = this.model
+      ? `, and a glTF model (${Math.round(this.model.triangles).toLocaleString()} triangles)`
+      : '';
     return {
-      summary: `3D scene: ${this.instanceCount.toLocaleString()} instanced cubes orbiting on a shadowed ground plane, ${this.particleCount.toLocaleString()} particles, ${this.shadows ? 'shadows on' : 'shadows off'}.`,
+      summary: `3D scene: ${this.instanceCount.toLocaleString()} instanced cubes orbiting on a shadowed ground plane, ${this.particleCount.toLocaleString()} particles${model}, ${this.shadows ? 'shadows on' : 'shadows off'}.`,
       objects: [
         { role: 'group', label: 'Instanced cubes', count: this.instanceCount, detail: 'Orbiting rings, animated in the vertex shader.' },
         { role: 'object', label: 'Ground plane', count: 1, detail: 'Receives the directional shadow map.' },
         { role: 'group', label: 'Particle field', count: this.particleCount, detail: 'Compute-free GPU points generated from vertex ids.' },
+        ...(this.model
+          ? [{ role: 'group', label: 'glTF model', count: this.model.meshes.length, detail: `assets/models/singularity-core.glb, ${Math.round(this.model.triangles).toLocaleString()} triangles, PBR materials from the file.` }]
+          : []),
       ],
       camera: `Orbit camera at azimuth ${(this.camera.azimuth % TAU).toFixed(2)} rad, elevation ${this.camera.elevation.toFixed(2)} rad, distance ${this.camera.distance.toFixed(0)}.`,
     };

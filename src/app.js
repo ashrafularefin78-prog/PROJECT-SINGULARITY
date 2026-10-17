@@ -22,6 +22,7 @@ import { DEFAULT_ICE_SERVERS, RtcCarrier } from './collab/webrtc.js';
 import { openLocalStore } from './storage/db.js';
 import { Sandbox } from './runtime/sandbox.js';
 import { MAX_INSTANCES, MAX_PARTICLES, Renderer } from './graphics/renderer.js';
+import { loadGltf } from './graphics/gltf.js';
 import {
   Identity,
   Ratchet,
@@ -909,6 +910,7 @@ function renderEngine(root) {
   const statsBox = el('div', { class: 'stats' });
   refs.engineStats = statsBox;
   const sceneText = el('div');
+  const modelStatus = el('p', { class: 'small dim mt-6', text: 'sample model: waiting for the engine to start…' });
   const reduced = state.a11y.motion === 'reduced';
   // A live oscilloscope for the frame rate: the same numbers as the stat cards,
   // but the shape of them, which is what tells you whether 60 FPS is steady.
@@ -941,6 +943,9 @@ function renderEngine(root) {
       statCard('Draw calls / frame', String(s.drawCalls), s.shadows ? 'includes shadow pass' : 'shadows off'),
       statCard('Renderer', short(info.renderer, 22), info.glVersion),
     );
+    if (s.modelMeshes) {
+      statsBox.append(statCard('glTF model triangles', s.modelTriangles.toLocaleString(), `${s.modelMeshes} primitives, material from the file`));
+    }
     state.fpsHistory.push(s.fps);
     if (state.fpsHistory.length > 60) state.fpsHistory.shift();
     scope.update(state.fpsHistory);
@@ -962,16 +967,34 @@ function renderEngine(root) {
     for (const handle of state.engineTimers || []) clearInterval(handle);
     state.engineTimers = [];
     try {
-      state.renderer = new Renderer(canvas, { instances: 20000, particles: 150000, shadows: true });
-      state.renderer.init();
-      state.renderer.start();
+      const renderer = new Renderer(canvas, { instances: 20000, particles: 150000, shadows: true });
+      state.renderer = renderer;
+      renderer.init();
+      renderer.start();
       if (reduced) {
-        state.renderer.stop();
-        state.renderer.frame(16);
+        renderer.stop();
+        renderer.frame(16);
       }
       state.engineTimers.push(setInterval(updateOverlay, 500), setInterval(updateStats, 1000));
       updateOverlay();
       updateStats();
+
+      // The sample GLB loads off the render path; when it lands, the loader's
+      // primitives are uploaded and drawn by the same PBR shader as the
+      // instances. The guard drops the result if the panel was left mid-flight.
+      const modelUrl = new URL('../assets/models/singularity-core.glb', import.meta.url);
+      loadGltf(modelUrl.href)
+        .then((meshes) => {
+          if (state.renderer !== renderer) return;
+          const summary = renderer.attachModel(meshes, { spin: 0.18 });
+          modelStatus.textContent = `sample model: ${summary.meshes} meshes, ${summary.triangles.toLocaleString()} triangles from assets/models/singularity-core.glb — parsed, uploaded and shaded by the same PBR shader as the instances.`;
+          if (reduced) renderer.frame(performance.now());
+          updateOverlay();
+          updateStats();
+        })
+        .catch((err) => {
+          modelStatus.textContent = `sample model failed to load: ${err.message}`;
+        });
     } catch (err) {
       overlay.textContent = `engine unavailable: ${err.message}`;
       clear(statsBox);
@@ -1033,14 +1056,14 @@ function renderEngine(root) {
 
   root.appendChild(
     el('div', { class: 'panel' }, [
-      moduleHead('M3', 'Custom 3D engine on WebGL2', 'Written directly against the WebGL2 API: one indexed cube drawn with hardware instancing, animated entirely in the vertex shader so per-frame CPU cost stays O(1) regardless of instance count. A real depth-only shadow pass feeds hardware PCF shadow sampling, a million particles are generated from gl_VertexID with no vertex buffers at all, and the cube is shaded with a Cook-Torrance BRDF (GGX/Smith/Schlick) plus a Reinhard tone map.'),
-      note('Not implemented, and deliberately not faked: image-based lighting from a real HDRI probe, a glTF 2.0 loader and skeletal animation. Everything you can interact with below is genuinely running on the GPU - the shaded cube included.'),
+      moduleHead('M3', 'Custom 3D engine on WebGL2', 'Written directly against the WebGL2 API: one indexed cube drawn with hardware instancing, animated entirely in the vertex shader so per-frame CPU cost stays O(1) regardless of instance count. A real depth-only shadow pass feeds hardware PCF shadow sampling, a million particles are generated from gl_VertexID with no vertex buffers at all, and everything - the cube and the glTF sample model - is shaded with one Cook-Torrance BRDF (GGX/Smith/Schlick) plus a Reinhard tone map.'),
+      note('The object in the middle is a real glTF 2.0 binary (assets/models/singularity-core.glb): src/graphics/gltf.js parses its buffer views and accessors, flattens the TRS node hierarchy into world matrices, generates flat normals for the primitive that ships without them, and the engine uploads each primitive and draws it with the same PBR shader as the instances. Still deliberately missing, and not faked: image-based lighting from a real HDRI probe, texture sampling and skeletal animation.'),
       card('Scene', [
         el('div', { class: 'canvas-wrap' }, [
           canvas,
           overlay,
         ]),
-                 el('div', { class: 'row mt-10' }, [
+        el('div', { class: 'row mt-10' }, [
           button('Focus canvas (arrow keys orbit)', () => canvas.focus()),
           button('Reset camera', () => {
             if (state.renderer) {
@@ -1048,6 +1071,7 @@ function renderEngine(root) {
             }
           }),
         ]),
+        modelStatus,
         el('div', { class: 'small dim mt-6', text: 'Tip: drag to orbit, or focus the canvas and use the arrow keys (plus +/- to zoom).' }),
       ]),
       el('div', { class: 'grid three' }, [
@@ -2359,20 +2383,21 @@ async function remeasurePayload() {
 // ---------------------------------------------------------------- M0 dashboard
 
 // The suite's own totals, kept in one place so the dashboard cannot drift from
-// the runner: tests/browser.html loads 9 suites and tests/run.js exits non-zero
+// the runner: tests/browser.html loads 11 suites and tests/run.js exits non-zero
 // unless every one of these passes. The count is the runner's, not an estimate.
 // Counted from the suite itself, not maintained by hand: `npm test` reports
-// 165 passed + 6 skipped = 171 total, over 10 files (tests/*.test.js).
-// It was 152/10 until the M2 stdlib additions (enums, prototypes, sprintf,
-// qsort, fgets), and the hero chip went on saying so - which is why index.html
-// carries the same number in its static hero and tools/check-docs.js asserts
-// the two agree.
+// 177 passed + 6 skipped = 183 total, over 11 test files (tests/*.test.js), and
+// the browser runner runs all 183. It was 152/10 until the M2 stdlib additions
+// (enums, prototypes, sprintf, qsort, fgets); the glTF suite then grew the
+// totals to 183/11, but its file was missed off the browser runner's list, so
+// the browser really ran 171. The list now names all 11 suites and the browser
+// runs all 183, matching the static hero chip in index.html.
 const TEST_TOTALS = { total: 183, suites: 11 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch; convergence, causality and undo are tested. Index lookups walk from a cursor instead of rescanning (20k single-character appends visit 0 nodes, benchmarked in tests/rga.test.js), tombstone collection runs under a peer-derived watermark, and the op log is bounded with a snapshot fallback for catch-up. Interior tombstones are retained by design: an op can still name one as its origin.' },
   { id: 'M2', title: 'In-browser C compiler and runtime', status: 'partial', points: 88, note: 'Real lexer/parser/interpreter in a worker with a step budget, a heap cap, a kill switch and line+column diagnostics. The subset covers ternary, switch with fall-through, structs (nested, arrays, by-value, heap-linked lists), casts, do/while and the malloc/calloc/realloc/free/memcpy/memset family over a bounds-checked arena, plus scanf/sscanf. The preprocessor handles #define/#undef/#ifdef/#if/#elif/#error, function-like macros (argument substitution, # stringize, ## paste, __VA_ARGS__ / variadic), and a token that came out of a macro carries the line and column of its use site. typedef, two-dimensional arrays, function pointers and unions all work, and the library surface student C actually reaches for is built in: <string.h> (strcpy, strcat, strcmp, strncpy, strchr, strncmp, strrchr, strstr, strlen), <ctype.h> (toupper, isdigit, isalpha), <math.h> (sqrt, pow, fabs), sprintf/qsort/fgets. The arena fails closed: a strcpy that would overflow its destination is an error, never silent corruption. Still not clang/TCC in WASM; no variadic user functions; a struct tag is not a type name without a typedef.' },
-  { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 78, note: 'WebGL2 with hardware instancing up to 100k objects animated in the vertex shader, a real depth-only shadow pass with hardware PCF, 1M GPU particles from gl_VertexID, and physically based shading: Cook-Torrance GGX/Smith/Schlick with per-instance metallic/roughness, a hemispheric ambient standing in for image-based lighting, and Reinhard tone mapping. A glTF 2.0 loader (src/graphics/gltf.js) parses both the JSON and GLB binary variants, materialises accessors and buffer views, flattens the scene hierarchy into world-space transforms via TRS node composition, generates flat normals when absent, and uploads geometry to WebGL2 via uploadMesh(); 12 tests cover the full parsing surface including flat-normal generation, PBR material extraction and GLB binary chunk handling. The panel reports measured main-thread CPU per frame. No HDRI probe, no skeletal animation, no WebGPU.' },
+  { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 78, note: 'WebGL2 with hardware instancing up to 100k objects animated in the vertex shader, a real depth-only shadow pass with hardware PCF, 1M GPU particles from gl_VertexID, and physically based shading: Cook-Torrance GGX/Smith/Schlick with per-instance metallic/roughness, a hemispheric ambient standing in for image-based lighting, and Reinhard tone mapping. A glTF 2.0 loader (src/graphics/gltf.js) parses both the JSON and GLB binary variants, materialises accessors and buffer views, flattens the scene hierarchy into world-space transforms via TRS node composition, generates flat normals when absent, and uploads geometry to WebGL2 via uploadMesh(); the panel loads assets/models/singularity-core.glb and draws every primitive through the same BRDF as the instances, and 12 tests cover the full parsing surface including flat-normal generation, PBR material extraction and GLB binary chunk handling. The panel reports measured main-thread CPU per frame. No HDRI probe, no texture sampling, no skeletal animation, no WebGPU.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 92, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD, all WebCrypto. The signed prekey bundle is now verified inside the handshake before any key material is derived - a swapped prekey or a forged signature aborts the session - with negative tests for both. No audited key storage.' },
   { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 85, note: 'Two real carriers feed one mesh: BroadcastChannel for same-browser tabs, and WebRTC data channels for separate machines. Signaling is a copy-pasted invite/answer code, so there is still no server anywhere; STUN is on by default. ICE restart is implemented: when a connection transitions to disconnected the carrier waits 2 s, emits a new offer with iceRestart:true, and exposes acceptRestartAnswer() so the remote peer can complete the restart without tearing down the data channel. Presence, pruning, reconnect recovery, the relay contract and the flood limiter are shared by both carriers. A TURN relay is not bundled (bandwidth and policy), so symmetric NAT on both ends still needs one added.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 92, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1. The service worker, the manifest and the registration are scope-relative, so the offline shell works at a subpath deployment too (verified by stopping the server and reloading under /PROJECT-SINGULARITY/), and the log is trimmed with a snapshot fallback for peers catching up.' },

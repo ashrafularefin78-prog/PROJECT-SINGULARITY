@@ -18,12 +18,13 @@ single biggest limitation of this report.
 | `tests/mesh.test.js` (8 tests) | Ingress handling: relay visibility, room isolation, presence flood control |
 | `tests/webrtc.test.js` (7 tests) | Signaling-code validation, including codes from untrusted sources |
 | `tests/storage.test.js` (8 tests) | Damaged-log recovery, migrations, quota behaviour |
-| `tests/stdlib.test.js` (32 tests) | The C library surface and the preprocessor, including the fail-closed cases (a `strcpy` that would overflow its destination is an error, not silent corruption) |
+| `tests/stdlib.test.js` (51 tests) | The C library surface and the preprocessor, including the fail-closed cases (a `strcpy` that would overflow its destination is an error, not silent corruption) |
 | In-app probes (M8 panel) | Live CSP / Trusted Types behaviour, the hostile-input probe that tries `innerHTML` and `eval()` and shows the refusal |
 | Manual browser runs | Header/CSP inspection over the served response, offline shell under a subpath deployment, two-carrier WebRTC channel, encrypted message round-trip |
 
-Total suite: **183 tests across 11 suites** (177 pass, 6 browser-only skips), ~2.2 s, runnable from the
-site at `/tests/browser.html`.
+Total suite: **183 tests across 11 suites**, all 183 green in a browser
+(~2.3 s, runnable from the site at `/tests/browser.html`); under bare Node the
+same suite reports 177 pass and 6 browser-only skips instead of failing them.
 
 Fuzz corpora (the numbers in the table are the counts printed by the suite):
 400 lexer inputs, 408 parser inputs, 60 sources compiled twice, 3 runaway

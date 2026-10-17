@@ -13,6 +13,8 @@
  *        roughnessFactor, doubleSided)
  *   ✓  Scene hierarchy flattened into world-space transforms via TRS nodes
  *   ✓  Buffer URI (data: URI or relative URL) and GLB binary chunk
+ *   ✓  URL fetches sniff the GLB magic, so `.gltf` JSON and `.glb` binaries
+ *        load through the same call
  *
  * Not implemented (declared gap, not a stub):
  *   - Texture / image sampling (baseColorTexture, normalMap, …)
@@ -242,9 +244,19 @@ export async function loadGltf(source, isGlb = false) {
     baseUrl = String(source);
     const res = await fetch(baseUrl);
     if (!res.ok) throw new Error(`glTF: fetch failed for '${baseUrl}': ${res.status}`);
-    const text = await res.text();
-    gltf = JSON.parse(text);
-    binChunk = null;
+    // A URL can point at either container: .gltf JSON (or a data: URI) or a
+    // .glb binary. Sniff the GLB magic instead of trusting the extension, so
+    // both work through the same call.
+    const buffer = await res.arrayBuffer();
+    const magic = buffer.byteLength >= 4 ? new DataView(buffer).getUint32(0, true) : 0;
+    if (magic === GLB_MAGIC) {
+      const { json, bin } = parseGlb(buffer);
+      gltf = json;
+      binChunk = bin;
+    } else {
+      gltf = JSON.parse(new TextDecoder().decode(buffer));
+      binChunk = null;
+    }
   }
 
   // ---- buffers
@@ -344,7 +356,7 @@ export async function loadGltf(source, isGlb = false) {
  * @param {WebGL2RenderingContext} gl
  * @param {DrawMesh} mesh
  * @param {{ position: number, normal: number }} attribLocs
- * @returns {{ vao: WebGLVertexArrayObject, count: number, indexed: boolean }}
+ * @returns {{ vao: WebGLVertexArrayObject, buffers: WebGLBuffer[], count: number, indexed: boolean }}
  */
 export function uploadMesh(gl, mesh, attribLocs) {
   const vao = gl.createVertexArray();
@@ -362,11 +374,13 @@ export function uploadMesh(gl, mesh, attribLocs) {
   gl.enableVertexAttribArray(attribLocs.normal);
   gl.vertexAttribPointer(attribLocs.normal, 3, gl.FLOAT, false, 0, 0);
 
+  const buffers = [posBuf, normBuf];
   let count, indexed;
   if (mesh.indices) {
     const idxBuf = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
+    buffers.push(idxBuf);
     count = mesh.indices.length;
     indexed = true;
   } else {
@@ -375,5 +389,5 @@ export function uploadMesh(gl, mesh, attribLocs) {
   }
 
   gl.bindVertexArray(null);
-  return { vao, count, indexed };
+  return { vao, buffers, count, indexed };
 }

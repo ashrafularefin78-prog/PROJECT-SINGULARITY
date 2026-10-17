@@ -101,6 +101,29 @@ test('M3: the renderer initialises, instances and describes the scene', () => {
   assert(/500 instanced cubes/.test(description.summary), description.summary);
   assertEquals(description.objects.length, 3);
   assert(description.camera.includes('distance'), description.camera);
+
+  // Attach a synthetic DrawMesh through the same path the M3 panel uses for
+  // the loaded glTF model: uploadMesh must upload it, the frame must draw it,
+  // and it must appear in the stats and the accessible scene description.
+  const summary = renderer.attachModel([
+    {
+      positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+      normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+      indices: new Uint32Array([0, 1, 2]),
+      worldMatrix: identity(),
+      material: { baseColor: [1, 0.5, 0.25, 1], metallic: 0.2, roughness: 0.6, doubleSided: false },
+    },
+  ]);
+  assertEquals(summary.meshes, 1);
+  assertEquals(summary.triangles, 1);
+  renderer.frame(48);
+  const withModel = renderer.stats();
+  assertEquals(withModel.modelMeshes, 1, 'attached model must be drawn');
+  assertEquals(withModel.modelTriangles, 1);
+  assertEquals(renderer.describeScene().objects.length, 4, 'the glTF model appears in the accessible tree');
+  renderer.detachModel();
+  renderer.frame(64); // stats() reflect the last drawn frame, so draw one after detaching
+  assertEquals(renderer.stats().modelMeshes, 0, 'detachModel must release the model');
 }, NEEDS_GL);
 
 test('M3: instance and particle counts are clamped to the engine limits', () => {
