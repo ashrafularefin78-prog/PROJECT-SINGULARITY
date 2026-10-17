@@ -36,6 +36,11 @@ jobs:
         with:
           node-version: '24'
       - run: node tests/run.js
+      # The ciphertext relay's own contract: durable-before-ack, long-poll
+      # wake-up, broadcast-once-per-peer, caps, token auth, and replay across
+      # SIGKILL. Spawns short-lived relay processes on loopback, no browser.
+      - name: relay protocol and durability self-check
+        run: node tools/load-relay.js --self-check
       # The report publishes numbers; this asserts they are still the numbers
       # the repository produces. It needs no browser, so it belongs here: a
       # one-line code change that moves the payload fails the build instead of

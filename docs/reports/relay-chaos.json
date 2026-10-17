@@ -1,0 +1,71 @@
+{
+  "measuredAt": "2026-10-17T19:46:56.729Z",
+  "node": "v24.22.0",
+  "platform": "win32 x64",
+  "mode": "chaos",
+  "conditions": {
+    "clients": 1000,
+    "shards": 1,
+    "sendPerClient": 25,
+    "burstPerClient": 20,
+    "intervalMs": 500,
+    "payloadBytes": 256,
+    "ctChars": 380,
+    "seed": 42,
+    "transport": "loopback http/1.1, keep-alive, one relay process, no TLS",
+    "fsync": false
+  },
+  "run": {
+    "attempted": 45000,
+    "acked": 45000,
+    "rejected": 0,
+    "transportFailed": 0,
+    "delivered": 45000,
+    "lost": 0,
+    "duplicates": 0,
+    "unknown": 0,
+    "misrouted": 0,
+    "undecryptable": 0,
+    "reconnects": 0,
+    "durationMs": 20117,
+    "throughputPerSec": 2237,
+    "latencyMs": {
+      "50": 6.9,
+      "95": 3447.7,
+      "99": 3941
+    },
+    "maxLatencyMs": 4125.1,
+    "postRttMs": {
+      "50": 6,
+      "95": 151.8,
+      "99": 373.7
+    }
+  },
+  "relay": {
+    "rssMiB": 140.9,
+    "peakRssMiB": 189.1,
+    "heapUsedMiB": 53,
+    "cpuUserMsBefore": null,
+    "cpuUserMsAfter": 375,
+    "cpuUserMsDelta": null,
+    "sampleCount": 38,
+    "pendingAtEnd": 0,
+    "postsSeenByServer": 0,
+    "deliveriesSeenByServer": 20000
+  },
+  "chaos": {
+    "deliveredStageOne": 25000,
+    "acceptedBeforeKill": 45000,
+    "pendingAtKill": 20000,
+    "expectedPending": 20000,
+    "recoveredFromLog": 20000,
+    "recoveredMatchesExpected": true,
+    "deliveredBeforeKill": 25000,
+    "deliveredAfterRestart": 20000,
+    "lost": 0,
+    "duplicated": 0,
+    "rssMiBAtKill": 190.2,
+    "killToExitMs": 41,
+    "killToReadyMs": 234
+  }
+}

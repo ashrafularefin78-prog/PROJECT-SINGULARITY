@@ -131,7 +131,7 @@ and undo did not change at all when WebRTC was added.
 WebGPU renderer, OPFS for large binaries, a SharedArrayBuffer worker pool, an
 OffscreenCanvas render loop, a bundled TURN relay, image-based lighting from an
 HDRI probe, texture sampling, skeletal animation, clang→WASM, screen-reader
-validation, a red-team session, distributed load and node-kill chaos rigs, and a
+validation, a red-team session, a 10,000-session distributed load rig, a multi-node cluster, and a
 narrated 10-minute demo video. None of these are stubbed with fake behaviour:
 they simply do not exist, and the scorecard, [PLAN.md](PLAN.md) and
 [LOAD_CHAOS.md](LOAD_CHAOS.md) say so in those words.

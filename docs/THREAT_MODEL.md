@@ -62,7 +62,10 @@ construction* rather than by mitigation: this is a static site with no
 server-side request handling, no forms (`form-action 'none'`), no dynamic
 request construction from user input, and framing is denied
 (`frame-ancestors 'none'`). Rate limiting and abuse detection are also not
-implemented, because there is no server to rate limit — the relay is local.
+implemented on the deployed site, because there is no server there to rate
+limit — the mesh's relay is local to the page. (The ciphertext relay node in
+`tools/relay.js` is test tooling that never ships with the site; it does
+enforce its own size, queue, mailbox and token limits.)
 
 ## 4. What I would attack first
 

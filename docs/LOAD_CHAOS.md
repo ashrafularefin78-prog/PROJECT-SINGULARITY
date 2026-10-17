@@ -40,26 +40,42 @@ The brief's budget rows "10,000 concurrent users, p95 < 200 ms" and "kill any
 server node, lose zero data" describe a **distributed deployment**: a server
 fleet, a load generator with 10,000 browser sessions, and a node that can be
 killed. This project ships as a static bundle with no application server at all
-(the server only hands out files), so there is no server node to kill and no
-fleet to load. Fabricating either number from a single tab would be the exact
-dishonesty this report exists to avoid.
+(the server only hands out files), so there is no cluster and no
+10,000-session rig. Fabricating either number from a single tab would be the
+exact dishonesty this report exists to avoid.
 
-What *was* run instead is stated per row, with its conditions. Every unmeasured
-row is marked unmeasured on the in-app dashboard too.
+What *was* built instead is the smallest honest version of both rows, and it was
+measured rather than estimated:
+
+* a **ciphertext relay** (`tools/relay.js`, zero npm dependencies): a
+  store-and-forward node that accepts `{from, to, header, ct}` envelopes, hands
+  them to long-polling recipients, and writes every accepted envelope to a
+  durable JSONL log *before* it answers 200 — the same envelope contract the
+  in-app mesh already speaks (`src/collab/mesh.js`);
+* a **1,000-client load generator** (`tools/load-relay.js`) whose clients
+  encrypt with AES-256-GCM under a key the relay never sees, post, drain, and
+  account for every envelope by `(from, seq)` — loss, duplication, latency;
+* a **kill-a-node chaos run** that stops delivery, piles up a 20,000-envelope
+  backlog, `SIGKILL`s the relay, restarts it on the same log, and checks that
+  nothing accepted was lost.
+
+That is 1,000 clients, not 10,000, and one node, not a fleet. The rows below
+record exactly what was measured, at what scale (section 12), and what remains
+unmeasured.
 
 ## Results
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **130.9 KiB gzip JS** (507.2 KiB raw over 19 modules) + 16.9 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
+| Initial JS payload | ≤ 170 KB gzip | **131.2 KiB gzip JS** (507.7 KiB raw over 19 modules) + 16.9 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **603 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 72 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
 | Lighthouse | ≥ 95 in all four categories | desktop **100 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100** (Performance / Accessibility / Best practices / SEO) | **met in both form factors** — see section 2b |
 | Cumulative layout shift | (implicit: under 0.1) | **0.002** on the mobile viewport and **0.005** desktop (`tools/cls.js`); Lighthouse agrees at 0.003 / 0.005 | **met**, with one unreproduced outlier from an earlier build reported rather than hidden (section 2b) |
 | Memory after 1 hour | ≤ 400 MB, no leaks | a **60-minute soak**, one sample per minute through all nine modules: JS heap after GC **1.10 → 1.53 MiB** (peak 1.56 MiB at minute 52), and the minute-60 heap snapshot holds **fewer nodes (70,231 vs 77,490) and less memory (5.99 vs 6.71 MiB)** than the minute-10 one | **met on the conditions run** — desktop browser, JS heap after a forced GC, not RSS or GPU memory |
-| Concurrent users | 10,000 @ p95 < 200 ms | not run; the local approximations are listed below | not measured |
-| Chaos survival | kill any server node, lose zero data | not run; the local failure injections below are the closest thing that exists here | not measured |
+| Concurrent users | 10,000 @ p95 < 200 ms | a **ciphertext relay** driven by **1,000 simulated clients**: 50,000 envelopes, all acknowledged and delivered in 15.7 s, 0 lost, 0 duplicated, delivery **p95 12.2 ms**; no 10,000-browser-session rig | **partial** — 1,000 of 10,000 clients, one machine (section 12) |
+| Chaos survival | kill any server node, lose zero data | the relay process was `SIGKILL`ed with **20,000 accepted envelopes pending**: restarted on the same log, **20,000 / 20,000 replayed, 0 lost, 0 duplicated**, 234 ms outage | **met for the one node that exists** — a single-process relay, not a cluster (section 12) |
 | Durability window | (implicit: no lost edits) | an edit survives a reload **0 ms** later, repeatedly — see below | **met** |
 
 ## Raw measurements
@@ -72,16 +88,18 @@ bootstrap `src/boot-note.js` - which names the module the deferral starts - and 
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk (this report's measurement) | **130.9 KiB gzip JS over 19 modules**, 16.9 KiB gzip CSS, 507.2 KiB raw total |
+| Import-graph walk (this report's measurement) | **131.2 KiB gzip JS over 19 modules**, 16.9 KiB gzip CSS, 507.7 KiB raw total |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts the same files live and is visible on the M0 dashboard |
 
-The two largest files are `src/app.js` (43.5 KiB gzip of 136.0 KiB raw) and
-`src/runtime/interpreter.js` (19.6 KiB gzip of 76.2 KiB raw) — the second grew
+The two largest files are `src/app.js` (43.8 KiB gzip of 136.6 KiB raw) and
+`src/runtime/interpreter.js` (21.7 KiB gzip of 85.7 KiB raw) — the second grew
 during the M2 work that added `<string.h>`, `<ctype.h>`, `<math.h>`, the
 preprocessor, typedefs, two-dimensional arrays, function pointers and unions,
-and `src/runtime/preprocess.js` (4.0 KiB gzip) is new from the same work. The brief's
-ceiling is 170 KB gzip, so the bundle uses ~68% of it with every module counted,
-including the ones the first paint no longer waits for.
+and `src/runtime/preprocess.js` (4.5 KiB gzip) is new from the same work. (Those
+three figures are now claims in `tools/check-docs.js`; the interpreter's had
+drifted unclaimed for a release and was corrected here when the checker gained
+it.) The brief's ceiling is 170 KB gzip, so the bundle uses ~77% of it with
+every module counted, including the ones the first paint no longer waits for.
 
 ### 2. Throttled LCP — 603 ms cold, met
 
@@ -475,7 +493,80 @@ so main-thread CPU per frame stays flat as instance count grows.
 | Durability window | reload 0 ms after an edit | edit survived (section 4) |
 | Quota | `navigator.storage.estimate()` | 131,624 MiB quota, ~5.4 MiB used by this origin |
 
-### 12. Degradation behaviour (the local stand-in for chaos)
+### 12. The ciphertext relay — 1,000 clients, and the kill-a-node run
+
+This is the reviewer's item 5, executed: *"run a small ciphertext relay and
+drive ~1,000 simulated clients through it with loss and latency accounting."*
+Both halves live in the repository and both were run end to end on this
+machine, on loopback, with no npm dependencies.
+
+The relay (`tools/relay.js`) is a single-process store-and-forward node. It
+serves `POST /relay/post`, `GET /relay/drain` (long-poll), `/relay/inspect` and
+`/relay/stats`; it mirrors the `{from, to, header, ct}` envelope that
+`src/collab/mesh.js` defines; and it appends every accepted envelope to a JSONL
+log *before* it answers 200, so the ack genuinely means "durable". Delivery is
+at-least-once — a crash can duplicate an envelope, never lose an accepted one —
+and `/relay/inspect` exists to show that the node sees routing metadata but
+never plaintext. `node tools/load-relay.js --self-check` proves the node's own
+contract in 9 checks (header round trip, long-poll wake-up, broadcast exactly
+once per draining peer, no plaintext in inspect, size and validation caps,
+per-mailbox queue caps, token auth, stats, and durability across `SIGKILL`); it
+runs in the CI workflow on every push.
+
+#### The measured run
+
+| | |
+|---|---|
+| Command | `node tools/load-relay.js --clients=1000 --shards=4 --send=50 --interval=250` |
+| Fleet | **1,000 simulated clients** in **4 generator processes** (250 each), each posting 50 envelopes at one per 250 ms |
+| Envelope | 256 B payload, sealed per envelope with AES-256-GCM under one fleet key the relay never receives — **380 B ciphertext on the wire** |
+| Result | **50,000 / 50,000 acknowledged, 50,000 delivered in 15.7 s** (3,177/s), **0 lost, 0 duplicated, 0 misrouted, 0 undecryptable** |
+| Delivery latency | p50 3.6 ms, p95 12.2 ms, p99 649.2 ms, max 1,939.3 ms |
+| Post round trip | p50 3.3 ms, p95 9.5 ms |
+| Relay process | peak RSS **228 MiB**, 6.7 s CPU user over the run, 0 pending at the end |
+| Evidence | `docs/reports/relay-load.json` — conditions, per-shard split, latency percentiles, relay counters |
+
+Delivery latency is send-to-delivery across the four generator processes on one
+machine: senders and receivers stamp with
+`performance.timeOrigin + performance.now()`, which is the same wall clock on
+one machine and *only* on one machine (the harness documents this at the
+clock's definition, and the artifact records the loopback transport in its
+conditions). The transport
+is loopback HTTP/1.1 with keep-alive and no TLS; none of this says anything
+about a WAN.
+
+Also stated rather than hidden: the p99 tail (649 ms) is stragglers under CPU
+contention between the four generator processes, the relay and the sampler on
+one 8-core laptop; and two infrastructure failures surfaced and were fixed on
+the way to these numbers, both inside this repository's own tooling — a cold
+fleet dialling in at once drew `ECONNREFUSED`s from the OS (the fleet now ramps
+in over 2 s, the way real clients arrive), and the relay's default 5 s
+keep-alive timeout closed pooled sockets mid-reuse (the node now keeps idle
+sockets for two minutes). The failed attempts are not presented as results;
+these numbers come from after both fixes.
+
+#### The chaos run: kill the node, lose nothing
+
+| | |
+|---|---|
+| Command | `node tools/load-relay.js --chaos --clients=1000 --send=25 --burst=20 --interval=500` |
+| Scenario | 25,000 normal envelopes fully delivered; then delivery is stopped, 1,000 clients burst 20 envelopes each, and the relay is `SIGKILL`ed with the backlog in its log |
+| Accepted before the kill | **45,000 accepted** (25,000 normal + 20,000 burst), rejected 0, transport 0 |
+| Pending at kill | **20,000**, all in the durable log |
+| After restart | the process started again on the same data directory: **20,000 / 20,000 replayed, 0 lost, 0 duplicated**; total delivered 45,000 / 45,000 |
+| Outage | kill to listening again **234 ms** (process exit 41 ms) |
+| Latency | the paused backlog necessarily dwells: p50 6.9 ms, p95 3,447.7 ms — most of it *waiting for delivery to be allowed to continue*, reported rather than hidden |
+| Evidence | `docs/reports/relay-chaos.json` |
+
+What this is **not**, in the same breath: it is not a cluster failover. There is
+one relay process, and `SIGKILL` plus restart on the same disk is the node
+failure this project can honestly stage. The zero-loss claim is bounded by the
+relay's own stated durability: process-kill level via `writeSync` into the page
+cache (`--fsync` upgrades this to fsync-per-envelope at a throughput cost that
+is not claimed here), and at-least-once delivery — a kill can duplicate an
+envelope, never lose an accepted one.
+
+### 13. Degradation behaviour (failure injections run locally)
 
 | Injected failure | Required behaviour | Evidence |
 |------------------|--------------------|----------|
@@ -491,7 +582,7 @@ The service worker's offline shell was verified by stopping the server process
 and reloading the page under a subpath deployment (`--prefix`), which is also how
 the GitHub Pages layout is reproduced locally.
 
-### 13. The suite itself
+### 14. The suite itself
 
 | Command | Environment | Result |
 |---------|-------------|--------|
@@ -508,7 +599,7 @@ unions, each exercised by a complete C program — including the fail-closed cas
 (a `strcpy` that would overflow its destination is an error, never silent
 corruption).
 
-### 14. The demo recording
+### 15. The demo recording
 
 The brief asks for a demo video. There is no narrator, so what exists is a
 scripted screen recording of the real application, captioned with the script in
@@ -530,10 +621,13 @@ with every interaction landing.
 
 ## What this report does not claim
 
-- No 10,000-user load: no distributed rig was available, and the project has no
-  application server to load.
-- No node-kill chaos test: no cluster exists; the local failure injections above
-  are the reachable substitute.
+- No 10,000-user load: no distributed rig exists, and the project has no
+  application server to load. The relay result in section 12 is 1,000 clients
+  on one machine, reported as that and not as the brief's 10,000.
+- No cluster failover: the kill-a-node run in section 12 kills the single relay
+  process this project has and proves its log replays every accepted envelope;
+  there is no second node to fail over to, and the app itself still ships
+  without an application server.
 - No screen-reader session (NVDA/VoiceOver): the accessibility tree and axe-core
   were audited, which is what a screen reader consumes, but nobody listened.
 - No mid-range phone. The one-hour soak and the Lighthouse runs are desktop Edge on
@@ -560,6 +654,9 @@ node tools/cls.js               # layout shift across a viewport change -> docs/
 node tools/a11y.js              # axe-core + accessibility tree -> docs/reports/a11y.json
 node tools/durability.js        # durability window -> docs/reports/durability.json
 node tools/verify-headers.js    # headers really delivered -> exit code
+node tools/load-relay.js --self-check   # 9 relay protocol + durability checks (also in CI)
+node tools/load-relay.js --clients=1000 --shards=4 --send=50 --interval=250    # -> docs/reports/relay-load.json
+node tools/load-relay.js --chaos --clients=1000 --send=25 --burst=20 --interval=500  # -> docs/reports/relay-chaos.json
 node tools/check-docs.js        # every number in this report still matches its artifact
 python3 tools/gen-soak-section.py  # rewrite section 3 of this report from the measured JSON
 tools/build-site.py             # deploy artifact, then: verify-headers, workerd suite

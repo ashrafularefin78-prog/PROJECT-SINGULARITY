@@ -40,6 +40,8 @@ const mobile = json('docs/reports/lighthouse-mobile.json');
 const desktop = json('docs/reports/lighthouse-desktop.json');
 const a11y = json('docs/reports/a11y.json');
 const durability = json('docs/reports/durability.json');
+const relayLoad = json('docs/reports/relay-load.json');
+const relayChaos = json('docs/reports/relay-chaos.json');
 
 const files = {
   report: read('docs/LOAD_CHAOS.md'),
@@ -50,6 +52,8 @@ const files = {
 };
 
 const app = payload.files.find((f) => f.file === 'src/app.js');
+const interp = payload.files.find((f) => f.file === 'src/runtime/interpreter.js');
+const preprocess = payload.files.find((f) => f.file === 'src/runtime/preprocess.js');
 const soakFirst = soak.samples[0];
 const soakLast = soak.samples[soak.samples.length - 1];
 const soakPeak = soak.samples.reduce((a, s) => (s.jsHeapUsedMiB > a.jsHeapUsedMiB ? s : a));
@@ -84,6 +88,26 @@ claim('docs/reports/lighthouse-mobile.json performance', `${marks.mobile[0]} of 
 claim('docs/reports/lighthouse-desktop.json categories', `${joinScores(marks.desktop)} of 95`, ['chart']);
 claim('docs/reports/a11y.json axe', `0 axe-core violations, ${a11y.axe.passes} passing rule results`, ['report']);
 claim('docs/reports/a11y.json browser', a11y.browser.replace('Edg/', ''), ['report']);
+claim('tools/payload.js --json src/runtime/interpreter.js', `(${kib(interp.gzipBytes)} KiB gzip of ${kib(interp.rawBytes)} KiB raw)`, ['report']);
+claim('tools/payload.js --json src/runtime/preprocess.js', `(${kib(preprocess.gzipBytes)} KiB gzip)`, ['report']);
+
+// The relay artifact pair. `relay-load` is a fleet-wide reconciliation of
+// (from, seq) keys across four generator processes against one relay process;
+// `relay-chaos` is the same accounting across a SIGKILL and a replay from the
+// log. The strings below are the report's own sentences, so a re-run that
+// moves a number cannot leave the prose behind.
+claim('docs/reports/relay-load.json conditions', `${relayLoad.conditions.clients.toLocaleString('en-US')} simulated clients`, ['report', 'readme', 'plan', 'chart']);
+claim('docs/reports/relay-load.json latency p95', `p95 ${relayLoad.run.latencyMs[95]} ms`, ['report', 'readme', 'chart']);
+claim('docs/reports/relay-load.json run', `${relayLoad.run.acked.toLocaleString('en-US')} / ${relayLoad.run.acked.toLocaleString('en-US')} acknowledged, ${relayLoad.run.delivered.toLocaleString('en-US')} delivered in ${(relayLoad.run.durationMs / 1000).toFixed(1)} s`, ['report']);
+claim('docs/reports/relay-load.json conditions', `${relayLoad.conditions.shards} generator processes`, ['report']);
+claim('docs/reports/relay-chaos.json chaos', `${relayChaos.chaos.acceptedBeforeKill.toLocaleString('en-US')} accepted`, ['report']);
+claim('docs/reports/relay-chaos.json chaos', `${relayChaos.chaos.recoveredFromLog.toLocaleString('en-US')} / ${relayChaos.chaos.recoveredFromLog.toLocaleString('en-US')} replayed`, ['report']);
+claim('docs/reports/relay-chaos.json chaos', `kill to listening again **${relayChaos.chaos.killToReadyMs} ms**`, ['report']);
+claim('docs/reports/relay-chaos.json chaos', `${relayChaos.chaos.killToReadyMs} ms outage`, ['readme', 'plan']);
+// The self-check count is the number of checks the harness defines, so the
+// report's "9 checks" line moves with the code, not with a re-run.
+const selfChecks = (read('tools/load-relay.js').match(/await check\(/g) || []).length;
+claim('tools/load-relay.js await check calls', `${selfChecks} checks`, ['report']);
 // One claim per row of the durability table: the delay and the verdict, both
 // straight from the artifact, so a delay that starts failing cannot stay "yes"
 // in the document. A delay of a second or more may be written either way (the
@@ -124,6 +148,27 @@ const shapes = [
     from: 'docs/LOAD_CHAOS.md',
     ok: !/Memory soak — no growth over the run/.test(files.report),
     why: 'section 3 still carries the placeholder heading from before the soak ran',
+  },
+  {
+    from: 'docs/reports/relay-load.json',
+    ok:
+      relayLoad.run.attempted === relayLoad.run.acked &&
+      relayLoad.run.delivered === relayLoad.run.acked &&
+      relayLoad.run.lost === 0 &&
+      relayLoad.run.duplicates === 0 &&
+      relayLoad.run.unknown === 0,
+    why: 'the report claims the thousand-client relay run acknowledged every envelope, lost none and duplicated none',
+  },
+  {
+    from: 'docs/reports/relay-chaos.json',
+    ok:
+      relayChaos.chaos.pendingAtKill === relayChaos.chaos.expectedPending &&
+      relayChaos.chaos.recoveredFromLog === relayChaos.chaos.expectedPending &&
+      relayChaos.chaos.recoveredMatchesExpected === true &&
+      relayChaos.chaos.lost === 0 &&
+      relayChaos.chaos.duplicated === 0 &&
+      relayChaos.run.delivered === relayChaos.run.acked,
+    why: 'the report claims the node-kill chaos run replayed its whole backlog with zero loss',
   },
 ];
 

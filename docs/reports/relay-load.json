@@ -1,0 +1,114 @@
+{
+  "measuredAt": "2026-10-17T19:46:26.594Z",
+  "node": "v24.22.0",
+  "platform": "win32 x64",
+  "mode": "measure",
+  "conditions": {
+    "clients": 1000,
+    "clientsPerShard": 250,
+    "shards": 4,
+    "sendPerClient": 50,
+    "burstPerClient": 0,
+    "intervalMs": 250,
+    "payloadBytes": 256,
+    "seed": 42,
+    "transport": "loopback http/1.1, keep-alive, one relay process, no TLS",
+    "generator": "4 processes x 250 clients",
+    "fsync": false,
+    "ctChars": 380
+  },
+  "run": {
+    "attempted": 50000,
+    "acked": 50000,
+    "rejected": 0,
+    "transportFailed": 0,
+    "lastReject": null,
+    "transportEvents": [],
+    "delivered": 50000,
+    "lost": 0,
+    "duplicates": 0,
+    "unknown": 0,
+    "misrouted": 0,
+    "undecryptable": 0,
+    "reconnects": 0,
+    "durationMs": 15737,
+    "throughputPerSec": 3177,
+    "latencyMs": {
+      "50": 3.6,
+      "95": 12.2,
+      "99": 649.2
+    },
+    "maxLatencyMs": 1939.3,
+    "postRttMs": {
+      "50": 3.3,
+      "95": 9.5,
+      "99": 14.5
+    }
+  },
+  "relay": {
+    "rssMiB": 98.2,
+    "peakRssMiB": 228,
+    "heapUsedMiB": 13.8,
+    "cpuUserMsBefore": 46,
+    "cpuUserMsAfter": 6750,
+    "cpuUserMsDelta": 6704,
+    "sampleCount": 36,
+    "pendingAtEnd": 0,
+    "postsSeenByServer": 50000,
+    "deliveriesSeenByServer": 50000
+  },
+  "shards": [
+    {
+      "shard": 0,
+      "clients": 250,
+      "idOffset": 0,
+      "durationMs": 18238,
+      "acked": 12500,
+      "received": 12378,
+      "latencyMs": {
+        "50": 4.2,
+        "95": 12.4,
+        "99": 589.2
+      }
+    },
+    {
+      "shard": 1,
+      "clients": 250,
+      "idOffset": 250,
+      "durationMs": 18072,
+      "acked": 12500,
+      "received": 12573,
+      "latencyMs": {
+        "50": 2.9,
+        "95": 11.5,
+        "99": 634.5
+      }
+    },
+    {
+      "shard": 2,
+      "clients": 250,
+      "idOffset": 500,
+      "durationMs": 18229,
+      "acked": 12500,
+      "received": 12375,
+      "latencyMs": {
+        "50": 3.3,
+        "95": 11.7,
+        "99": 646.3
+      }
+    },
+    {
+      "shard": 3,
+      "clients": 250,
+      "idOffset": 750,
+      "durationMs": 18151,
+      "acked": 12500,
+      "received": 12674,
+      "latencyMs": {
+        "50": 3.8,
+        "95": 13.2,
+        "99": 717.3
+      }
+    }
+  ]
+}
