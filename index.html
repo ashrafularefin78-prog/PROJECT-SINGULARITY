@@ -22,7 +22,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-inEObMXa6L9nrbhNq+gT+5+TeXaP8j1cfPtlBomc1vM='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
+      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-yvouVyQJSZjC/66iRVVWI2qyOFQb9xgSLS/vTqvkONU='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
     />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#06090d" />
@@ -328,6 +328,25 @@ p { margin: 0 0 8px; }
 .ring-score { font: 800 30px/1 var(--mono); fill: #fff; }
 .ring-max { font: 600 11px/1 var(--mono); fill: var(--dim); letter-spacing: 0.16em; }
 .ring-cap { font: 700 0.72em/1 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
+.ring-track { stroke: #142030; }
+.ring-spin {
+  stroke: rgba(110, 168, 254, 0.45);
+  filter: drop-shadow(0 0 14px rgba(110, 168, 254, 0.45));
+}
+.ring-arc {
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 16px var(--accent));
+  animation: arc-flow 3s linear infinite;
+}
+.ring-core {
+  fill: var(--accent);
+  animation: core-pulse 2.2s ease-in-out infinite;
+}
+.ring-score {
+  fill: #fff;
+  filter: drop-shadow(0 0 14px rgba(110, 168, 254, 0.7));
+  animation: score-ignite 1.2s ease-out both;
+}
 progress.module-bar[data-mod='1'],
 .tab[data-mod='1'] { --mod: #6ea8fe; --mod-soft: rgba(110, 168, 254, 0.18); }
 progress.module-bar[data-mod='2'],
@@ -753,6 +772,25 @@ html[data-contrast='high'] .fx-rain { display: none; }
 @media (max-width: 899px) {
 .fx-rain { display: none; }
 }
+.fx-nebula {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.12;
+  filter: blur(48px);
+  background-image:
+    radial-gradient(700px 400px at 15% 25%, rgba(110, 168, 254, 0.5), transparent 60%),
+    radial-gradient(600px 500px at 85% 75%, rgba(77, 208, 225, 0.45), transparent 60%),
+    radial-gradient(560px 360px at 50% 5%, rgba(179, 157, 219, 0.4), transparent 55%);
+  animation: nebula-drift 52s ease-in-out infinite alternate;
+  will-change: transform;
+}
+html[data-fx='reduced'] .fx-nebula { display: none; }
+html[data-contrast='high'] .fx-nebula { display: none; }
+@media (forced-colors: active) {
+.fx-nebula { display: none; }
+}
 </style>
     <!-- critical-css:end -->
     <!--
@@ -782,6 +820,7 @@ html[data-contrast='high'] .fx-rain { display: none; }
          body::after. -->
     <div class="fx" aria-hidden="true">
       <span class="fx-depth"><span class="fx-stars"></span></span>
+      <span class="fx-nebula"></span>
       <span class="fx-aurora"></span>
       <span class="fx-sweep"></span>
       <span class="fx-meteor"></span>
@@ -863,7 +902,7 @@ html[data-contrast='high'] .fx-rain { display: none; }
             <div class="hero-badges" id="hero-badges">
               <span class="chip accent">8 MODULES</span>
               <span class="chip ok">0 RUNTIME DEPS</span>
-              <span class="chip ok" id="hero-tests">183 TESTS GREEN</span>
+              <span class="chip ok" id="hero-tests">188 TESTS GREEN</span>
               <span class="chip ok">TRUSTED TYPES ENFORCED</span>
             </div>
           </div>

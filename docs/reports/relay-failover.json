@@ -1,0 +1,98 @@
+{
+  "measuredAt": "2026-10-18T17:37:58.264Z",
+  "node": "v24.22.0",
+  "platform": "win32 x64",
+  "mode": "failover",
+  "conditions": {
+    "clients": 1000,
+    "shards": 1,
+    "sendPerClient": 25,
+    "burstPerClient": 0,
+    "intervalMs": 500,
+    "payloadBytes": 256,
+    "ctChars": 380,
+    "seed": 42,
+    "transport": "loopback http/1.1, keep-alive, two relay processes (primary + standby, separate data dirs), no TLS",
+    "fsync": false
+  },
+  "run": {
+    "attempted": 50000,
+    "acked": 50000,
+    "rejected": 0,
+    "transportFailed": 0,
+    "delivered": 50000,
+    "lost": 0,
+    "duplicates": 0,
+    "unknown": 0,
+    "misrouted": 0,
+    "undecryptable": 0,
+    "reconnects": 0,
+    "durationMs": 25515,
+    "throughputPerSec": 1960,
+    "latencyMs": {
+      "50": 174.4,
+      "95": 7504.9,
+      "99": 8074.2
+    },
+    "maxLatencyMs": 8278.1,
+    "postRttMs": {
+      "50": 23.6,
+      "95": 239.8,
+      "99": 384.5
+    }
+  },
+  "relay": {
+    "rssMiB": 176.1,
+    "peakRssMiB": 218.1,
+    "heapUsedMiB": 48.7,
+    "cpuUserMsBefore": null,
+    "cpuUserMsAfter": 2468,
+    "cpuUserMsDelta": null,
+    "sampleCount": 44,
+    "pendingAtEnd": 0,
+    "postsSeenByServer": 25000,
+    "deliveriesSeenByServer": 25000
+  },
+  "failover": {
+    "primaryData": "C:\\Users\\user\\AppData\\Local\\Temp\\relay-load-cqkaHE",
+    "standbyPort": 50921,
+    "deliveredStageOne": 25000,
+    "acceptedBeforeKill": 45000,
+    "pendingAtKill": 20000,
+    "expectedPending": 20000,
+    "reposted": 20000,
+    "repostFailed": 0,
+    "repostErrors": [],
+    "standbyPendingAfterRepost": 20000,
+    "failoverMs": 1322,
+    "drainResumeMs": 3606,
+    "backlogDelivered": true,
+    "postFailoverAcked": 5000,
+    "postFailoverDelivered": 5000,
+    "lost": 0,
+    "duplicated": 0
+  },
+  "thresholds": [
+    {
+      "metric": "envelopes lost",
+      "value": 0,
+      "limit": 0,
+      "unit": "envelopes",
+      "ok": true
+    },
+    {
+      "metric": "envelopes duplicated",
+      "value": 0,
+      "limit": 0,
+      "unit": "envelopes",
+      "ok": true
+    },
+    {
+      "metric": "kill to failover",
+      "value": 1322,
+      "limit": 2000,
+      "unit": "ms",
+      "ok": true
+    }
+  ]
+}

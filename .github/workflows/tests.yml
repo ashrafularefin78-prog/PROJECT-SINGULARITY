@@ -5,7 +5,7 @@
 #   node     - the fast suite in bare Node: no browser, no GPU, no IndexedDB.
 #              Tests that need those skip themselves with a reason instead of
 #              failing, so a red run here means a real regression.
-#   browser  - the authoritative run in headless Chrome: all 183 tests,
+#   browser  - the authoritative run in headless Chrome: all 188 tests,
 #              including the WebGL2 renderer and the IndexedDB store.
 #   deploy   - builds the deploy artifact (SRI, service-worker cache bump,
 #              `_headers` policy) and asserts the headers the built server
@@ -66,6 +66,14 @@ jobs:
           # browser it just installed instead of guessing a path.
           BROWSER_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tools/browser-run.js
+      # The shipped app against a real relay node, in a real browser under the
+      # shipped CSP: connect through the same-origin mount, post, drain, read
+      # the node's counters back, and confirm the node's log holds ciphertext
+      # only (tools/relay-e2e.js).
+      - name: the app drives the relay end to end
+        env:
+          BROWSER_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tools/relay-e2e.js
 
   deploy:
     name: deploy build and header policy

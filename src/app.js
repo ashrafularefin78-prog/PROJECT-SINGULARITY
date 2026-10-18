@@ -18,6 +18,7 @@ import { clear, el, scriptUrl, trustedTypesActive } from './security/policy.js';
 import { mountHud } from './ui/hud.js';
 import { RGA } from './crdt/rga.js';
 import { CiphertextRelay, Mesh } from './collab/mesh.js';
+import { RelayCarrier } from './collab/relay.js';
 import { DEFAULT_ICE_SERVERS, RtcCarrier } from './collab/webrtc.js';
 import { openLocalStore } from './storage/db.js';
 import { Sandbox } from './runtime/sandbox.js';
@@ -32,6 +33,7 @@ import {
   encryptFile,
   exportDhPublic,
   formatSafetyNumber,
+  hkdf,
   importSignPublic,
   randomBytes,
   safetyNumber,
@@ -63,6 +65,8 @@ const state = {
   crypto: null,
   rtc: null,
   rtcLines: [],
+  relayCarrier: null,
+  relayLines: [],
   peerClocks: new Map(),
   serviceWorker: { status: 'pending' },
   perf: { jsBytes: 0, gzip: null, lcp: null, inp: null, memory: null },
@@ -221,6 +225,9 @@ function ringContents(score, max, tierName) {
     svgEl('stop', { offset: '55%', 'stop-color': '#b39ddb' }),
     svgEl('stop', { offset: '100%', 'stop-color': '#4dd0e1' }),
   ]);
+  // The centre number starts at zero and powers up on first paint; the
+  // final value is honest, this is only the reveal.
+  const centre = scorePoweredUp ? String(score) : '0';
   return [
     svgEl('svg', {
       class: 'ring',
@@ -239,7 +246,9 @@ function ringContents(score, max, tierName) {
         stroke: 'url(#ringArc)',
         'stroke-dasharray': `${arc.toFixed(1)} ${(circumference - arc).toFixed(1)}`,
       }),
-      svgEl('text', { class: 'ring-score', x: '94', y: '98', 'text-anchor': 'middle', text: String(score) }),
+      // Pulsing core at the centre of the ring.
+      svgEl('circle', { class: 'ring-core', cx: '94', cy: '94', r: '16' }),
+      svgEl('text', { class: 'ring-score', x: '94', y: '98', 'text-anchor': 'middle', 'data-target': String(score), text: centre }),
       svgEl('text', { class: 'ring-max', x: '94', y: '118', 'text-anchor': 'middle', text: `OF ${max}` }),
     ]),
     el('span', { class: 'ring-cap', text: `points band: ${tierName}` }),
@@ -248,6 +257,26 @@ function ringContents(score, max, tierName) {
 
 function scoreRing(score, max, tierName) {
   return el('div', { class: 'ring-wrap' }, ringContents(score, max, tierName));
+}
+
+// Futuristic count-up: on first paint the honest score powers up from zero to
+// its real total. Never a different number than the modules actually carry.
+let scorePoweredUp = false;
+let scoreRaf = null;
+
+function powerUpScore(el, target) {
+  if (scoreRaf) cancelAnimationFrame(scoreRaf);
+  const start = performance.now();
+  const duration = 1100;
+  const tick = (now) => {
+    const t = Math.min((now - start) / duration, 1);
+    // ease-out cubic: snappy ignition, then settles on the honest total
+    const ease = 1 - Math.pow(1 - t, 3);
+    el.textContent = String(Math.floor(target * ease));
+    if (t < 1) scoreRaf = requestAnimationFrame(tick);
+    else scoreRaf = null;
+  };
+  scoreRaf = requestAnimationFrame(tick);
 }
 
 function chip(text, kind = '') {
@@ -1305,7 +1334,7 @@ function meshRadar() {
     blips.appendChild(svgEl('circle', { class: 'radar-blip-self', cx: String(centre), cy: String(centre), r: '3.6' }));
     legend.append(
       el('span', {
-        text: `${others.length + 1} node(s) on this scope · sweep 5.2 s · carriers: tab${state.rtc && state.rtc.links.size ? ` + WebRTC (${state.rtc.links.size})` : ''}`,
+        text: `${others.length + 1} node(s) on this scope · sweep 5.2 s · carriers: tab${state.rtc && state.rtc.links.size ? ` + WebRTC (${state.rtc.links.size})` : ''}${state.relayCarrier ? ' + relay' : ''}`,
       }),
       el('span', {
         class: 'dim',
@@ -1380,23 +1409,130 @@ function rtcReset() {
   rtcLogLine({ text: 'carrier closed and reset - existing links are gone, the tab carrier is unaffected', tone: 'warn' });
 }
 
+// ------------------------------------------------- relay carrier (M5, part 3)
+
+/** Append a line to the relay log and repaint the M5 panel if it is open. */
+function relayLogLine(line) {
+  state.relayLines.push({ at: line.at || Date.now(), text: line.text, tone: line.tone || 'dim' });
+  if (state.relayLines.length > 80) state.relayLines.splice(0, state.relayLines.length - 80);
+  if (refs.meshRefresh) refs.meshRefresh();
+}
+
+/** The node's name in the UI: an empty base means "this origin". */
+const relayNodeLabel = (carrier) => carrier.activeUrl || 'this origin';
+
+/**
+ * The room key for the relay carrier: HKDF-SHA256 over the passphrase, salted
+ * with the room id, so two rooms that happen to share a passphrase do not
+ * share a key. This is a room secret (a meeting password), not the X3DH
+ * session: frames are sealed here so the store-and-forward node can hold them
+ * without ever holding a key. The passphrase is never persisted.
+ */
+async function relayRoomKey(passphrase) {
+  const ikm = new TextEncoder().encode(passphrase);
+  const salt = new TextEncoder().encode(`room:${state.room}`);
+  return hkdf(ikm, salt, 'singularity-relay-v1', 32);
+}
+
+function relaySealWith(keyBytes) {
+  return async (payload) => {
+    const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
+    const iv = randomBytes(12);
+    const data = new TextEncoder().encode(JSON.stringify(payload));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+    return { header: { iv: b64(iv) }, ct: b64(new Uint8Array(ct)) };
+  };
+}
+
+function relayOpenWith(keyBytes) {
+  return async ({ header, ct }) => {
+    const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['decrypt']);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(header.iv) }, key, unb64(ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  };
+}
+
+/**
+ * Connect the mesh to one or more relay nodes. The nodes are tried in order;
+ * when one stops answering, the carrier rotates to the next and re-posts its
+ * outbox, which is the same zero-loss hand-over the load harness measures with
+ * `--failover`. Cross-origin URLs cannot work under `connect-src 'self'`, so
+ * the panel asks for a same-origin path and says why.
+ */
+async function relayConnect() {
+  const urlBox = document.getElementById('relay-urls');
+  const passBox = document.getElementById('relay-pass');
+  const urls = (urlBox ? urlBox.value : '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!urls.length) urls.push(''); // an empty base means "this origin"
+  const passphrase = passBox ? passBox.value : '';
+  if (!passphrase) {
+    relayLogLine({ text: 'a room passphrase is required: the relay is ciphertext-only, so frames must be sealed before they leave this tab', tone: 'bad' });
+    return;
+  }
+  relayDisconnect(true);
+  try {
+    const keyBytes = await relayRoomKey(passphrase);
+    const carrier = new RelayCarrier({
+      peerId: state.peerId,
+      urls,
+      seal: relaySealWith(keyBytes),
+      open: relayOpenWith(keyBytes),
+      onStatus: (status) => {
+        relayLogLine({
+          text: `node ${status.activeUrl || 'this origin'} · failovers ${status.failovers} · outbox ${status.outbox}${status.lastError ? ` · last error: ${status.lastError}` : ''}`,
+          tone: status.failovers ? 'warn' : 'dim',
+        });
+      },
+    });
+    carrier.start();
+    state.relayCarrier = carrier;
+    if (state.mesh) state.mesh.attachRelay(carrier);
+    relayLogLine({
+      text: `connected to ${relayNodeLabel(carrier)} - frames are sealed with the room key before they leave this tab; the node holds routing metadata and ciphertext only`,
+      tone: 'ok',
+    });
+  } catch (err) {
+    relayLogLine({ text: `connect failed: ${err.message}`, tone: 'bad' });
+  }
+}
+
+function relayDisconnect(quiet = false) {
+  const was = state.relayCarrier;
+  if (state.mesh) state.mesh.detachRelay();
+  if (was) was.stop();
+  state.relayCarrier = null;
+  if (!quiet) {
+    relayLogLine({
+      text: `relay carrier stopped${was ? ` (was ${relayNodeLabel(was)})` : ''} - other machines fall back to the WebRTC invite/answer path, same-browser tabs are unaffected`,
+      tone: 'warn',
+    });
+  }
+}
+
 function renderMesh(root) {
   const peers = el('div', { class: 'peers' });
   const stats = el('div', { class: 'stats' });
   const relayPanel = el('div');
   const rtcLogView = el('div', { class: 'mesh-log mono small', role: 'log', 'aria-live': 'polite', 'aria-label': 'WebRTC connection log' });
+  const relayLogView = el('div', { class: 'mesh-log mono small', role: 'log', 'aria-live': 'polite', 'aria-label': 'Relay carrier log' });
   const radar = meshRadar();
 
-  const drawRtcLog = () => {
-    clear(rtcLogView);
-    if (!state.rtcLines.length) {
-      rtcLogView.appendChild(el('p', { class: 'dim', text: 'No WebRTC activity yet. Create an invite code to start.' }));
+  const drawLog = (view, lines, empty) => {
+    clear(view);
+    if (!lines.length) {
+      view.appendChild(el('p', { class: 'dim', text: empty }));
       return;
     }
-    for (const line of state.rtcLines.slice(-12)) {
-      rtcLogView.appendChild(el('p', { class: line.tone || 'dim', text: `[${new Date(line.at).toLocaleTimeString()}] ${line.text}` }));
+    for (const line of lines.slice(-12)) {
+      view.appendChild(el('p', { class: line.tone || 'dim', text: `[${new Date(line.at).toLocaleTimeString()}] ${line.text}` }));
     }
   };
+
+  const drawRtcLog = () => drawLog(rtcLogView, state.rtcLines, 'No WebRTC activity yet. Create an invite code to start.');
+  const drawRelayLog = () => drawLog(relayLogView, state.relayLines, 'No relay activity yet. Connect a node to reach peers with neither a shared browser nor a direct link.');
 
   const draw = () => {
     clear(peers);
@@ -1404,12 +1540,14 @@ function renderMesh(root) {
       peers.appendChild(el('span', { class: `peer ${p.self ? 'self' : ''}` }, [
         avatar(p.name || p.id, p.color),
         el('span', { text: p.self ? `${p.name} (this tab)` : `${p.name || p.id}` }),
-        el('span', { class: 'mini-badge', text: p.self ? 'local' : p.transport === 'webrtc' ? 'webrtc' : 'tab' }),
+        el('span', { class: 'mini-badge', text: p.self ? 'local' : p.transport === 'webrtc' ? 'webrtc' : p.transport === 'relay' ? 'relay' : 'tab' }),
       ]));
     }
     drawRtcLog();
+    drawRelayLog();
     clear(stats);
     const s = state.mesh ? state.mesh.stats : { sent: 0, received: 0, bytesIn: 0, bytesOut: 0, dropped: 0 };
+    const carrier = state.relayCarrier;
     stats.append(
       statCard('Peers in room', String(state.mesh ? state.mesh.peers().length : 1), state.room),
       statCard('Messages sent', String(s.sent), `${bytes(s.bytesOut)} out`),
@@ -1420,17 +1558,42 @@ function renderMesh(root) {
         String(state.rtc ? state.rtc.links.size : 0),
         state.rtc ? `${state.rtc.stats.sent} sent / ${state.rtc.stats.received} received over RTC` : 'carrier not started',
       ),
-      statCard('Carriers', state.rtc ? 'tab + WebRTC' : 'tab only', 'one mesh, two transports'),
+      statCard(
+        'Relay node',
+        carrier ? relayNodeLabel(carrier) : 'not connected',
+        carrier
+          ? `${carrier.stats.acked} acked, ${carrier.stats.received} received, ${carrier.stats.failovers} failover(s), outbox ${carrier.outbox.size}`
+          : 'optional: store-and-forward for peers with no direct link',
+      ),
+      statCard(
+        'Carriers',
+        ['tab', state.rtc ? 'WebRTC' : null, carrier ? 'relay' : null].filter(Boolean).join(' + '),
+        'one mesh, up to three transports',
+      ),
     );
     clear(relayPanel);
     const seen = state.relay.inspect();
-    relayPanel.appendChild(el('p', { class: 'small dim', text: `Relay queue: ${seen.length} envelope(s) awaiting delivery.` }));
+    relayPanel.appendChild(el('p', { class: 'small dim', text: `In-memory demo relay queue: ${seen.length} envelope(s) awaiting delivery (this is the M4 demo queue, not the node).` }));
+    if (carrier) {
+      const live = el('p', { class: 'small', text: `node ${relayNodeLabel(carrier)}: querying…` });
+      relayPanel.appendChild(live);
+      carrier
+        .nodeStats()
+        .then((node) => {
+          live.textContent = node
+            ? `node reports: ${node.posts} posts, ${node.deliveries} deliveries, ${node.pending} pending, ${node.peers} peer mailbox(es), rss ${node.rssMiB} MiB, up ${Math.round(node.uptimeMs / 1000)} s${node.restarts > 1 ? `, restarted ${node.restarts - 1}×` : ''}`
+            : `node ${relayNodeLabel(carrier)}: no /relay/stats answer`;
+        })
+        .catch(() => {
+          live.textContent = `node ${relayNodeLabel(carrier)}: unreachable`;
+        });
+    }
     radar.update();
   };
 
   root.appendChild(
     el('div', { class: 'panel' }, [
-      moduleHead('M5', 'Peer mesh: WebRTC data channels + ciphertext-only relay', 'Two real carriers feed one mesh. BroadcastChannel connects tabs of this browser instantly and with no configuration. WebRTC data channels connect different machines over the network, with the session description exchanged as a copy-paste code instead of a signaling server - so there is still no backend anywhere. Presence, liveness pruning, reconnect recovery and the relay contract are identical on both.'),
+      moduleHead('M5', 'Peer mesh: WebRTC data channels + ciphertext-only relay', 'Three real carriers feed one mesh. BroadcastChannel connects tabs of this browser instantly and with no configuration. WebRTC data channels connect different machines over the network, with the session description exchanged as a copy-paste code instead of a signaling server. The relay carrier reaches machines with neither a shared browser nor a direct link, through a store-and-forward node that only ever holds sealed frames. Presence, liveness pruning, reconnect recovery and the relay contract are identical on all three.'),
       note('Scope, stated plainly: STUN is on by default for candidate discovery across NATs; a TURN relay is deliberately not bundled (it costs bandwidth and is a policy choice - add one in src/collab/webrtc.js). Symmetric NAT on both ends therefore needs TURN, and the UI says so if ICE fails.', 'warn'),
       card('Same-browser room', [
         el('div', { class: 'row' }, [
@@ -1477,6 +1640,30 @@ function renderMesh(root) {
         ]),
         el('div', { class: 'mt-12' }, [rtcLogView]),
       ]),
+      card('Relay node: store-and-forward for peers with no direct link (optional)', [
+        el('p', { class: 'small dim', text: 'tools/relay.js is a small node that holds sealed frames until a peer drains them: two machines that cannot open a WebRTC link - or are simply not online at the same time - can still share the room. Frames are sealed with a room key derived from a passphrase before they leave this tab; the node stores routing metadata and ciphertext, and has no key material. The node must be reachable at the same origin as the page (the CSP ships connect-src \'self\'): a deployment mounts it as a route next to the static files, and locally `python3 tools/serve.py 5173 --relay=http://127.0.0.1:8890` proxies /relay/* to the node. When a node stops answering, the carrier rotates to the next URL in the list and re-posts what it could not confirm - the same hand-over tools/load-relay.js --failover measures with zero loss.' }),
+        el('div', { class: 'mt-10' }, [
+          el('label', { class: 'small', for: 'relay-urls', text: 'Relay node base URLs (comma separated, tried in order; empty = this origin)' }),
+          el('input', {
+            type: 'text',
+            id: 'relay-urls',
+            value: '',
+            placeholder: 'empty = this origin, e.g. http://127.0.0.1:8890',
+            spellcheck: 'false',
+            autocomplete: 'off',
+          }),
+        ]),
+        el('div', { class: 'mt-10' }, [
+          el('label', { class: 'small', for: 'relay-pass', text: 'Room passphrase (never stored, never sent - only its HKDF enters the key)' }),
+          el('input', { type: 'password', id: 'relay-pass', value: '', autocomplete: 'off', spellcheck: 'false' }),
+        ]),
+        el('div', { class: 'row mt-10' }, [
+          button('Connect to the relay', () => relayConnect(), 'primary'),
+          button('Disconnect', () => relayDisconnect(), 'danger'),
+        ]),
+        el('div', { class: 'mt-12' }, [relayLogView]),
+      ]),
+      note('The relay carrier carries the same mesh envelopes as the other two transports, so presence and document operations flow over whichever carrier a peer is reachable on. A peer seen on more than one carrier is counted once; the buttons above call the same functions the command palette does.', 'warn'),
       card('Mesh scope', [radar.node]),
       stats,
       card('Relay inspector', [relayPanel]),
@@ -1683,7 +1870,7 @@ function renderA11y(root) {
   });
   for (const [value, label] of [
     ['auto', 'Automatic - follows the motion setting above'],
-    ['full', 'Full - starfield, hex rain, aurora, scanlines, sweeping light, deck frame, parallax, warp wipe'],
+    ['full', 'Full - starfield, hex rain, aurora, nebula, scanlines, sweeping light, deck frame, parallax, warp wipe'],
     ['reduced', 'Reduced - first paint kept, motion stopped'],
     ['off', 'Off - flat and fastest to paint (the readouts stay, the chrome goes)'],
   ]) {
@@ -2126,6 +2313,19 @@ function paletteCommands() {
       },
     },
     { group: 'Storage', name: 'Copy my peer id to the clipboard', keywords: 'clipboard identity', run: copyPeerId },
+    {
+      group: 'Session',
+      name: 'Connect the relay carrier (reads the M5 panel fields)',
+      keywords: 'relay node store and forward across machines',
+      run: () => relayConnect(),
+    },
+    {
+      group: 'Session',
+      name: 'Disconnect the relay carrier',
+      keywords: 'relay node stop',
+      when: () => Boolean(state.relayCarrier),
+      run: () => relayDisconnect(),
+    },
     { group: 'Display', name: 'Visual effects: automatic (follow the motion setting)', keywords: 'aurora default reset', run: () => setPref('fx', 'auto') },
     { group: 'Display', name: 'Visual effects: full', keywords: 'aurora scanlines animation', run: () => setPref('fx', 'full') },
     { group: 'Display', name: 'Visual effects: reduced', keywords: 'calm animation', run: () => setPref('fx', 'reduced') },
@@ -2386,20 +2586,22 @@ async function remeasurePayload() {
 // the runner: tests/browser.html loads 11 suites and tests/run.js exits non-zero
 // unless every one of these passes. The count is the runner's, not an estimate.
 // Counted from the suite itself, not maintained by hand: `npm test` reports
-// 177 passed + 6 skipped = 183 total, over 11 test files (tests/*.test.js), and
-// the browser runner runs all 183. It was 152/10 until the M2 stdlib additions
+// 182 passed + 6 skipped = 188 total, over 11 test files (tests/*.test.js), and
+// the browser runner runs all 188. It was 152/10 until the M2 stdlib additions
 // (enums, prototypes, sprintf, qsort, fgets); the glTF suite then grew the
 // totals to 183/11, but its file was missed off the browser runner's list, so
-// the browser really ran 171. The list now names all 11 suites and the browser
-// runs all 183, matching the static hero chip in index.html.
-const TEST_TOTALS = { total: 183, suites: 11 };
+// the browser really ran 171. The list names all 11 suites and the browser runs
+// all 188, matching the static hero chip in index.html. The M5 relay carrier
+// added five of the newest tests (sealed round trip, outbox failover, frame-id
+// dedupe, queued flush, base-URL semantics).
+const TEST_TOTALS = { total: 188, suites: 11 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch; convergence, causality and undo are tested. Index lookups walk from a cursor instead of rescanning (20k single-character appends visit 0 nodes, benchmarked in tests/rga.test.js), tombstone collection runs under a peer-derived watermark, and the op log is bounded with a snapshot fallback for catch-up. Interior tombstones are retained by design: an op can still name one as its origin.' },
   { id: 'M2', title: 'In-browser C compiler and runtime', status: 'partial', points: 88, note: 'Real lexer/parser/interpreter in a worker with a step budget, a heap cap, a kill switch and line+column diagnostics. The subset covers ternary, switch with fall-through, structs (nested, arrays, by-value, heap-linked lists), casts, do/while and the malloc/calloc/realloc/free/memcpy/memset family over a bounds-checked arena, plus scanf/sscanf. The preprocessor handles #define/#undef/#ifdef/#if/#elif/#error, function-like macros (argument substitution, # stringize, ## paste, __VA_ARGS__ / variadic), and a token that came out of a macro carries the line and column of its use site. typedef, two-dimensional arrays, function pointers and unions all work, and the library surface student C actually reaches for is built in: <string.h> (strcpy, strcat, strcmp, strncpy, strchr, strncmp, strrchr, strstr, strlen), <ctype.h> (toupper, isdigit, isalpha), <math.h> (sqrt, pow, fabs), sprintf/qsort/fgets. The arena fails closed: a strcpy that would overflow its destination is an error, never silent corruption. Still not clang/TCC in WASM; no variadic user functions; a struct tag is not a type name without a typedef.' },
   { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 78, note: 'WebGL2 with hardware instancing up to 100k objects animated in the vertex shader, a real depth-only shadow pass with hardware PCF, 1M GPU particles from gl_VertexID, and physically based shading: Cook-Torrance GGX/Smith/Schlick with per-instance metallic/roughness, a hemispheric ambient standing in for image-based lighting, and Reinhard tone mapping. A glTF 2.0 loader (src/graphics/gltf.js) parses both the JSON and GLB binary variants, materialises accessors and buffer views, flattens the scene hierarchy into world-space transforms via TRS node composition, generates flat normals when absent, and uploads geometry to WebGL2 via uploadMesh(); the panel loads assets/models/singularity-core.glb and draws every primitive through the same BRDF as the instances, and 12 tests cover the full parsing surface including flat-normal generation, PBR material extraction and GLB binary chunk handling. The panel reports measured main-thread CPU per frame. No HDRI probe, no texture sampling, no skeletal animation, no WebGPU.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 92, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD, all WebCrypto. The signed prekey bundle is now verified inside the handshake before any key material is derived - a swapped prekey or a forged signature aborts the session - with negative tests for both. No audited key storage.' },
-  { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 85, note: 'Two real carriers feed one mesh: BroadcastChannel for same-browser tabs, and WebRTC data channels for separate machines. Signaling is a copy-pasted invite/answer code, so the shipped app still needs no server for signaling or collaboration; STUN is on by default. ICE restart is implemented: when a connection transitions to disconnected the carrier waits 2 s, emits a new offer with iceRestart:true, and exposes acceptRestartAnswer() so the remote peer can complete the restart without tearing down the data channel. Presence, pruning, reconnect recovery, the relay contract and the flood limiter are shared by both carriers. The relay contract is no longer only contractual: tools/relay.js is a standalone ciphertext relay node (durable JSONL log written before every 200, long-poll drains, per-mailbox caps) and tools/load-relay.js drove it with 1,000 simulated clients - 50,000 envelopes, 0 lost, 0 duplicated - then killed it mid-backlog and replayed all 20,000 accepted-but-undelivered envelopes from the log (LOAD_CHAOS.md section 12). A TURN relay is not bundled (bandwidth and policy), so symmetric NAT on both ends still needs one added.' },
+  { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 88, note: 'Three real carriers feed one mesh: BroadcastChannel for same-browser tabs, WebRTC data channels for separate machines, and a ciphertext relay carrier (src/collab/relay.js) for peers that share neither - frames are sealed with an HKDF room key, queued in a sender outbox, re-posted to the next node in a URL list when a node stops answering, and deduplicated by sealed frame id at the receiver. Signaling is a copy-pasted invite/answer code, so the shipped app still needs no server for signaling or collaboration; STUN is on by default. ICE restart is implemented: when a connection transitions to disconnected the carrier waits 2 s, emits a new offer with iceRestart:true, and exposes acceptRestartAnswer() so the remote peer can complete the restart without tearing down the data channel. Presence, pruning, reconnect recovery, the relay contract and the flood limiter are shared by both carriers. The relay contract is no longer only contractual: tools/relay.js is a standalone ciphertext relay node (durable JSONL log written before every 200, long-poll drains, per-mailbox caps); tools/load-relay.js drove it with 1,000 simulated clients - 50,000 envelopes, 0 lost, 0 duplicated - killed it mid-backlog and replayed all 20,000 accepted-but-undelivered envelopes from the log, and in --failover mode killed it for good and re-posted the entire 20,000-envelope backlog from the client outboxes to a standby node: 0 lost, 0 duplicated. Every mode grades itself against thresholds and exits non-zero on a breach, and tools/relay-e2e.js drives the shipped app against a real node in a real browser under the shipped CSP (LOAD_CHAOS.md section 12). A TURN relay is not bundled (bandwidth and policy), so symmetric NAT on both ends still needs one added.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 92, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1. The service worker, the manifest and the registration are scope-relative, so the offline shell works at a subpath deployment too (verified by stopping the server and reloading under /PROJECT-SINGULARITY/), and the log is trimmed with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 55, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences and a visual-effects switch that also reclaims frame time. Not validated against real screen readers.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 83, note: 'Strict CSP with Trusted Types enforced, and now actually delivered: the site is hosted where _headers is read, so frame-ancestors, COOP and COEP arrive as real response headers (they cannot be expressed in a meta tag, which is exactly why the site left GitHub Pages), and tools/verify-headers.js checks them header by header. No markup sinks anywhere, sandbox isolation, per-peer ingress rate limiting on presence traffic, SRI generated at deploy time with the service-worker cache keyed to the build so a stale hash cannot brick a cached page, and a STRIDE model that admits its limits. Still missing: no third-party red-team session, and the OWASP ZAP baseline scan was not run (no Docker or ZAP in this environment).' },
@@ -2450,6 +2652,15 @@ function adoptHero(score, band) {
     // The placeholder ring is hidden from assistive technology because it carries
     // no score; the real one is an image with a label, so the attribute goes.
     ring.removeAttribute('aria-hidden');
+    // Power the score up from zero on first paint - once only. A user who asked
+    // for reduced motion gets the honest total immediately: the CSS already
+    // stops the glow animations, and a counting number is motion too.
+    if (!scorePoweredUp) {
+      scorePoweredUp = true;
+      const centre = ring.querySelector('.ring-score');
+      if (centre && state.a11y.motion === 'reduced') centre.textContent = String(score);
+      else if (centre) powerUpScore(centre, score);
+    }
   }
   return hero;
 }
@@ -2517,7 +2728,7 @@ function renderDashboard(root) {
         verdict: 'met',
       },
       { metric: 'Concurrent users', target: '10,000 @ p95 < 200 ms', value: '1,000 relay clients, p95 12.2 ms; no 10,000-session rig', verdict: 'partial' },
-      { metric: 'Chaos survival', target: 'kill any node, zero data loss', value: 'relay SIGKILLed mid-backlog: 20,000/20,000 replayed, 0 lost', verdict: 'partial' },
+      { metric: 'Chaos survival', target: 'kill any node, zero data loss', value: 'relay SIGKILLed mid-backlog: 20,000/20,000 replayed, 0 lost; failover run: the whole backlog re-posted to a standby node, 0 lost, 0 duplicated', verdict: 'partial' },
     ];
   };
 

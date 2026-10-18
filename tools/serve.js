@@ -43,6 +43,18 @@ if (!HEADER_RULES.length) {
   console.log(`policy: ${HEADER_RULES.length} rule sets from _headers`);
 }
 
+// Optional relay mount for local development, mirroring tools/serve.py: with
+// SINGULARITY_RELAY=http://127.0.0.1:8890 the node's routes are reachable at
+// this origin's /relay/*, which is how a deployment mounts them and the only
+// thing the browser can reach under the app's `connect-src 'self'`. Loopback
+// only: this is a development convenience, not a forward proxy.
+let RELAY = (process.env.SINGULARITY_RELAY || '').replace(/\/+$/, '');
+if (RELAY && !/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(RELAY)) {
+  console.warn(`warning: SINGULARITY_RELAY must be a loopback origin; ignoring ${RELAY}`);
+  RELAY = '';
+}
+if (RELAY) console.log(`relay: /relay/* proxies to ${RELAY}`);
+
 // Brotli/gzip for the text types, mirroring what Cloudflare Pages and Netlify
 // do at the edge. Without this, `uses-text-compression` in Lighthouse would be
 // failing for the dev server alone and every byte-inflated metric (LCP above
@@ -73,6 +85,31 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     let pathname = decodeURIComponent(url.pathname);
+    if (RELAY && (pathname === '/relay' || pathname.startsWith('/relay/'))) {
+      const res2 = await new Promise((resolvePromise) => {
+        const chunks = [];
+        req.on('data', (chunk) => chunks.push(chunk));
+        req.on('end', () => resolvePromise(chunks));
+      });
+      const body = res2.length ? Buffer.concat(res2) : undefined;
+      try {
+        const upstream = await fetch(RELAY + pathname + url.search, {
+          method: req.method,
+          headers: body ? { 'content-type': String(req.headers['content-type'] || 'application/json') } : undefined,
+          body,
+        });
+        const payload = Buffer.from(await upstream.arrayBuffer());
+        res.writeHead(upstream.status, {
+          'content-type': upstream.headers.get('content-type') || 'application/json',
+          'cache-control': 'no-store',
+        });
+        res.end(payload);
+      } catch (err) {
+        res.writeHead(502, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: `relay node unreachable: ${err.message}` }));
+      }
+      return;
+    }
     if (pathname.endsWith('/')) pathname += 'index.html';
     const target = join(ROOT, normalize(pathname).replace(/^([/\\])+/, ''));
     if (!target.startsWith(ROOT)) {

@@ -401,6 +401,85 @@ p { margin: 0 0 8px; }
 .ring-max { font: 600 11px/1 var(--mono); fill: var(--dim); letter-spacing: 0.16em; }
 .ring-cap { font: 700 0.72em/1 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
 
+/* ---------------------------------------------------------- futuristic score */
+
+/* The score ring glows like a powered-up HUD element. */
+.ring-track { stroke: #142030; }
+.ring-spin {
+  stroke: rgba(110, 168, 254, 0.45);
+  filter: drop-shadow(0 0 14px rgba(110, 168, 254, 0.45));
+}
+.ring-arc {
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 16px var(--accent));
+  animation: arc-flow 3s linear infinite;
+}
+@keyframes arc-flow {
+  to { stroke-dashoffset: -520; }
+}
+/* A soft pulse at the heart of the ring, in time with the count-up. */
+.ring-core {
+  fill: var(--accent);
+  animation: core-pulse 2.2s ease-in-out infinite;
+}
+@keyframes core-pulse {
+  0%, 100% { r: 16; fill-opacity: 0.9; filter: drop-shadow(0 0 10px var(--accent)); }
+  50% { r: 20; fill-opacity: 1; filter: drop-shadow(0 0 24px var(--accent)); }
+}
+
+/* Centre number: neon readout that counts up on first paint. */
+.ring-score {
+  fill: #fff;
+  filter: drop-shadow(0 0 14px rgba(110, 168, 254, 0.7));
+  animation: score-ignite 1.2s ease-out both;
+}
+@keyframes score-ignite {
+  from { fill-opacity: 0; filter: drop-shadow(0 0 40px var(--accent)); transform: scale(1.12); }
+  to { fill-opacity: 1; transform: scale(1); }
+}
+
+/* LED segment meters: each lit cell glows and breathes slightly. */
+.seg.on {
+  background: var(--mod, var(--accent));
+  box-shadow: 0 0 10px -1px var(--mod, var(--accent));
+  animation: led-blink 4s ease-in-out infinite;
+}
+.seg.on:nth-child(odd) { animation-delay: 1s; }
+.seg.on:nth-child(even) { animation-delay: 2.5s; }
+@keyframes led-blink {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.85; filter: brightness(1.35); }
+}
+
+/* Module score tiles get a holographic rail and a faint scan on hover. */
+.map-tile {
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--mod) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
+    linear-gradient(180deg, rgba(19, 27, 38, 0.92), rgba(10, 15, 22, 0.9)),
+    repeating-linear-gradient(90deg, transparent, transparent 92%, rgba(255,255,255,0.04) 92%, rgba(255,255,255,0.04) 100%);
+}
+.map-tile::after {
+  content: '';
+  position: absolute; inset: -1px;
+  pointer-events: none;
+  border-radius: inherit;
+  clip-path: inherit;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  background-size: 200% 100%;
+  animation: scan 3s linear infinite;
+  opacity: 0.6;
+}
+@keyframes scan {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.map-tile:hover { box-shadow: 0 0 24px -8px var(--mod); }
+
+/* Honest score stat card number lights up. */
+.stat b, .stat .big { text-shadow: 0 0 28px -10px var(--accent-2); }
+
+
 /* ------------------------------------------------------------- scorecard */
 
 .tier-ladder { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1886,4 +1965,34 @@ html[data-contrast='high'] .fx-rain { display: none; }
 }
 @media (max-width: 899px) {
   .fx-rain { display: none; }
+}
+
+/* Nebula: colour clouds drifting behind the starfield. Pure CSS - layered radial
+   gradients blurred hard, on a long alternate loop. Lives inside the aria-hidden
+   .fx container: it vanishes with the M7 switch, reduced motion, high contrast
+   and forced colours like every other effect layer, and it never touches layout
+   (fixed layer, pointer-inert, compositor-owned motion). */
+.fx-nebula {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.12;
+  filter: blur(48px);
+  background-image:
+    radial-gradient(700px 400px at 15% 25%, rgba(110, 168, 254, 0.5), transparent 60%),
+    radial-gradient(600px 500px at 85% 75%, rgba(77, 208, 225, 0.45), transparent 60%),
+    radial-gradient(560px 360px at 50% 5%, rgba(179, 157, 219, 0.4), transparent 55%);
+  animation: nebula-drift 52s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes nebula-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(5%, -6%, 0) scale(1.1); }
+}
+
+html[data-fx='reduced'] .fx-nebula { display: none; }
+html[data-contrast='high'] .fx-nebula { display: none; }
+@media (forced-colors: active) {
+  .fx-nebula { display: none; }
 }

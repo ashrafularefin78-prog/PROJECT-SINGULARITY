@@ -3,8 +3,16 @@
  *
  *   node tools/load-relay.js --self-check
  *   node tools/load-relay.js --clients=1000 --send=50          # the measured run
- *   node tools/load-relay.js --chaos                           # kill it mid-load
+ *   node tools/load-relay.js --chaos                           # kill it mid-backlog, restart on its log
+ *   node tools/load-relay.js --failover                        # kill it mid-backlog, fail over to a standby node
  *   node tools/load-relay.js --clients=1000 --send=50 --out=docs/reports/relay-load.json
+ *
+ * Every mode ends by grading the run against latency and loss thresholds
+ * (--p95-max, --p99-max, --loss-max, --dup-max; --chaos and --failover also
+ * against --failover-max for the recovery window). The defaults are the
+ * brief's own row limits, an exceeded threshold fails the process, and the
+ * verdicts travel in the JSON report so a report cannot claim a pass the run
+ * did not earn.
  *
  * Why this exists: the brief's budget has a "10,000 concurrent users, p95 under
  * 200 ms" row and a "kill any server node, lose zero data" row, and the only
@@ -47,6 +55,14 @@
  *                  is accepted, the relay is killed with SIGKILL mid-backlog,
  *                  restarted on the same log, and every envelope accepted
  *                  before the kill must be delivered after it - zero loss.
+ *   --failover     the same pause-and-burst beat, but the node is not
+ *                  restarted: a second relay (the standby) is already
+ *                  listening, the fleet switches its destination to it, and
+ *                  every envelope the dead node had accepted but not yet
+ *                  delivered is re-posted from the client-side outbox. The
+ *                  service keeps running on the standby, and the run measures
+ *                  kill-to-first-accepted-post, kill-to-first-delivery, and
+ *                  the zero-loss / zero-duplicate accounting across two nodes.
  *
  * What the numbers do not claim: loopback on one machine, one relay process,
  * no TLS, no proxy, no disk contention. They are reported against those
@@ -90,6 +106,7 @@ const cfg = {
   rampMs: Number(args['ramp-ms'] || 2000),
   selfCheck: Boolean(args['self-check']),
   chaos: Boolean(args.chaos),
+  failover: Boolean(args.failover),
   generate: Boolean(args.generate),
   shard: Number(args.shard || 0),
   idOffset: Number(args['id-offset'] || 0),
@@ -97,12 +114,27 @@ const cfg = {
   port: Number(args.port || 0),
   out: typeof args.out === 'string' ? resolve(args.out) : null,
   keep: Boolean(args.keep),
+  // Thresholds. The defaults are the brief's own row limits (p95 under 200 ms,
+  // no loss, no duplication); the recovery window is this harness's own bar,
+  // 2 s - the same back-off the WebRTC carrier uses before an ICE restart.
+  p95Max: args['p95-max'] === undefined ? 200 : Number(args['p95-max']),
+  // p99 is reported in every artifact but only gated when a flag asks for it.
+  // The brief's row is a p95 bar ("10,000 concurrent users at p95 < 200 ms"),
+  // and a loopback p99 measures straggler scheduling on a busy laptop as much
+  // as the service - the committed clean run itself had p99 649 ms.
+  p99Max: args['p99-max'] === undefined ? null : Number(args['p99-max']),
+  lossMax: args['loss-max'] === undefined ? 0 : Number(args['loss-max']),
+  dupMax: args['dup-max'] === undefined ? 0 : Number(args['dup-max']),
+  failoverMax: args['failover-max'] === undefined ? 2000 : Number(args['failover-max']),
+  postSend: Number(args['post-send'] || 5),
 };
 // One generator process saturates its own event loop above ~1,500 envelopes/s
 // (measured on this machine: p95 jumps from single-digit to hundreds of
 // milliseconds), so the default measured run splits the fleet across four
 // processes, each staying under that knee. Small runs stay in one process.
-if (!cfg.chaos && !cfg.generate && !args.shards && cfg.clients >= 500) cfg.shards = 4;
+// Chaos and failover stay in one process too: their pause/kill/hand-over beats
+// are coordinated from one event loop.
+if (!cfg.chaos && !cfg.failover && !cfg.generate && !args.shards && cfg.clients >= 500) cfg.shards = 4;
 
 // ----------------------------------------------------------------- utilities
 function mulberry32(seed) {
@@ -293,6 +325,11 @@ class VirtualClient {
     this.startTask = null;
     this.sendTask = null;
     this.drainTask = null;
+    // The client-side outbox: every envelope this client posted (or attempted),
+    // kept so that a node death can be answered by re-posting what the dead
+    // node had accepted but not yet delivered. This is exactly the behaviour
+    // the browser carrier (src/collab/relay.js) implements on failover.
+    this.outbox = new Map(); // `${from}#${seq}` -> envelope
   }
 
   start() {
@@ -362,6 +399,7 @@ class VirtualClient {
     const body = { q: seq, t: record.sentAt, st: stage, pad: '' };
     body.pad = 'x'.repeat(Math.max(0, this.run.cfg.size - JSON.stringify(body).length));
     const envelope = { from: this.id, to: this.pickTarget(), ct: this.seal(body) };
+    this.outbox.set(`${envelope.from}#${body.q}`, envelope);
     try {
       const r = await request(this.run.postAgent, this.run.port, 'POST', '/relay/post', envelope, 15000);
       if (r.status === 200) {
@@ -411,6 +449,33 @@ class VirtualClient {
     }
   }
 
+  /**
+   * Post-failover traffic: a handful of numbered sends on the standby, so the
+   * run proves the service kept working after the node died rather than only
+   * that the backlog was recovered.
+   */
+  async postFailover(count) {
+    for (let i = 0; i < count && !this.stopped; i += 1) await this.sendOne('post-failover');
+  }
+
+  /**
+   * Re-post one outbox envelope to whatever node `run.port` now points at.
+   * The failover run calls this for exactly the census set - envelopes the
+   * dead node had accepted but not yet delivered - so a re-post cannot show up
+   * as a duplicate at the receiver.
+   */
+  async repost(key) {
+    const envelope = this.outbox.get(key);
+    if (!envelope) return { key, ok: false, error: 'not in outbox' };
+    try {
+      const r = await request(this.run.postAgent, this.run.port, 'POST', '/relay/post', envelope, 15000);
+      if (r.status === 200) return { key, ok: true };
+      return { key, ok: false, error: `${r.status} ${r.json && r.json.error}` };
+    } catch (err) {
+      return { key, ok: false, error: String(err && err.message) };
+    }
+  }
+
   receive(env) {
     if (env.to !== this.id && env.to !== '*') this.run.misrouted += 1;
     let payload;
@@ -424,6 +489,9 @@ class VirtualClient {
     this.run.received.push(`${env.from}#${payload.q}`);
     this.run.latencies.push(nowEpoch() - payload.t);
     this.run.lastReceiveAt = nowEpoch();
+    if (this.run.standbyWatchFrom && !this.run.firstStandbyReceiveAt && this.run.lastReceiveAt >= this.run.standbyWatchFrom) {
+      this.run.firstStandbyReceiveAt = this.run.lastReceiveAt;
+    }
     // Own-send bookkeeping for the single-process chaos run; a sharded parent
     // reconciles the raw pair lists instead (a receipt here may belong to a
     // client another generator process is tracking).
@@ -461,6 +529,9 @@ class Run {
     this.misrouted = 0;
     this.undecryptable = 0;
     this.transportEvents = [];
+    this.standbyWatchFrom = 0; // epoch ms when the failover watch started
+    this.firstStandbyReceiveAt = 0;
+    this.clientById = new Map();
   }
 
   async startRelay(extra = []) {
@@ -479,6 +550,7 @@ class Run {
   startClients() {
     this.startedAt = nowEpoch();
     for (let i = 0; i < this.cfg.clients; i += 1) this.clients.push(new VirtualClient(this, i));
+    for (const client of this.clients) this.clientById.set(client.id, client);
     for (const client of this.clients) client.start();
   }
 
@@ -619,6 +691,45 @@ function ok(label, value) {
 
 function fail(label, value) {
   console.log(`  FAIL ${label.padEnd(28)} ${value}`);
+}
+
+// ---------------------------------------------------------------- thresholds
+/**
+ * Grade a finished run against the thresholds. The defaults are the brief's
+ * own row limits for latency and loss; the recovery window is this harness's
+ * bar. Every verdict is printed, written into the JSON report, and any breach
+ * fails the process - a run that "passed" only in prose cannot leave a report.
+ */
+function thresholdVerdicts(summary, cfg) {
+  const r = summary.run;
+  const rows = [];
+  const add = (metric, value, limit, unit) => {
+    if (value == null) return;
+    rows.push({ metric, value, limit, unit, ok: value <= limit });
+  };
+  // Latency gates apply to the measured run. The chaos and failover beats
+  // deliberately pause delivery while a backlog builds, so envelopes that wait
+  // out the pause would gate the pause window, not the service; those two
+  // modes gate their recovery window instead, and still gate loss and
+  // duplication like everyone else.
+  if (!summary.chaos && !summary.failover) {
+    add('latency p95', r.latencyMs[95], cfg.p95Max, 'ms');
+    if (cfg.p99Max != null) add('latency p99', r.latencyMs[99], cfg.p99Max, 'ms');
+  }
+  add('envelopes lost', r.lost, cfg.lossMax, 'envelopes');
+  add('envelopes duplicated', r.duplicates, cfg.dupMax, 'envelopes');
+  if (summary.chaos) add('kill to recovered', summary.chaos.killToReadyMs, cfg.failoverMax, 'ms');
+  if (summary.failover) add('kill to failover', summary.failover.failoverMs, cfg.failoverMax, 'ms');
+  return rows;
+}
+
+function printThresholds(rows) {
+  for (const row of rows) {
+    const label = `${row.metric} <= ${row.limit} ${row.unit}`;
+    if (row.ok) ok(label, `${row.value} ${row.unit}`);
+    else fail(label, `${row.value} ${row.unit}`);
+  }
+  return rows.every((row) => row.ok);
 }
 
 // -------------------------------------------------------------------- measure
@@ -797,8 +908,11 @@ async function measure(cfg) {
       durationMs: finished - t0,
     });
     const clean = printLoadSummary(summary, run.lastReject);
+    const gates = thresholdVerdicts(summary, cfg);
+    summary.thresholds = gates;
+    if (!printThresholds(gates)) console.log('  note   a threshold was exceeded; see the FAIL lines');
     writeLoadReport(cfg, summary);
-    return { summary, failed: !clean || !deliveredAll };
+    return { summary, failed: !clean || !deliveredAll || gates.some((g) => !g.ok) };
   } finally {
     run.stopSampling();
     await run.stopAll();
@@ -947,8 +1061,11 @@ async function measureSharded(cfg) {
       durationMs: performance.now() - startedAt,
     });
     const clean = printLoadSummary(summary);
+    const gates = thresholdVerdicts(summary, cfg);
+    summary.thresholds = gates;
+    if (!printThresholds(gates)) console.log('  note   a threshold was exceeded; see the FAIL lines');
     writeLoadReport(cfg, summary);
-    return { summary, failed: failures > 0 || !clean };
+    return { summary, failed: failures > 0 || !clean || gates.some((g) => !g.ok) };
   } finally {
     parent.stopSampling();
     await parent.stopAll();
@@ -1049,17 +1166,185 @@ async function chaos(cfg) {
     ok('send-to-delivery latency', `p50 ${r.latencyMs[50]} ms, p95 ${r.latencyMs[95]} ms, p99 ${r.latencyMs[99]} ms, max ${r.maxLatencyMs} ms`);
     ok('relay process after restart', `rss ${summary.relay.rssMiB} MiB (peak ${summary.relay.peakRssMiB} MiB), cpu ${summary.relay.cpuUserMsAfter} ms user`);
 
-    if (cfg.out) {
-      writeFileSync(
-        cfg.out,
-        `${JSON.stringify({ measuredAt: new Date().toISOString(), node: process.version, platform: `${process.platform} ${process.arch}`, ...summary }, null, 2)}\n`,
-      );
-      console.log(`  report ${cfg.out}`);
-    }
-    return { summary, failed: !zeroLoss || r.duplicates !== 0 };
+    const gates = thresholdVerdicts(summary, cfg);
+    summary.thresholds = gates;
+    const gatesPass = printThresholds(gates);
+    writeLoadReport(cfg, summary);
+    return { summary, failed: !zeroLoss || r.duplicates !== 0 || !gatesPass };
   } finally {
     run.stopSampling();
     await run.stopAll();
+  }
+}
+
+// -------------------------------------------------------------------- failover
+/**
+ * Kill the node mid-backlog and continue on a standby instead of restarting.
+ *
+ * The fleet is one process (the pause/kill/hand-over beat is coordinated from
+ * one event loop). A second relay - the standby - listens from the start on
+ * its own data directory: the two nodes share nothing, which is the harsh
+ * case for failover. Stages:
+ *
+ *   1. Normal traffic, fully delivered through the primary.
+ *   2. Drains pause; a burst per client piles up on the primary (accepted,
+ *      not yet delivered). The census of that backlog is the expected
+ *      re-post set: acked minus delivered.
+ *   3. The primary is SIGKILLed. The fleet switches its destination to the
+ *      standby and re-posts exactly the census set from its client-side
+ *      outboxes - the behaviour src/collab/relay.js implements when its node
+ *      disappears. Loss is impossible (the ciphertexts are still in the
+ *      outbox) and duplication is impossible (only the undelivered set is
+ *      re-posted).
+ *   4. Deliveries resume on the standby, and fresh post-failover traffic runs
+ *      to prove the service kept serving, not just recovering.
+ *
+ * What this is not: node-to-node replication. The standby has none of the
+ * primary's history, so the guarantee is the client outbox's, which is exactly
+ * the guarantee the shipped carrier gives. The killed node's own log is still
+ * complete for its own restart (that is the --chaos run).
+ */
+async function failover(cfg) {
+  cfg = { ...cfg, shards: 1 };
+  const run = new Run(cfg);
+  const standbyData = mkdtempSync(join(tmpdir(), 'relay-standby-'));
+  let standby = null;
+  try {
+    await run.startRelay();
+    standby = await new Relay({ data: standbyData, extra: [] }).start();
+    run.startSampling();
+    const t0 = performance.now();
+    run.startClients();
+
+    // Stage 1: normal traffic, fully delivered through the primary.
+    const stageOne = () => run.clients.every((c) => c.n >= cfg.send && !c.paused) && run.tracker.c.acked === run.tracker.c.attempted;
+    await run.waitFor(stageOne, cfg.timeoutMs);
+    await run.waitFor(() => run.tracker.c.delivered === run.tracker.c.acked, cfg.drainTimeoutMs);
+    const deliveredStageOne = run.tracker.c.delivered;
+
+    // Stage 2: pause drains, pile up a burst on the primary, take the census.
+    for (const client of run.clients) client.paused = true;
+    run.drainAgent.destroy(); // closes the parked long-polls; the server drops the waiters
+    run.drainAgent = makeAgent(cfg.clients + 64);
+    await sleep(250);
+    await Promise.allSettled(run.clients.map((c) => c.burstLoop(cfg.burst)));
+    await run.waitFor(() => run.tracker.c.acked === run.tracker.c.attempted, cfg.timeoutMs);
+    await sleep(150); // let any in-flight drain response land before the census
+
+    const pendingKeys = [];
+    for (const [key, rec] of run.tracker.records) if (rec.ackedAt && rec.deliveredAt === null) pendingKeys.push(key);
+    const expectedPending = run.tracker.c.acked - run.tracker.c.delivered;
+    const beforeKill = await run.stats();
+
+    // Stage 3: kill the primary, switch the fleet, re-post the census set.
+    const killStart = performance.now();
+    run.standbyWatchFrom = nowEpoch();
+    await run.relay.kill();
+    run.port = standby.port;
+    let firstRepostAt = 0;
+    const reposts = await Promise.all(
+      pendingKeys.map(async (key) => {
+        const client = run.clientById.get(key.split('#')[0]);
+        const result = client ? await client.repost(key) : { key, ok: false, error: 'unknown client' };
+        if (result.ok && !firstRepostAt) firstRepostAt = performance.now();
+        return result;
+      }),
+    );
+    const reposted = reposts.filter((r) => r.ok).length;
+    const repostFailed = reposts.length - reposted;
+    const repostErrors = reposts.filter((r) => !r.ok).slice(0, 3).map((r) => `${r.key}: ${r.error}`);
+    const afterRepost = await run.stats();
+
+    // Stage 4: drains resume on the standby - everything pending must arrive -
+    // then fresh traffic on the new node.
+    for (const client of run.clients) client.paused = false;
+    const backlogDelivered = await run.waitFor(() => run.tracker.c.delivered === deliveredStageOne + reposted, cfg.drainTimeoutMs * 2);
+    const firstReceiveAt = run.firstStandbyReceiveAt;
+    await Promise.allSettled(run.clients.map((c) => c.postFailover(cfg.postSend)));
+    const allDone = await run.waitFor(
+      () => run.tracker.c.acked === run.tracker.c.attempted && run.tracker.c.delivered === run.tracker.c.acked,
+      cfg.drainTimeoutMs * 2,
+    );
+    const finished = performance.now();
+    const relayAfter = await run.stats();
+    run.stopSampling();
+
+    const t = run.tracker;
+    const postFailoverAcked = t.c.acked - (deliveredStageOne + reposted);
+    const acceptedBeforeKill = deliveredStageOne + expectedPending;
+    const zeroLoss = t.c.acked === t.c.delivered && t.c.delivered > 0 && allDone;
+    const failoverMs = firstRepostAt ? Math.round(firstRepostAt - killStart) : null;
+    const drainResumeMs = firstReceiveAt && run.standbyWatchFrom ? Math.round(firstReceiveAt - run.standbyWatchFrom) : null;
+    const standbyPending = afterRepost ? afterRepost.pending : null;
+
+    const summary = run.summary({
+      mode: 'failover',
+      durationMs: finished - t0,
+      relayBefore: null,
+      relayAfter,
+      extra: {
+        failover: {
+          primaryData: run.relayData,
+          standbyPort: standby.port,
+          deliveredStageOne,
+          acceptedBeforeKill,
+          pendingAtKill: beforeKill.pending,
+          expectedPending,
+          reposted,
+          repostFailed,
+          repostErrors,
+          standbyPendingAfterRepost: standbyPending,
+          failoverMs,
+          drainResumeMs,
+          backlogDelivered,
+          postFailoverAcked,
+          postFailoverDelivered: t.c.delivered - (deliveredStageOne + reposted),
+          lost: t.c.acked - t.c.delivered,
+          duplicated: t.c.duplicates,
+        },
+      },
+    });
+    const r = summary.run;
+    const f = summary.failover;
+    // Two processes by design; the run's own conditions string must not read
+    // "one relay process" like the single-node modes do.
+    summary.conditions.transport = 'loopback http/1.1, keep-alive, two relay processes (primary + standby, separate data dirs), no TLS';
+
+    console.log(`relay failover: ${cfg.clients.toLocaleString('en-US')} clients, ${r.acked.toLocaleString('en-US')} accepted, primary SIGKILLed mid-backlog, standby continues`);
+    ok('accepted before kill', `${acceptedBeforeKill.toLocaleString('en-US')} (delivered ${deliveredStageOne.toLocaleString('en-US')}, pending ${expectedPending.toLocaleString('en-US')})`);
+    if (reposted === expectedPending && pendingKeys.length === expectedPending && repostFailed === 0) {
+      ok('re-posted to standby', `${reposted.toLocaleString('en-US')} / ${expectedPending.toLocaleString('en-US')} from client outboxes, 0 failed`);
+    } else {
+      fail('re-posted to standby', `${reposted}/${expectedPending} (census ${pendingKeys.length}, failed ${repostFailed}${repostErrors.length ? `; ${repostErrors.join('; ')}` : ''})`);
+    }
+    if (standbyPending === reposted) {
+      ok('standby backlog', `${standbyPending.toLocaleString('en-US')} accepted, matches the re-post set`);
+    } else {
+      fail('standby backlog', `standby reports ${standbyPending}, re-posted ${reposted}`);
+    }
+    if (zeroLoss && backlogDelivered) {
+      ok('zero loss', `all ${r.acked.toLocaleString('en-US')} delivered (${f.postFailoverDelivered.toLocaleString('en-US')} re-posted or new on the standby), 0 lost, 0 duplicated`);
+    } else {
+      fail('zero loss', `delivered ${r.delivered}/${r.acked}, lost ${f.lost}, duplicated ${f.duplicated}, backlogDelivered ${backlogDelivered}`);
+    }
+    ok('failover window', `kill to first accepted post ${failoverMs} ms, kill to first delivery ${drainResumeMs} ms (standby listening throughout)`);
+    ok('post-failover traffic', `${postFailoverAcked.toLocaleString('en-US')} new envelopes accepted and delivered by the standby`);
+    ok('send-to-delivery latency', `p50 ${r.latencyMs[50]} ms, p95 ${r.latencyMs[95]} ms, p99 ${r.latencyMs[99]} ms, max ${r.maxLatencyMs} ms`);
+    ok('standby process', `rss ${summary.relay.rssMiB} MiB (peak ${summary.relay.peakRssMiB} MiB), cpu ${summary.relay.cpuUserMsAfter} ms user`);
+
+    const gates = thresholdVerdicts(summary, cfg);
+    summary.thresholds = gates;
+    const gatesPass = printThresholds(gates);
+    writeLoadReport(cfg, summary);
+    return {
+      summary,
+      failed: !zeroLoss || !backlogDelivered || r.duplicates !== 0 || repostFailed !== 0 || !gatesPass,
+    };
+  } finally {
+    run.stopSampling();
+    await run.stopAll();
+    if (standby) await standby.kill();
+    rmSync(standbyData, { recursive: true, force: true });
   }
 }
 
@@ -1210,6 +1495,35 @@ async function selfCheck(cfg) {
       const finalStats = await statsOf(agent, restarted.port);
       assert.equal(finalStats.pending, 0, `expected an empty backlog at the end, saw ${finalStats.pending}`);
     });
+
+    await check('thresholds fail a run that misses them', async () => {
+      const options = { p95Max: 200, p99Max: 500, lossMax: 0, dupMax: 0, failoverMax: 2000 };
+      const breach = thresholdVerdicts({ run: { latencyMs: { 50: 5, 95: 250, 99: 900 }, lost: 3, duplicates: 0 } }, options);
+      assert.equal(breach.find((r) => r.metric === 'latency p95').ok, false);
+      assert.equal(breach.find((r) => r.metric === 'latency p99').ok, false);
+      assert.equal(breach.find((r) => r.metric === 'envelopes lost').ok, false);
+      assert.equal(breach.find((r) => r.metric === 'envelopes duplicated').ok, true);
+      const clean = thresholdVerdicts({ run: { latencyMs: { 50: 4, 95: 12, 99: 30 }, lost: 0, duplicates: 0 } }, options);
+      assert.ok(clean.length >= 4 && clean.every((r) => r.ok));
+      // Without --p99-max, a long p99 is reported (it is in every artifact) but
+      // must not gate: the brief's bar is a p95 bar.
+      const defaultGates = thresholdVerdicts(
+        { run: { latencyMs: { 50: 4, 95: 12, 99: 649 }, lost: 0, duplicates: 0 } },
+        { p95Max: 200, p99Max: null, lossMax: 0, dupMax: 0 },
+      );
+      assert.equal(defaultGates.find((r) => r.metric === 'latency p99'), undefined, 'p99 is reported, not gated, unless --p99-max is given');
+      assert.ok(defaultGates.every((r) => r.ok), 'a 649 ms p99 under a 12 ms p95 is a pass on the brief\u2019s bar');
+      const slowFailover = thresholdVerdicts(
+        { run: { latencyMs: { 50: 4, 95: 12, 99: 30 }, lost: 0, duplicates: 0 }, failover: { failoverMs: 2500 } },
+        options,
+      );
+      assert.equal(slowFailover.find((r) => r.metric === 'kill to failover').ok, false);
+      const fastFailover = thresholdVerdicts(
+        { run: { latencyMs: { 50: 4, 95: 12, 99: 30 }, lost: 0, duplicates: 0 }, failover: { failoverMs: 120 } },
+        options,
+      );
+      assert.equal(fastFailover.find((r) => r.metric === 'kill to failover').ok, true);
+    });
   } finally {
     agent.destroy();
     for (const relay of relays) await relay.kill();
@@ -1234,6 +1548,11 @@ const main = async () => {
   }
   if (cfg.chaos) {
     const { failed } = await chaos(cfg);
+    process.exitCode = failed ? 1 : 0;
+    return;
+  }
+  if (cfg.failover) {
+    const { failed } = await failover(cfg);
     process.exitCode = failed ? 1 : 0;
     return;
   }

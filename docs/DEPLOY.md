@@ -92,6 +92,22 @@ all headers delivered as _headers specifies
 Three of those lines — `frame-ancestors 'none'`, COOP and COEP — are the ones
 GitHub Pages could not send at all, and they are the reason this site moved.
 
+### Re-verified 2026-10-18
+
+The hosting claim still holds for what is deployed: the live response carries
+`frame-ancestors 'none'` inside the CSP plus COOP and COEP — the three
+directives GitHub Pages could not send at all. The repository has moved on
+since that deployment, though. The current `_headers` expects the hashed style
+policy (`style-src 'self' 'sha256-yvouVyQJSZjC/66iRVVWI2qyOFQb9xgSLS/vTqvkONU='`),
+and the deployed build predates it, so
+`node tools/verify-headers.js --url=https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/`
+fails five per-path comparisons today: every header arrives, but the CSP served
+is the prior revision without the hash. `node tools/verify-headers.js` (no
+`--url`) passes against the current tree. Redeploying the current tree —
+`npx wrangler pages deploy . --project-name project-singularity`, or a
+Re-deploy in the Pages dashboard — closes the gap; this environment has no
+host credentials to run that command.
+
 ### The deploy artifact, not just the host
 
 The upload is built and checked locally first, in the same runtime Cloudflare
@@ -108,12 +124,13 @@ node tools/browser-run.js --url=http://127.0.0.1:8788/tests/browser.html
 Last worker-served run: **152 passed, 0 failed, 0 skipped**
 (`[dom=true webgl2=true indexeddb=true]`), with the strict CSP arriving from the
 generated worker rather than from a dev server. The suite has since grown to
-**183**, which passes in a real browser against the dev server; the worker-served
-run above has not been repeated here since, because `.tools/wrangler` is not
-installed in this checkout (CI's deploy job runs the same command against the
-built artifact served from `dist/`). A build that cannot deliver its own
-security policy, or whose suite fails once served by the deploy artifact, fails
-in CI before it can be uploaded.
+**188** (182 pass + 6 browser-only skips under bare Node), and all 188 pass in a
+real browser against the dev server; the worker-served run above has not been
+repeated here since, because `.tools/wrangler` is not installed in this
+checkout (CI's deploy job runs the same command against the built artifact
+served from `dist/`). A build that cannot deliver its own security policy, or
+whose suite fails once served by the deploy artifact, fails in CI before it can
+be uploaded.
 
 ## What still cannot be delivered by a static host
 

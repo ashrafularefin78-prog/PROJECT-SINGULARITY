@@ -15,16 +15,16 @@ single biggest limitation of this report.
 |--------|----------------|
 | `tests/crypto.test.js` (15 tests) | The protocol layer: X3DH, Double Ratchet, bundle signatures, replay, tampering, group epochs, streaming file AEAD |
 | `tests/fuzz.test.js` (11 tests) | Deterministic fuzzing of the two parsers that face hostile input (C front end, signaling/crypto decoders) plus the CRDT and the ciphertext paths |
-| `tests/mesh.test.js` (8 tests) | Ingress handling: relay visibility, room isolation, presence flood control |
+| `tests/mesh.test.js` (13 tests) | Ingress handling and the browser relay carrier: ciphertext-only relay visibility, room isolation, presence flood control, a sealed round trip through the node's contract, outbox failover across a dead node, and sealed-frame-id dedupe |
 | `tests/webrtc.test.js` (7 tests) | Signaling-code validation, including codes from untrusted sources |
 | `tests/storage.test.js` (8 tests) | Damaged-log recovery, migrations, quota behaviour |
 | `tests/stdlib.test.js` (51 tests) | The C library surface and the preprocessor, including the fail-closed cases (a `strcpy` that would overflow its destination is an error, not silent corruption) |
 | In-app probes (M8 panel) | Live CSP / Trusted Types behaviour, the hostile-input probe that tries `innerHTML` and `eval()` and shows the refusal |
 | Manual browser runs | Header/CSP inspection over the served response, offline shell under a subpath deployment, two-carrier WebRTC channel, encrypted message round-trip |
 
-Total suite: **183 tests across 11 suites**, all 183 green in a browser
+Total suite: **188 tests across 11 suites**, all 188 green in a browser
 (~2.3 s, runnable from the site at `/tests/browser.html`); under bare Node the
-same suite reports 177 pass and 6 browser-only skips instead of failing them.
+same suite reports 182 pass and 6 browser-only skips instead of failing them.
 
 Fuzz corpora (the numbers in the table are the counts printed by the suite):
 400 lexer inputs, 408 parser inputs, 60 sources compiled twice, 3 runaway
@@ -120,7 +120,7 @@ arithmetic, but a correctness and resource-reporting hole.
 ```bash
 python3 tools/serve.py 5173
 # app:      http://127.0.0.1:5173/
-# suite:    http://127.0.0.1:5173/tests/browser.html   (183 tests, 11 suites)
+# suite:    http://127.0.0.1:5173/tests/browser.html   (188 tests, 11 suites)
 ```
 
 The M8 panel shows the live policy state (CSP, Trusted Types, sandbox isolation)

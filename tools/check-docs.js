@@ -42,6 +42,7 @@ const a11y = json('docs/reports/a11y.json');
 const durability = json('docs/reports/durability.json');
 const relayLoad = json('docs/reports/relay-load.json');
 const relayChaos = json('docs/reports/relay-chaos.json');
+const relayFailover = json('docs/reports/relay-failover.json');
 
 const files = {
   report: read('docs/LOAD_CHAOS.md'),
@@ -91,11 +92,13 @@ claim('docs/reports/a11y.json browser', a11y.browser.replace('Edg/', ''), ['repo
 claim('tools/payload.js --json src/runtime/interpreter.js', `(${kib(interp.gzipBytes)} KiB gzip of ${kib(interp.rawBytes)} KiB raw)`, ['report']);
 claim('tools/payload.js --json src/runtime/preprocess.js', `(${kib(preprocess.gzipBytes)} KiB gzip)`, ['report']);
 
-// The relay artifact pair. `relay-load` is a fleet-wide reconciliation of
-// (from, seq) keys across four generator processes against one relay process;
+// The relay artifacts. `relay-load` is a fleet-wide reconciliation of (from,
+// seq) keys across four generator processes against one relay process;
 // `relay-chaos` is the same accounting across a SIGKILL and a replay from the
-// log. The strings below are the report's own sentences, so a re-run that
-// moves a number cannot leave the prose behind.
+// log; `relay-failover` kills the primary for good and re-posts its whole
+// backlog to a standby node from the client outboxes. The strings below are
+// the report's own sentences, so a re-run that moves a number cannot leave the
+// prose behind.
 claim('docs/reports/relay-load.json conditions', `${relayLoad.conditions.clients.toLocaleString('en-US')} simulated clients`, ['report', 'readme', 'plan', 'chart']);
 claim('docs/reports/relay-load.json latency p95', `p95 ${relayLoad.run.latencyMs[95]} ms`, ['report', 'readme', 'chart']);
 claim('docs/reports/relay-load.json run', `${relayLoad.run.acked.toLocaleString('en-US')} / ${relayLoad.run.acked.toLocaleString('en-US')} acknowledged, ${relayLoad.run.delivered.toLocaleString('en-US')} delivered in ${(relayLoad.run.durationMs / 1000).toFixed(1)} s`, ['report']);
@@ -104,8 +107,13 @@ claim('docs/reports/relay-chaos.json chaos', `${relayChaos.chaos.acceptedBeforeK
 claim('docs/reports/relay-chaos.json chaos', `${relayChaos.chaos.recoveredFromLog.toLocaleString('en-US')} / ${relayChaos.chaos.recoveredFromLog.toLocaleString('en-US')} replayed`, ['report']);
 claim('docs/reports/relay-chaos.json chaos', `kill to listening again **${relayChaos.chaos.killToReadyMs} ms**`, ['report']);
 claim('docs/reports/relay-chaos.json chaos', `${relayChaos.chaos.killToReadyMs} ms outage`, ['readme', 'plan']);
+claim('docs/reports/relay-failover.json failover', `${relayFailover.failover.reposted.toLocaleString('en-US')} / ${relayFailover.failover.expectedPending.toLocaleString('en-US')} re-posted from client outboxes`, ['report']);
+claim('docs/reports/relay-failover.json failover', `kill to first accepted post **${relayFailover.failover.failoverMs} ms**`, ['report', 'readme', 'plan']);
+claim('docs/reports/relay-failover.json failover', `kill to first delivery ${relayFailover.failover.drainResumeMs} ms`, ['report']);
+claim('docs/reports/relay-failover.json run', `all ${relayFailover.run.acked.toLocaleString('en-US')} delivered, 0 lost, 0 duplicated`, ['report']);
+claim('docs/reports/relay-failover.json failover', `${relayFailover.failover.postFailoverAcked.toLocaleString('en-US')} fresh envelopes accepted and delivered by the standby`, ['report']);
 // The self-check count is the number of checks the harness defines, so the
-// report's "9 checks" line moves with the code, not with a re-run.
+// report's "10 checks" line moves with the code, not with a re-run.
 const selfChecks = (read('tools/load-relay.js').match(/await check\(/g) || []).length;
 claim('tools/load-relay.js await check calls', `${selfChecks} checks`, ['report']);
 // One claim per row of the durability table: the delay and the verdict, both
@@ -169,6 +177,26 @@ const shapes = [
       relayChaos.chaos.duplicated === 0 &&
       relayChaos.run.delivered === relayChaos.run.acked,
     why: 'the report claims the node-kill chaos run replayed its whole backlog with zero loss',
+  },
+  {
+    from: 'docs/reports/relay-failover.json',
+    ok:
+      relayFailover.failover.pendingAtKill === relayFailover.failover.expectedPending &&
+      relayFailover.failover.reposted === relayFailover.failover.expectedPending &&
+      relayFailover.failover.repostFailed === 0 &&
+      relayFailover.failover.standbyPendingAfterRepost === relayFailover.failover.reposted &&
+      relayFailover.failover.lost === 0 &&
+      relayFailover.failover.duplicated === 0 &&
+      relayFailover.run.delivered === relayFailover.run.acked,
+    why: 'the report claims the entire backlog of the killed node was re-posted to the standby and delivered with zero loss and zero duplication',
+  },
+  {
+    from: 'docs/reports/relay-chaos.json + docs/reports/relay-failover.json thresholds',
+    ok:
+      [relayChaos, relayFailover].every(
+        (r) => Array.isArray(r.thresholds) && r.thresholds.length >= 3 && r.thresholds.every((t) => t.ok),
+      ) && (relayLoad.thresholds == null || relayLoad.thresholds.every((t) => t.ok)),
+    why: 'every relay report written under the threshold gate carries its verdicts, and all of them passed (the load artifact predates the gate)',
   },
 ];
 

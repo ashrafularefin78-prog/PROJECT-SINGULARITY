@@ -19,11 +19,11 @@
   <text class="small" x="20" y="44">The right-hand end of each track is the target. Bars are clamped at the target; the ratio beside them is the real one.</text>
   <line class="axis" x1="20" y1="56" x2="768" y2="56" />
 
-  <!-- Initial JS payload: 131.3 KiB gzip vs 170 KB (met, 77%) -->
+  <!-- Initial JS payload: 139.1 KiB gzip vs 170 KB (met, 82%) -->
   <text class="label" x="20" y="82">Initial JS payload (gzip)</text>
-  <text class="value" x="768" y="82" text-anchor="end">131.3 KiB of 170 KB - met</text>
+  <text class="value" x="768" y="82" text-anchor="end">139.1 KiB of 170 KB - met</text>
   <rect class="track" x="20" y="88" width="748" height="9" />
-  <rect class="met" x="20" y="88" width="578" height="9" />
+  <rect class="met" x="20" y="88" width="612" height="9" />
 
   <!-- Throttled LCP: 774 ms vs 1500 ms (met, 0.52x) -->
   <text class="label" x="20" y="114">Largest Contentful Paint, Slow 4G + 4x CPU</text>
@@ -81,9 +81,9 @@
 
   <!-- Chaos: one node killed mid-backlog, everything replayed -->
   <text class="label" x="20" y="402">Kill any server node, lose zero data</text>
-  <text class="value" x="768" y="402" text-anchor="end">SIGKILL mid-backlog: 20,000 replayed, 0 lost - met (1 node)</text>
+  <text class="value" x="768" y="402" text-anchor="end">SIGKILL: 20,000 replayed; failover: 20,000 re-posted, 0 lost - met</text>
   <rect class="track" x="20" y="408" width="748" height="9" />
   <rect class="met" x="20" y="408" width="748" height="9" />
 
-  <text class="small" x="20" y="432">Every row is measured; the 10,000-user row carries the 1,000 clients actually run, and chaos is met for the one relay node that exists - not a fleet. Both evidence files are named in LOAD_CHAOS.md.</text>
+  <text class="small" x="20" y="432">Every row is measured; the 10,000-user row carries the 1,000 clients actually run, and chaos is met for the relay nodes that exist - a kill-and-restart and a kill-and-hand-over, two processes on one laptop, not a fleet. Every evidence file is named in LOAD_CHAOS.md.</text>
 </svg>

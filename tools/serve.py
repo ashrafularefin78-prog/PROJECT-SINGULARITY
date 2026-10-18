@@ -17,14 +17,26 @@ the two are deliberately kept line-for-line equivalent, and
 """
 import argparse
 import http.server
+import json
 import os
 import posixpath
 import re
 import socketserver
 import sys
+import urllib.error
 import urllib.parse
+import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+#: When set (via `--relay=http://127.0.0.1:8890`), requests to `/relay/*` are
+#: proxied to a running node from tools/relay.js. The app ships
+#: `connect-src 'self'`, so a node on another port is a *different origin* and
+#: the browser would refuse it; proxying keeps everything on one origin, which
+#: is exactly how a deployment mounts the node (a route next to the static
+#: files). Only a loopback target is accepted - this is a development tool,
+#: not a general forward proxy.
+RELAY = os.environ.get("SINGULARITY_RELAY", "")
 
 #: URL prefix the app is served under. Empty for http://host/, or set to e.g.
 #: '/PROJECT-SINGULARITY' to reproduce a GitHub Pages project-site deployment
@@ -106,12 +118,65 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return os.path.join(ROOT, *parts)
 
     def do_GET(self):
+        if self.proxy_relay("GET"):
+            return
         if PREFIX and urllib.parse.urlsplit(self.path).path == PREFIX:
             self.send_response(301)
             self.send_header("Location", PREFIX + "/")
             self.end_headers()
             return
         super().do_GET()
+
+    def do_POST(self):
+        if self.proxy_relay("POST"):
+            return
+        self.send_error(405, "this server only accepts POST under /relay/")
+
+    def proxy_relay(self, method):
+        """Serve `/relay/*` from the node when `--relay` is set; else return False.
+
+        The node's own contract crosses unchanged - this is a transparent
+        same-origin mount, so the browser's `connect-src 'self'` policy holds
+        and the carrier's failover sees a transport error when the node is
+        down (the proxy answers 502), which is what rotates it to the next URL.
+        """
+        if not RELAY:
+            return False
+        split = urllib.parse.urlsplit(self.path)
+        served = urllib.parse.unquote(split.path)
+        if PREFIX and served.startswith(PREFIX):
+            served = served[len(PREFIX):] or "/"
+        if not (served == "/relay" or served.startswith("/relay/")):
+            return False
+        target = RELAY.rstrip("/") + served
+        if split.query:
+            target += "?" + split.query
+        body = None
+        if method == "POST":
+            length = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(length) if length else b""
+        req = urllib.request.Request(target, data=body, method=method)
+        if body is not None:
+            req.add_header("Content-Type", self.headers.get("Content-Type") or "application/json")
+        try:
+            with urllib.request.urlopen(req, timeout=30) as res:
+                payload = res.read()
+                status = res.status
+                ctype = res.headers.get("Content-Type") or "application/json"
+        except urllib.error.HTTPError as err:
+            payload = err.read()
+            status = err.code
+            ctype = err.headers.get("Content-Type") or "application/json"
+        except OSError as err:
+            payload = json.dumps({"ok": False, "error": "relay node unreachable: %s" % err}).encode()
+            status = 502
+            ctype = "application/json"
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+        return True
 
     def end_headers(self):
         # Match against the path as served (prefix stripped), so one `_headers`
@@ -142,7 +207,7 @@ HEADER_RULES = load_header_rules()
 
 
 def main():
-    global PREFIX, ROOT, HEADER_RULES
+    global PREFIX, ROOT, HEADER_RULES, RELAY
     ap = argparse.ArgumentParser(description="Project Singularity static server")
     ap.add_argument("port", nargs="?", type=int, default=int(os.environ.get("PORT", 5173)))
     ap.add_argument(
@@ -157,10 +222,23 @@ def main():
         help="serve the app under a URL prefix, e.g. /PROJECT-SINGULARITY "
         "(simulates a GitHub Pages project site so subpath bugs are visible locally)",
     )
+    ap.add_argument(
+        "--relay",
+        default=RELAY,
+        help="proxy /relay/* to a node from tools/relay.js (loopback only), so the "
+        "app's connect-src 'self' policy still holds - e.g. --relay=http://127.0.0.1:8890",
+    )
     args = ap.parse_args()
     ROOT = os.path.abspath(args.root)
     HEADER_RULES = load_header_rules()
     PREFIX = (args.prefix or "").rstrip("/")
+    RELAY = (args.relay or "").rstrip("/")
+    if RELAY:
+        host = urllib.parse.urlsplit(RELAY).hostname or ""
+        if host not in ("127.0.0.1", "localhost", "::1"):
+            sys.stderr.write("error: --relay only proxies to a loopback node; refusing %r\n" % RELAY)
+            return 1
+        sys.stderr.write("relay: /relay/* proxies to %s\n" % RELAY)
     if not HEADER_RULES:
         sys.stderr.write("warning: no _headers rules found; serving without the security policy\n")
     else:
@@ -174,7 +252,8 @@ def main():
             httpd.serve_forever()
         except KeyboardInterrupt:
             pass
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

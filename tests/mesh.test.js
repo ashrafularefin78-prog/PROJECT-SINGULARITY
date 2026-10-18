@@ -1,5 +1,6 @@
 import { test, assert, assertEquals } from './harness.js';
 import { CiphertextRelay, Mesh } from '../src/collab/mesh.js';
+import { RelayCarrier } from '../src/collab/relay.js';
 import { RateLimiter } from '../src/security/policy.js';
 
 const room = () => `room-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -203,4 +204,167 @@ test('M8: the mesh throttles presence traffic but never document operations', ()
   for (const op of ops) mesh._receive({ kind: 'ops', from: 'noisy', payload: { doc: 'd', ops: [op] } }, 'tab');
   assertEquals(mesh.stats.throttled, afterPings, 'ops are never throttled');
   assert(mesh.stats.received > before, 'and they are all accounted for');
+});
+
+// ---------------------------------------------------------------------------
+// M5 relay carrier (src/collab/relay.js): the browser side of the node
+// contract - sealing, the outbox, and failover across a list of nodes. The
+// "node" below is the node's HTTP contract wrapped around the in-memory relay,
+// so the tests exercise the exact wire shapes without needing a server.
+// ---------------------------------------------------------------------------
+
+/** A stand-in node: the real routes, the real envelopes, no sockets. */
+function stubNode() {
+  const relay = new CiphertextRelay();
+  const calls = { posts: 0, drains: 0 };
+  const json = (status, payload) =>
+    new Response(JSON.stringify(payload), { status, headers: { 'content-type': 'application/json' } });
+  const fetchImpl = async (url, init = {}) => {
+    const u = new URL(url, 'http://stub.test');
+    if (u.pathname === '/relay/post') {
+      calls.posts += 1;
+      const body = JSON.parse(init.body);
+      relay.post(body.to, { from: body.from, to: body.to, header: body.header, ct: body.ct });
+      return json(200, { ok: true, seq: calls.posts });
+    }
+    if (u.pathname === '/relay/drain') {
+      calls.drains += 1;
+      await new Promise((r) => setTimeout(r, 5)); // stand in for the parked long poll
+      const envelopes = relay.drain(u.searchParams.get('peer'));
+      return json(200, {
+        ok: true,
+        envelopes: envelopes.map(({ to, from, header, ct }) => ({ to, from, header, ct })),
+      });
+    }
+    return json(404, { ok: false, error: 'no such route' });
+  };
+  return { relay, calls, fetchImpl };
+}
+
+/** A trivially reversible seal: the carrier must not care what is inside. */
+const stubSeal = async (payload) => ({ header: { v: 1 }, ct: JSON.stringify(payload) });
+const stubOpen = async ({ ct }) => JSON.parse(ct);
+
+/** Poll until the predicate holds, then resolve; the timeout only fails loudly. */
+async function waitFor(predicate, label, ms = 5000) {
+  await withTimeout(
+    (async () => {
+      while (!predicate()) await new Promise((r) => setTimeout(r, 5));
+    })(),
+    ms,
+    label,
+  );
+}
+
+test('M5 relay carrier: a sealed frame round-trips through the node contract', async () => {
+  const node = stubNode();
+  const seen = [];
+  const a = new RelayCarrier({ peerId: 'alice', urls: ['http://stub.test'], seal: stubSeal, open: stubOpen, fetchImpl: node.fetchImpl });
+  const b = new RelayCarrier({
+    peerId: 'bob',
+    urls: ['http://stub.test'],
+    seal: stubSeal,
+    open: stubOpen,
+    fetchImpl: node.fetchImpl,
+    onFrame: (payload) => seen.push(payload),
+  });
+  a.start();
+  b.start();
+  const result = await a.post('*', { kind: 'ping', room: 'x' });
+  assertEquals(result.delivered, true, 'the node acked');
+  await waitFor(() => seen.length === 1, 'the frame to arrive at bob');
+  assertEquals(seen[0].kind, 'ping');
+  assertEquals(node.calls.posts, 1);
+  // What the node holds is the wire envelope: routing fields and ciphertext.
+  const stored = node.relay.inspect();
+  assertEquals(stored.length, 1);
+  assert(stored[0].visibleFields.includes('ct') && stored[0].visibleFields.includes('from'), 'routing plus ct');
+  a.stop();
+  b.stop();
+});
+
+test('M5 relay carrier: a dead node hands the outbox to the next one', async () => {
+  const nodeB = stubNode();
+  const carrier = new RelayCarrier({
+    peerId: 'alice',
+    urls: ['http://dead.test', 'http://standby.test'],
+    seal: stubSeal,
+    open: stubOpen,
+    fetchImpl: (url, init) =>
+      String(url).includes('dead.test') ? Promise.reject(new TypeError('failed to fetch')) : nodeB.fetchImpl(url, init),
+  });
+  const result = await carrier.post('*', { kind: 'ops', n: 7 });
+  assertEquals(result.delivered, true, 'the standby acked');
+  assertEquals(carrier.stats.failovers, 1, 'the dead node rotated once');
+  assertEquals(carrier.activeUrl, 'http://standby.test');
+  assertEquals(carrier.stats.reposted, 1, 'the frame was re-posted, not sent fresh');
+  assertEquals(carrier.outbox.size, 0, 'the outbox is clear');
+  assertEquals(nodeB.calls.posts, 1);
+});
+
+test('M5 relay carrier: a repeated frame is delivered to the app exactly once', async () => {
+  const node = stubNode();
+  const seen = [];
+  const b = new RelayCarrier({
+    peerId: 'bob',
+    urls: ['http://stub.test'],
+    seal: stubSeal,
+    open: stubOpen,
+    fetchImpl: node.fetchImpl,
+    onFrame: (payload) => seen.push(payload),
+  });
+  b.start();
+  // The same sealed frame twice: what a re-post after a lost response looks like.
+  const frame = { to: 'bob', from: 'alice', header: { v: 1 }, ct: JSON.stringify({ id: 'alice#1', payload: { kind: 'ops' } }) };
+  await node.fetchImpl('http://stub.test/relay/post', { method: 'POST', body: JSON.stringify(frame) });
+  await node.fetchImpl('http://stub.test/relay/post', { method: 'POST', body: JSON.stringify(frame) });
+  await waitFor(() => seen.length === 1 && b.stats.duplicates === 1, 'the frame and its duplicate');
+  assertEquals(seen.length, 1, 'the app saw it once');
+  assertEquals(b.stats.duplicates, 1, 'the carrier absorbed the copy');
+  b.stop();
+});
+
+test('M5 relay carrier: a base URL is an origin, so routes are never doubled', async () => {
+  const seen = [];
+  const carrier = new RelayCarrier({
+    peerId: 'alice',
+    urls: [''],
+    seal: stubSeal,
+    open: stubOpen,
+    fetchImpl: async (url) => {
+      seen.push(String(url));
+      return new Response(JSON.stringify({ ok: true, seq: 1 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+  assertEquals(carrier.activeUrl, '', 'an empty base means this origin');
+  await carrier.post('*', { kind: 'ping' });
+  assertEquals(seen.length, 1);
+  assertEquals(seen[0], '/relay/post', 'the route is /relay/post, not /relay/relay/post');
+  // And a carrier given nothing at all behaves the same way.
+  const bare = new RelayCarrier({ peerId: 'bob', seal: stubSeal, open: stubOpen, urls: [] });
+  assertEquals(bare.activeUrl, '');
+});
+
+test('M5 relay carrier: an unreachable fleet queues the frame instead of dropping it', async () => {
+  let up = false;
+  const node = stubNode();
+  const carrier = new RelayCarrier({
+    peerId: 'alice',
+    urls: ['http://node.test'],
+    seal: stubSeal,
+    open: stubOpen,
+    fetchImpl: (url, init) => (up ? node.fetchImpl(url, init) : Promise.reject(new TypeError('failed to fetch'))),
+  });
+  const result = await carrier.post('*', { kind: 'ping' });
+  assertEquals(result.delivered, false);
+  assertEquals(result.queued, true, 'presence gossip degrades, it does not throw');
+  assertEquals(carrier.outbox.size, 1, 'the frame waits in the outbox');
+  up = true;
+  const flush = await carrier.flush();
+  assertEquals(flush.ok, true, 'the next flush delivers it');
+  assertEquals(carrier.outbox.size, 0);
+  assertEquals(node.calls.posts, 1);
 });

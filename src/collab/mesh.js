@@ -3,15 +3,20 @@
  *
  * This class owns everything that does not depend on how bytes travel: the room
  * model, presence, heartbeat/pruning, the untrusted-relay contract and recovery
- * when a carrier drops. Two carriers can feed it at once:
+ * when a carrier drops. Three carriers can feed it at once:
  *
  *   - BroadcastChannel (always on): real multi-peer collaboration between tabs
  *     of the same browser, with zero servers and zero configuration.
  *   - WebRTC data channels (src/collab/webrtc.js, attached with attachRtc): real
  *     connections between different machines over the network, signaled by a
  *     copy-pasted invite/answer code rather than a signaling server.
+ *   - The HTTP relay carrier (src/collab/relay.js, attached with attachRelay):
+ *     store-and-forward through tools/relay.js, sealed with a room key, for
+ *     peers that share neither a browser nor a direct link. It survives a node
+ *     death: on failure the carrier rotates to the next node in its list and
+ *     re-posts its outbox.
  *
- * Both carriers deliver the same envelope shape into `_receive`, so presence,
+ * All carriers deliver the same envelope shape into `_receive`, so presence,
  * the relay and the UI path are identical whichever one a peer arrived on, and
  * the peer list says which one it was.
  */
@@ -100,6 +105,22 @@ export class Mesh {
         this.stats.rtcSent = (this.stats.rtcSent || 0) + delivered;
       }
     }
+    if (this.relay) {
+      // Fire-and-forget: presence is gossip, and the carrier's own outbox +
+      // failover is what keeps a later document op from being dropped.
+      this.relay
+        .post('*', envelope)
+        .then((result) => {
+          if (result.delivered) {
+            this.stats.sent += 1;
+            this.stats.bytesOut += estimateBytes(envelope);
+            this.stats.relaySent = (this.stats.relaySent || 0) + 1;
+          }
+        })
+        .catch(() => {
+          this.stats.dropped += 1;
+        });
+    }
   }
 
   /**
@@ -117,6 +138,25 @@ export class Mesh {
   detachRtc() {
     if (this.rtc) this.rtc.close();
     this.rtc = null;
+  }
+
+  /**
+   * Add the HTTP relay carrier. Frames arrive through the same handler as the
+   * tab and WebRTC carriers - the transport label is the only difference - and
+   * anything the carrier has not yet acknowledged is re-posted by the carrier
+   * itself when a node fails.
+   */
+  attachRelay(carrier) {
+    this.relay = carrier;
+    carrier.onFrame = (payload) => this._receive(payload, 'relay');
+    // Announce on the new transport immediately; presence converges on both.
+    this._send('hello', { name: this.name, color: this.color });
+    return this;
+  }
+
+  detachRelay() {
+    if (this.relay) this.relay.stop();
+    this.relay = null;
   }
 
   /** Broadcast a message to every peer in the room. */
@@ -206,6 +246,7 @@ export class Mesh {
     if (this.channel) this.channel.close();
     this.channel = null;
     if (this.rtc) this.rtc.close();
+    if (this.relay) this.relay.stop();
   }
 }
 

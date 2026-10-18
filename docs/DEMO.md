@@ -47,12 +47,14 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 4. Press the backslash key: the **module dial** opens with all eight modules on a
    ring, each labelled with the score it is actually carrying. Arrow keys turn
    it, digits jump straight to a module, Enter opens it, Escape closes.
-5. Point at the score ring: **668 / 1000**, points band **Gold**.
+5. Point at the score ring: **671 / 1000**, points band **Gold** (the bundled
+   recording was captured when the ring read 668; the ring animates to the
+   current total).
 6. Point at the tier ladder: Bronze says *requirement: met*, Silver says *not met
    (3 of 4 modules)*. Say out loud that the leading column is the brief's points
    band and the ladder grades the *requirements*, which is why the two disagree.
-7. Point at the budget table: payload **met** (131.3 KiB gzip of JavaScript plus
-   19.3 KiB of CSS, against a 170 KB ceiling), the hour-long memory soak **met**
+7. Point at the budget table: payload **met** (139.1 KiB gzip of JavaScript plus
+   20.2 KiB of CSS, against a 170 KB ceiling), the hour-long memory soak **met**
    (the heap at minute 60 is smaller than at minute 10), frame rate **met**, and
    everything that was not measured labelled *not measured*.
 
@@ -140,7 +142,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run: **183 tests, 11 suites, all
+Open **/tests/browser.html** and let the suite run: **188 tests, 11 suites, all
 green, no skips**, including the fuzzer. Then name the gaps: no red-team session, no
 audited crypto, no TURN, no texture sampling/IBL, no clang→WASM, no screen-reader pass, and
 no distributed load or chaos rig.

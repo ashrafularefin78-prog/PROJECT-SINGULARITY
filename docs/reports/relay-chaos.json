@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-17T19:46:56.729Z",
+  "measuredAt": "2026-10-18T17:37:32.317Z",
   "node": "v24.22.0",
   "platform": "win32 x64",
   "mode": "chaos",
@@ -27,28 +27,28 @@
     "misrouted": 0,
     "undecryptable": 0,
     "reconnects": 0,
-    "durationMs": 20117,
-    "throughputPerSec": 2237,
+    "durationMs": 21353,
+    "throughputPerSec": 2107,
     "latencyMs": {
-      "50": 6.9,
-      "95": 3447.7,
-      "99": 3941
+      "50": 9.1,
+      "95": 4626.3,
+      "99": 5167
     },
-    "maxLatencyMs": 4125.1,
+    "maxLatencyMs": 5346.6,
     "postRttMs": {
-      "50": 6,
-      "95": 151.8,
-      "99": 373.7
+      "50": 8,
+      "95": 214.1,
+      "99": 383.1
     }
   },
   "relay": {
-    "rssMiB": 140.9,
-    "peakRssMiB": 189.1,
-    "heapUsedMiB": 53,
+    "rssMiB": 141.6,
+    "peakRssMiB": 218.6,
+    "heapUsedMiB": 52.7,
     "cpuUserMsBefore": null,
-    "cpuUserMsAfter": 375,
+    "cpuUserMsAfter": 453,
     "cpuUserMsDelta": null,
-    "sampleCount": 38,
+    "sampleCount": 41,
     "pendingAtEnd": 0,
     "postsSeenByServer": 0,
     "deliveriesSeenByServer": 20000
@@ -64,8 +64,31 @@
     "deliveredAfterRestart": 20000,
     "lost": 0,
     "duplicated": 0,
-    "rssMiBAtKill": 190.2,
-    "killToExitMs": 41,
-    "killToReadyMs": 234
-  }
+    "rssMiBAtKill": 218.6,
+    "killToExitMs": 40,
+    "killToReadyMs": 256
+  },
+  "thresholds": [
+    {
+      "metric": "envelopes lost",
+      "value": 0,
+      "limit": 0,
+      "unit": "envelopes",
+      "ok": true
+    },
+    {
+      "metric": "envelopes duplicated",
+      "value": 0,
+      "limit": 0,
+      "unit": "envelopes",
+      "ok": true
+    },
+    {
+      "metric": "kill to recovered",
+      "value": 256,
+      "limit": 2000,
+      "unit": "ms",
+      "ok": true
+    }
+  ]
 }

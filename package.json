@@ -18,6 +18,7 @@
     "relay": "node tools/relay.js",
     "load:relay": "node tools/load-relay.js",
     "check:relay": "node tools/load-relay.js --self-check",
+    "relay:e2e": "node tools/relay-e2e.js",
     "check:docs": "node tools/check-docs.js",
     "record:demo": "node tools/demo.js"
   },
