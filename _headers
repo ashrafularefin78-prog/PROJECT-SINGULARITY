@@ -15,7 +15,7 @@
 # subpath deployment such as '/PROJECT-SINGULARITY/'.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'sha256-D8RsBe73+hQNEi9euZQpWQ7YfIhNc/aUbtvz7W1QK/Y='; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'sha256-inEObMXa6L9nrbhNq+gT+5+TeXaP8j1cfPtlBomc1vM='; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Resource-Policy: same-origin

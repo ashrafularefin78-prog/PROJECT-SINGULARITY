@@ -19,17 +19,17 @@
   <text class="small" x="20" y="44">The right-hand end of each track is the target. Bars are clamped at the target; the ratio beside them is the real one.</text>
   <line class="axis" x1="20" y1="56" x2="768" y2="56" />
 
-  <!-- Initial JS payload: 131.2 KiB gzip vs 170 KB (met, 77%) -->
+  <!-- Initial JS payload: 131.3 KiB gzip vs 170 KB (met, 77%) -->
   <text class="label" x="20" y="82">Initial JS payload (gzip)</text>
-  <text class="value" x="768" y="82" text-anchor="end">131.2 KiB of 170 KB - met</text>
+  <text class="value" x="768" y="82" text-anchor="end">131.3 KiB of 170 KB - met</text>
   <rect class="track" x="20" y="88" width="748" height="9" />
-  <rect class="met" x="20" y="88" width="577" height="9" />
+  <rect class="met" x="20" y="88" width="578" height="9" />
 
-  <!-- Throttled LCP: 603 ms vs 1500 ms (met, 0.40x) -->
+  <!-- Throttled LCP: 774 ms vs 1500 ms (met, 0.52x) -->
   <text class="label" x="20" y="114">Largest Contentful Paint, Slow 4G + 4x CPU</text>
-  <text class="value" x="768" y="114" text-anchor="end">603 ms of 1,500 ms - met</text>
+  <text class="value" x="768" y="114" text-anchor="end">774 ms of 1,500 ms - met</text>
   <rect class="track" x="20" y="120" width="748" height="9" />
-  <rect class="met" x="20" y="120" width="301" height="9" />
+  <rect class="met" x="20" y="120" width="386" height="9" />
 
   <!-- Lighthouse mobile: 100 vs 95 (met) -->
   <text class="label" x="20" y="146">Lighthouse, mobile Performance</text>
@@ -43,9 +43,9 @@
   <rect class="track" x="20" y="184" width="748" height="9" />
   <rect class="met" x="20" y="184" width="748" height="9" />
 
-  <!-- Lighthouse desktop: 100 / 100 / 100 / 100 vs 95 (met) -->
+  <!-- Lighthouse desktop: 99 / 100 / 100 / 100 vs 95 (met) -->
   <text class="label" x="20" y="210">Lighthouse, desktop (all four categories)</text>
-  <text class="value" x="768" y="210" text-anchor="end">100 / 100 / 100 / 100 of 95 - met</text>
+  <text class="value" x="768" y="210" text-anchor="end">99 / 100 / 100 / 100 of 95 - met</text>
   <rect class="track" x="20" y="216" width="748" height="9" />
   <rect class="met" x="20" y="216" width="748" height="9" />
 

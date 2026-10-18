@@ -252,7 +252,10 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
   background:
     linear-gradient(180deg, var(--mod-soft), rgba(18, 26, 37, 0.4)),
     rgba(18, 26, 37, 0.95);
-  box-shadow: 0 0 0 1px var(--mod), 0 10px 26px -16px var(--mod);
+  /* The ring, plus the module hue pressed into the pill's bottom edge. The
+     inset shadow is masked by the border radius, so it reads as an arc that
+     follows the pill rather than a bar under it. */
+  box-shadow: 0 0 0 1px var(--mod), 0 10px 26px -16px var(--mod), inset 0 -3px 0 -1px var(--mod);
 }
 
 /* ------------------------------------------------------------------ layout */
@@ -278,6 +281,16 @@ h3 {
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
+/* Every section heading gets a rule that fades off to the right, tinted with
+   the module hue when the panel provides one. */
+h3::after {
+  content: '';
+  display: block;
+  height: 1px;
+  margin-top: 6px;
+  background: linear-gradient(90deg, var(--mod, var(--accent)), transparent 82%);
+  opacity: 0.5;
+}
 p { margin: 0 0 8px; }
 .lede { color: var(--dim); max-width: 76ch; font-size: 0.97em; }
 .mono { font-family: var(--mono); }
@@ -291,17 +304,25 @@ p { margin: 0 0 8px; }
 
 /* -------------------------------------------------------------------- hero */
 
+/* Chamfered corners rather than rounded ones: the two cut edges get their own
+   one-pixel diagonal (a gradient band positioned in the corner), because
+   clip-path cuts the border away along the diagonal and a cut with no edge
+   reads as a rendering bug rather than as a design. The drop shadow goes with
+   it - clip-path clips the outside too - so depth comes from a backlit inset
+   instead. */
 .hero {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: calc(var(--radius) + 6px);
   padding: 26px 26px 22px;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
   background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), rgba(110, 168, 254, 0.6) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 16px 16px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), rgba(179, 157, 219, 0.55) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 16px 16px no-repeat,
     radial-gradient(720px 320px at 6% -30%, rgba(110, 168, 254, 0.22), transparent 68%),
     radial-gradient(560px 300px at 96% 130%, rgba(179, 157, 219, 0.18), transparent 66%),
     linear-gradient(180deg, var(--panel), var(--bg-2));
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 -46px 54px -52px rgba(110, 168, 254, 0.85);
 }
 .hero::after {
   content: '';
@@ -320,6 +341,19 @@ p { margin: 0 0 8px; }
   margin: 0 0 10px;
   background: linear-gradient(100deg, #ffffff 6%, #cfe0ff 42%, var(--accent) 72%, var(--accent-2) 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
+  /* A rare chromatic stutter rather than a constant shimmer: the title carries
+     the largest contentful paint, so its resting state is a still image and
+     the whole glitch is six frames of a ten-second cycle. The keyframes are in
+     the critical block (tools/critical-css.py) so the first paint owns them. */
+  animation: title-glitch 10s linear infinite;
+}
+@keyframes title-glitch {
+  0%, 90%, 94%, 97%, 100% { filter: none; transform: none; }
+  91% { filter: drop-shadow(3px 0 rgba(255, 64, 128, 0.6)) drop-shadow(-3px 0 rgba(64, 224, 255, 0.6)); transform: translateX(-2px); }
+  92% { filter: drop-shadow(-2px 0 rgba(255, 64, 128, 0.45)) drop-shadow(2px 0 rgba(64, 224, 255, 0.45)); transform: translateX(3px); }
+  93% { filter: none; transform: translateX(-1px); }
+  95% { filter: drop-shadow(2px 0 rgba(255, 64, 128, 0.5)) drop-shadow(-2px 0 rgba(64, 224, 255, 0.5)); transform: none; }
+  96% { filter: none; transform: translateX(1px); }
 }
 .hero-kicker {
   font: 700 0.72em/1 var(--mono);
@@ -425,11 +459,15 @@ p { margin: 0 0 8px; }
   align-items: start;
   padding: 20px 20px 18px;
   border: 1px solid var(--line);
-  border-radius: calc(var(--radius) + 4px);
+  /* Chamfered like the hero, at panel scale; the cut edges wear the module's
+     own hue, so the geometry is where the module identity shows up next. */
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
   background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--mod) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 14px 14px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--mod) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 14px 14px no-repeat,
     radial-gradient(560px 220px at 0% -40%, var(--mod-soft), transparent 72%),
     linear-gradient(180deg, var(--panel), var(--bg-2));
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 -1px 0 0 var(--mod-soft), inset 0 -40px 60px -58px var(--mod);
   overflow: hidden;
 }
 .mod-head::after {
@@ -460,19 +498,23 @@ p { margin: 0 0 8px; }
 .card {
   position: relative;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
-  background: linear-gradient(180deg, rgba(16, 23, 33, 0.94), rgba(10, 15, 22, 0.9));
+  /* Chamfered, like every surface that frames content: ten pixels off the top
+     right and bottom left, each cut carrying a one-pixel edge (see .hero). */
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 10px 10px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 10px 10px no-repeat,
+    linear-gradient(180deg, rgba(16, 23, 33, 0.94), rgba(10, 15, 22, 0.9));
   border: 1px solid var(--line);
-  border-radius: var(--radius);
   padding: 18px;
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 24px 40px -46px rgba(110, 168, 254, 0.75);
 }
 .card::before {
   content: '';
   position: absolute; inset: 0 0 auto 0; height: 1px;
-  border-radius: var(--radius) var(--radius) 0 0;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.09), transparent);
 }
-.card:hover { border-color: var(--line-2); box-shadow: var(--shadow), 0 0 0 1px rgba(110, 168, 254, 0.09); }
+.card:hover { border-color: var(--line-2); box-shadow: inset 0 0 0 1px rgba(110, 168, 254, 0.3), inset 0 24px 40px -46px rgba(110, 168, 254, 0.75); }
 .card-head {
   display: flex; flex-wrap: wrap; gap: 12px;
   align-items: center; justify-content: space-between;
@@ -512,6 +554,22 @@ button.primary {
   color: #f2f7ff;
   border-color: rgba(110, 168, 254, 0.75);
   background: linear-gradient(180deg, rgba(110, 168, 254, 0.4), rgba(110, 168, 254, 0.16));
+}
+/* An energy sweep across the primary buttons while they are being pointed at
+   or keyboard-focused: one pseudo-element, translated, clipped by the pill. */
+button.primary { position: relative; overflow: hidden; }
+button.primary::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, 0.22) 50%, transparent 68%);
+  transform: translate3d(-130%, 0, 0);
+  pointer-events: none;
+}
+button.primary:hover::after, button.primary:focus-visible::after { animation: btn-sheen 0.8s linear infinite; }
+@keyframes btn-sheen {
+  from { transform: translate3d(-130%, 0, 0); }
+  to { transform: translate3d(130%, 0, 0); }
 }
 button.danger {
   color: #ffe9ec;
@@ -570,9 +628,13 @@ input[type='range']::-moz-range-thumb { width: 16px; height: 16px; border-radius
 .stat {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(180deg, rgba(20, 28, 40, 0.95), rgba(12, 18, 26, 0.9));
+  /* Chamfered instrument tile: eight pixels off the top right and bottom left. */
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
+    linear-gradient(180deg, rgba(20, 28, 40, 0.95), rgba(12, 18, 26, 0.9));
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
   padding: 12px 14px 13px;
 }
 .stat::before {
@@ -635,8 +697,13 @@ progress.module-bar::-moz-progress-bar { background: var(--mod, var(--accent)); 
   padding: 11px 12px 12px;
   border: 1px solid var(--line);
   border-bottom: 2px solid var(--mod);
-  border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, rgba(19, 27, 38, 0.92), rgba(10, 15, 22, 0.9));
+  /* Chamfered like the cards; the bottom-left cut wears the module hue, where
+     it meets the coloured bottom rail. */
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--mod) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
+    linear-gradient(180deg, rgba(19, 27, 38, 0.92), rgba(10, 15, 22, 0.9));
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
 .map-tile:hover { transform: translateY(-2px); border-color: var(--line-2); border-bottom-color: var(--mod); }
@@ -753,8 +820,8 @@ tr.unmeasured td { opacity: 0.82; }
 
 .editor-shell {
   border: 1px solid var(--line-2);
-  border-radius: var(--radius);
   overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
   background: #04070b;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
@@ -840,8 +907,8 @@ tr.unmeasured td { opacity: 0.82; }
 
 .terminal-shell {
   border: 1px solid var(--line-2);
-  border-radius: var(--radius);
   overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
   background: #03060a;
 }
 .terminal-head {
@@ -880,10 +947,10 @@ tr.unmeasured td { opacity: 0.82; }
 .canvas-wrap {
   position: relative;
   border: 1px solid var(--line-2);
-  border-radius: var(--radius);
   overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
   background: #04070b;
-  box-shadow: inset 0 0 60px -20px rgba(110, 168, 254, 0.35), var(--shadow);
+  box-shadow: inset 0 0 60px -20px rgba(110, 168, 254, 0.35);
 }
 canvas#scene { display: block; width: 100%; height: 470px; }
 canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -1695,3 +1762,128 @@ html[data-dial='open'] body { overflow: hidden; }
 
 html[data-motion='reduced'] .hud, html[data-motion='reduced'] .deck-track { animation: none; }
 html[data-motion='reduced'] .dial-sweep, html[data-motion='reduced'] .hud-ring { animation: none; }
+
+/* ============================================================ DEEP SPACE FX
+   The second decorative tier: a starfield with depth parallax, an occasional
+   meteor, and columns of hex glyphs falling down the right margin - the
+   ciphertext rain, which is this project's own motif rather than a borrowed
+   one. Same rules as the FUTURE FX tier above: all of it lives inside the
+   aria-hidden .fx container, all of it is transform/opacity motion so the
+   compositor owns it, and all of it obeys the M7 switch (Off removes the
+   container wholesale; Reduced drops the rain and the meteor and lets the
+   stars drift at a quarter speed). */
+
+.fx-depth {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.fx-stars {
+  position: absolute;
+  inset: -6% -4%;
+  background-image:
+    radial-gradient(1.6px 1.6px at 31px 52px, rgba(224, 238, 255, 0.9) 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 143px 17px, rgba(190, 214, 255, 0.65) 50%, transparent 51%),
+    radial-gradient(1px 1px at 92px 88px, rgba(179, 157, 219, 0.7) 50%, transparent 51%),
+    radial-gradient(1.4px 1.4px at 47px 139px, rgba(216, 242, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(1px 1px at 8px 74px, rgba(255, 255, 255, 0.5) 50%, transparent 51%),
+    radial-gradient(1.1px 1.1px at 120px 129px, rgba(77, 208, 225, 0.6) 50%, transparent 51%);
+  background-size: 168px 168px;
+  animation: stars-drift 110s linear infinite alternate, stars-twinkle 5.4s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+.fx-stars::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 60px 24px, rgba(255, 255, 255, 0.55) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 12px 110px, rgba(224, 238, 255, 0.75) 50%, transparent 51%),
+    radial-gradient(1.1px 1.1px at 151px 96px, rgba(179, 157, 219, 0.6) 50%, transparent 51%);
+  background-size: 190px 190px;
+  animation: stars-twinkle 7.1s ease-in-out infinite alternate-reverse;
+}
+@keyframes stars-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-2.2%, 1.4%, 0); }
+}
+@keyframes stars-twinkle {
+  from { opacity: 0.72; }
+  to { opacity: 1; }
+}
+
+.fx-meteor {
+  position: absolute;
+  top: 8%;
+  left: 0;
+  width: 150px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(214, 236, 255, 0.85));
+  transform: translate3d(-180px, 0, 0) rotate(18deg);
+  opacity: 0;
+  animation: meteor-run 17s linear 6s infinite;
+  will-change: transform, opacity;
+}
+@keyframes meteor-run {
+  0% { transform: translate3d(-180px, 0, 0) rotate(18deg); opacity: 0; }
+  1% { opacity: 0.9; }
+  9% { transform: translate3d(112vw, 33vh, 0) rotate(18deg); opacity: 0; }
+  100% { transform: translate3d(112vw, 33vh, 0) rotate(18deg); opacity: 0; }
+}
+
+.fx-rain {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 14px;
+  display: flex;
+  gap: 14px;
+  direction: ltr; /* like every code surface, pinned regardless of page direction */
+  opacity: 0.16;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 14%, #000 68%, transparent 97%);
+  mask-image: linear-gradient(180deg, transparent, #000 14%, #000 68%, transparent 97%);
+}
+.fx-rain i {
+  font: 700 calc(11px) / 1.4 var(--mono);
+  font-style: normal;
+  letter-spacing: 0.3em;
+  writing-mode: vertical-rl;
+  color: #7fe6f5;
+  text-shadow: 0 0 7px rgba(77, 208, 225, 0.5);
+  animation: rain-fall var(--rain-dur, 9s) linear infinite;
+  will-change: transform;
+}
+.fx-rain i:nth-child(1) { --rain-dur: 8.2s; }
+.fx-rain i:nth-child(2) { --rain-dur: 11.4s; }
+.fx-rain i:nth-child(3) { --rain-dur: 9.6s; }
+.fx-rain i:nth-child(4) { --rain-dur: 12.8s; }
+.fx-rain i:nth-child(5) { --rain-dur: 8.9s; }
+.fx-rain i:nth-child(6) { --rain-dur: 10.7s; }
+@keyframes rain-fall {
+  from { transform: translate3d(0, -50%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+/* Depth parallax for the star layer, in the same nine pointer zones the deck
+   frame uses. It is a separate element from the drifting stars because a
+   running animation on .fx-stars would win over any declared transform. */
+html[data-pointer='nw'] .fx-depth { transform: translate3d(7px, 5px, 0); }
+html[data-pointer='n'] .fx-depth { transform: translate3d(0, 5px, 0); }
+html[data-pointer='ne'] .fx-depth { transform: translate3d(-7px, 5px, 0); }
+html[data-pointer='w'] .fx-depth { transform: translate3d(7px, 0, 0); }
+html[data-pointer='e'] .fx-depth { transform: translate3d(-7px, 0, 0); }
+html[data-pointer='sw'] .fx-depth { transform: translate3d(7px, -5px, 0); }
+html[data-pointer='s'] .fx-depth { transform: translate3d(0, -5px, 0); }
+html[data-pointer='se'] .fx-depth { transform: translate3d(-7px, -5px, 0); }
+
+/* The M7 switch, the high-contrast mode and forced colours: the rain is the
+   one layer that is textual, so it is the one those modes remove. */
+html[data-fx='reduced'] .fx-rain, html[data-fx='reduced'] .fx-meteor { display: none; }
+html[data-fx='reduced'] .fx-stars { animation-duration: 260s, 12s; opacity: 0.85; }
+html[data-contrast='high'] .fx-rain { display: none; }
+@media (forced-colors: active) {
+  .fx-rain, .fx-meteor { display: none; }
+}
+@media (max-width: 899px) {
+  .fx-rain { display: none; }
+}

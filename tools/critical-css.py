@@ -85,7 +85,11 @@ MUST_BE_CRITICAL = [
 ]
 
 # Keyframes an animation-name in the critical block refers to.
-CRITICAL_KEYFRAMES = ["aurora-drift", "fx-sweep", "hero-glow"]
+CRITICAL_KEYFRAMES = [
+    "aurora-drift", "fx-sweep", "hero-glow",
+    "title-glitch", "btn-sheen",
+    "stars-drift", "stars-twinkle", "meteor-run", "rain-fall",
+]
 
 
 def strip_comments(text):

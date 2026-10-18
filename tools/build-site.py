@@ -60,6 +60,11 @@ SKIP_SUFFIX = (".heapsnapshot", ".pyc")
 
 #: (exact source tag, tag with the hash placeholder). Each must occur once.
 #: {hash} is replaced by the full attribute value, `sha384-<base64>`.
+#: src/app.js is absent by design: since the deferred-boot change it is no
+#: longer referenced by a tag but dynamically imported by boot-note.js
+#: (`import(new URL('app.js', here).href)`), and dynamic import() has no
+#: integrity attribute to pin. Its bytes are governed by script-src 'self'
+#: and it is hashed into the service worker's cache manifest below.
 SUB_RESOURCES = [
     (
         '<link rel="stylesheet" href="styles/app.css" />',
@@ -70,11 +75,6 @@ SUB_RESOURCES = [
         '<script src="src/boot-note.js" defer></script>',
         '<script src="src/boot-note.js" defer integrity="{hash}"></script>',
         "src/boot-note.js",
-    ),
-    (
-        '<script type="module" src="src/app.js"></script>',
-        '<script type="module" src="src/app.js" integrity="{hash}"></script>',
-        "src/app.js",
     ),
 ]
 

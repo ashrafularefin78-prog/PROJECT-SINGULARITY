@@ -1,7 +1,7 @@
 {
-  "measuredAt": "2026-10-09T18:33:35.740Z",
+  "measuredAt": "2026-10-18T04:21:38.173Z",
   "url": "http://127.0.0.1:5198/",
-  "browser": "Edg/155.0.4283.45",
+  "browser": "Edg/156.0.4314.30",
   "note": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
   "tabs": [
     "M0 Dashboard",
@@ -36,25 +36,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 224,
+            "count": 231,
             "targets": [
               [
-                ".brand-mark"
+                ".fx-rain > i:nth-child(1)"
               ],
               [
-                ".brand-name"
+                ".fx-rain > i:nth-child(2)"
               ],
               [
-                ".brand-sub"
+                ".fx-rain > i:nth-child(3)"
               ],
               [
-                "#cmd-open"
+                ".fx-rain > i:nth-child(4)"
               ],
               [
-                "kbd"
+                ".fx-rain > i:nth-child(5)"
               ],
               [
-                ".chip.ok:nth-child(1)"
+                ".fx-rain > i:nth-child(6)"
               ]
             ]
           }
@@ -62,8 +62,8 @@
         "passCount": 46
       },
       "axTree": {
-        "totalNodes": 1057,
-        "liveNodes": 778,
+        "totalNodes": 1088,
+        "liveNodes": 809,
         "ignoredNodes": 279,
         "interactiveCount": 11,
         "unnamedInteractive": [],
@@ -151,25 +151,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 82,
+            "count": 88,
             "targets": [
               [
-                ".brand-mark"
+                ".fx-rain > i:nth-child(1)"
               ],
               [
-                ".brand-name"
+                "i:nth-child(2)"
               ],
               [
-                ".brand-sub"
+                ".fx-rain > i:nth-child(3)"
               ],
               [
-                "#cmd-open"
+                "i:nth-child(4)"
               ],
               [
-                "kbd"
+                "i:nth-child(5)"
               ],
               [
-                ".ok.chip:nth-child(1)"
+                "i:nth-child(6)"
               ]
             ]
           }
@@ -177,9 +177,9 @@
         "passCount": 45
       },
       "axTree": {
-        "totalNodes": 358,
+        "totalNodes": 359,
         "liveNodes": 239,
-        "ignoredNodes": 119,
+        "ignoredNodes": 120,
         "interactiveCount": 17,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -245,25 +245,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 62,
+            "count": 68,
             "targets": [
               [
-                ".brand-mark"
+                ".fx-rain > i:nth-child(1)"
               ],
               [
-                ".brand-name"
+                "i:nth-child(2)"
               ],
               [
-                ".brand-sub"
+                ".fx-rain > i:nth-child(3)"
               ],
               [
-                "#cmd-open"
+                "i:nth-child(4)"
               ],
               [
-                "kbd"
+                "i:nth-child(5)"
               ],
               [
-                ".ok.chip:nth-child(1)"
+                "i:nth-child(6)"
               ]
             ]
           }
@@ -271,9 +271,9 @@
         "passCount": 43
       },
       "axTree": {
-        "totalNodes": 525,
+        "totalNodes": 526,
         "liveNodes": 423,
-        "ignoredNodes": 102,
+        "ignoredNodes": 103,
         "interactiveCount": 17,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -335,25 +335,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 45,
+            "count": 94,
             "targets": [
               [
-                ".brand-mark"
+                ".fx-rain > i:nth-child(1)"
               ],
               [
-                ".brand-name"
+                "i:nth-child(2)"
               ],
               [
-                ".brand-sub"
+                ".fx-rain > i:nth-child(3)"
               ],
               [
-                "#cmd-open"
+                "i:nth-child(4)"
               ],
               [
-                "kbd"
+                "i:nth-child(5)"
               ],
               [
-                ".ok.chip:nth-child(1)"
+                "i:nth-child(6)"
               ]
             ]
           }
@@ -361,9 +361,9 @@
         "passCount": 45
       },
       "axTree": {
-        "totalNodes": 354,
-        "liveNodes": 244,
-        "ignoredNodes": 110,
+        "totalNodes": 374,
+        "liveNodes": 262,
+        "ignoredNodes": 112,
         "interactiveCount": 16,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -420,35 +420,35 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 44,
+            "count": 88,
             "targets": [
               [
-                ".brand-mark"
+                ".fx-rain > i:nth-child(1)"
               ],
               [
-                ".brand-name"
+                "i:nth-child(2)"
               ],
               [
-                ".brand-sub"
+                ".fx-rain > i:nth-child(3)"
               ],
               [
-                "#cmd-open"
+                "i:nth-child(4)"
               ],
               [
-                "kbd"
+                "i:nth-child(5)"
               ],
               [
-                ".ok.chip:nth-child(1)"
+                "i:nth-child(6)"
               ]
             ]
           }
         ],
-        "passCount": 46
+        "passCount": 45
       },
       "axTree": {
-        "totalNodes": 379,
+        "totalNodes": 380,
         "liveNodes": 266,
-        "ignoredNodes": 113,
+        "ignoredNodes": 114,
         "interactiveCount": 15,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -515,25 +515,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 99,
+            "count": 105,
             "targets": [
               [
-                ".brand-mark"
+                ".fx-rain > i:nth-child(1)"
               ],
               [
-                ".brand-name"
+                "i:nth-child(2)"
               ],
               [
-                ".brand-sub"
+                ".fx-rain > i:nth-child(3)"
               ],
               [
-                "#cmd-open"
+                "i:nth-child(4)"
               ],
               [
-                "kbd"
+                "i:nth-child(5)"
               ],
               [
-                ".ok.chip:nth-child(1)"
+                "i:nth-child(6)"
               ]
             ]
           }
@@ -541,9 +541,9 @@
         "passCount": 45
       },
       "axTree": {
-        "totalNodes": 432,
+        "totalNodes": 433,
         "liveNodes": 306,
-        "ignoredNodes": 126,
+        "ignoredNodes": 127,
         "interactiveCount": 20,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -620,25 +620,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 82,
+            "count": 88,
             "targets": [
               [
-                ".brand-mark"
+                ".fx-rain > i:nth-child(1)"
               ],
               [
-                ".brand-name"
+                "i:nth-child(2)"
               ],
               [
-                ".brand-sub"
+                ".fx-rain > i:nth-child(3)"
               ],
               [
-                "#cmd-open"
+                "i:nth-child(4)"
               ],
               [
-                "kbd"
+                "i:nth-child(5)"
               ],
               [
-                ".ok.chip:nth-child(1)"
+                "i:nth-child(6)"
               ]
             ]
           }
@@ -646,9 +646,9 @@
         "passCount": 42
       },
       "axTree": {
-        "totalNodes": 383,
+        "totalNodes": 384,
         "liveNodes": 271,
-        "ignoredNodes": 112,
+        "ignoredNodes": 113,
         "interactiveCount": 13,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -710,25 +710,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 89,
+            "count": 95,
             "targets": [
               [
-                ".brand-mark"
+                ".fx-rain > i:nth-child(1)"
               ],
               [
-                ".brand-name"
+                "i:nth-child(2)"
               ],
               [
-                ".brand-sub"
+                ".fx-rain > i:nth-child(3)"
               ],
               [
-                "#cmd-open"
+                "i:nth-child(4)"
               ],
               [
-                "#cmd-open > kbd"
+                "i:nth-child(5)"
               ],
               [
-                ".ok.chip:nth-child(1)"
+                "i:nth-child(6)"
               ]
             ]
           }
@@ -736,9 +736,9 @@
         "passCount": 47
       },
       "axTree": {
-        "totalNodes": 387,
+        "totalNodes": 388,
         "liveNodes": 286,
-        "ignoredNodes": 101,
+        "ignoredNodes": 102,
         "interactiveCount": 35,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -805,25 +805,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 104,
+            "count": 109,
             "targets": [
               [
-                ".brand-mark"
+                ".fx-rain > i:nth-child(1)"
               ],
               [
-                ".brand-name"
+                "i:nth-child(2)"
               ],
               [
-                ".brand-sub"
+                ".fx-rain > i:nth-child(3)"
               ],
               [
-                "#cmd-open"
+                "i:nth-child(4)"
               ],
               [
-                "kbd"
+                "i:nth-child(5)"
               ],
               [
-                ".ok.chip:nth-child(1)"
+                "i:nth-child(6)"
               ]
             ]
           }
@@ -831,9 +831,9 @@
         "passCount": 47
       },
       "axTree": {
-        "totalNodes": 424,
-        "liveNodes": 321,
-        "ignoredNodes": 103,
+        "totalNodes": 429,
+        "liveNodes": 325,
+        "ignoredNodes": 104,
         "interactiveCount": 14,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -876,7 +876,7 @@
     }
   ],
   "axe": {
-    "passes": 406,
+    "passes": 405,
     "violations": [],
     "perModule": [
       {
@@ -906,7 +906,7 @@
       {
         "module": "4. M4 E2EE",
         "violations": 0,
-        "passes": 46,
+        "passes": 45,
         "incomplete": 2
       },
       {
@@ -938,7 +938,7 @@
   "axTree": [
     {
       "module": "M0 Dashboard",
-      "liveNodes": 778,
+      "liveNodes": 809,
       "interactiveCount": 11,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1032,7 +1032,7 @@
     },
     {
       "module": "3. M3 3D Engine",
-      "liveNodes": 244,
+      "liveNodes": 262,
       "interactiveCount": 16,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1174,7 +1174,7 @@
     },
     {
       "module": "8. M8 Hardening",
-      "liveNodes": 321,
+      "liveNodes": 325,
       "interactiveCount": 14,
       "unnamedInteractive": [],
       "unnamedImages": [],

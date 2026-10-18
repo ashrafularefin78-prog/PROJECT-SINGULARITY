@@ -22,7 +22,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-D8RsBe73+hQNEi9euZQpWQ7YfIhNc/aUbtvz7W1QK/Y='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
+      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-inEObMXa6L9nrbhNq+gT+5+TeXaP8j1cfPtlBomc1vM='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
     />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#06090d" />
@@ -226,7 +226,8 @@ html[data-motion='auto'] * { animation: none !important; transition: none !impor
   background:
     linear-gradient(180deg, var(--mod-soft), rgba(18, 26, 37, 0.4)),
     rgba(18, 26, 37, 0.95);
-  box-shadow: 0 0 0 1px var(--mod), 0 10px 26px -16px var(--mod);
+  
+  box-shadow: 0 0 0 1px var(--mod), 0 10px 26px -16px var(--mod), inset 0 -3px 0 -1px var(--mod);
 }
 .main { padding: 26px 22px 40px; overflow: auto; }
 .panel { max-width: 1200px; margin: 0 auto; display: grid; gap: 18px; }
@@ -244,6 +245,14 @@ h3 {
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
+h3::after {
+  content: '';
+  display: block;
+  height: 1px;
+  margin-top: 6px;
+  background: linear-gradient(90deg, var(--mod, var(--accent)), transparent 82%);
+  opacity: 0.5;
+}
 p { margin: 0 0 8px; }
 .lede { color: var(--dim); max-width: 76ch; font-size: 0.97em; }
 .mono { font-family: var(--mono); }
@@ -256,13 +265,15 @@ p { margin: 0 0 8px; }
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: calc(var(--radius) + 6px);
   padding: 26px 26px 22px;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
   background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), rgba(110, 168, 254, 0.6) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 16px 16px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), rgba(179, 157, 219, 0.55) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 16px 16px no-repeat,
     radial-gradient(720px 320px at 6% -30%, rgba(110, 168, 254, 0.22), transparent 68%),
     radial-gradient(560px 300px at 96% 130%, rgba(179, 157, 219, 0.18), transparent 66%),
     linear-gradient(180deg, var(--panel), var(--bg-2));
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 -46px 54px -52px rgba(110, 168, 254, 0.85);
 }
 .hero::after {
   content: '';
@@ -281,6 +292,16 @@ p { margin: 0 0 8px; }
   margin: 0 0 10px;
   background: linear-gradient(100deg, #ffffff 6%, #cfe0ff 42%, var(--accent) 72%, var(--accent-2) 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
+  
+  animation: title-glitch 10s linear infinite;
+}
+@keyframes title-glitch {
+  0%, 90%, 94%, 97%, 100% { filter: none; transform: none; }
+  91% { filter: drop-shadow(3px 0 rgba(255, 64, 128, 0.6)) drop-shadow(-3px 0 rgba(64, 224, 255, 0.6)); transform: translateX(-2px); }
+  92% { filter: drop-shadow(-2px 0 rgba(255, 64, 128, 0.45)) drop-shadow(2px 0 rgba(64, 224, 255, 0.45)); transform: translateX(3px); }
+  93% { filter: none; transform: translateX(-1px); }
+  95% { filter: drop-shadow(2px 0 rgba(255, 64, 128, 0.5)) drop-shadow(-2px 0 rgba(64, 224, 255, 0.5)); transform: none; }
+  96% { filter: none; transform: translateX(1px); }
 }
 .hero-kicker {
   font: 700 0.72em/1 var(--mono);
@@ -347,6 +368,21 @@ button.primary {
   color: #f2f7ff;
   border-color: rgba(110, 168, 254, 0.75);
   background: linear-gradient(180deg, rgba(110, 168, 254, 0.4), rgba(110, 168, 254, 0.16));
+}
+button.primary { position: relative; overflow: hidden; }
+button.primary::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, 0.22) 50%, transparent 68%);
+  transform: translate3d(-130%, 0, 0);
+  pointer-events: none;
+}
+button.primary:hover::after,
+button.primary:focus-visible::after { animation: btn-sheen 0.8s linear infinite; }
+@keyframes btn-sheen {
+  from { transform: translate3d(-130%, 0, 0); }
+  to { transform: translate3d(130%, 0, 0); }
 }
 button.danger {
   color: #ffe9ec;
@@ -610,6 +646,113 @@ html[data-motion='reduced'] .hud,
 html[data-motion='reduced'] .deck-track { animation: none; }
 html[data-motion='reduced'] .dial-sweep,
 html[data-motion='reduced'] .hud-ring { animation: none; }
+.fx-depth {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.fx-stars {
+  position: absolute;
+  inset: -6% -4%;
+  background-image:
+    radial-gradient(1.6px 1.6px at 31px 52px, rgba(224, 238, 255, 0.9) 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 143px 17px, rgba(190, 214, 255, 0.65) 50%, transparent 51%),
+    radial-gradient(1px 1px at 92px 88px, rgba(179, 157, 219, 0.7) 50%, transparent 51%),
+    radial-gradient(1.4px 1.4px at 47px 139px, rgba(216, 242, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(1px 1px at 8px 74px, rgba(255, 255, 255, 0.5) 50%, transparent 51%),
+    radial-gradient(1.1px 1.1px at 120px 129px, rgba(77, 208, 225, 0.6) 50%, transparent 51%);
+  background-size: 168px 168px;
+  animation: stars-drift 110s linear infinite alternate, stars-twinkle 5.4s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+.fx-stars::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 60px 24px, rgba(255, 255, 255, 0.55) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 12px 110px, rgba(224, 238, 255, 0.75) 50%, transparent 51%),
+    radial-gradient(1.1px 1.1px at 151px 96px, rgba(179, 157, 219, 0.6) 50%, transparent 51%);
+  background-size: 190px 190px;
+  animation: stars-twinkle 7.1s ease-in-out infinite alternate-reverse;
+}
+@keyframes stars-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-2.2%, 1.4%, 0); }
+}
+@keyframes stars-twinkle {
+  from { opacity: 0.72; }
+  to { opacity: 1; }
+}
+.fx-meteor {
+  position: absolute;
+  top: 8%;
+  left: 0;
+  width: 150px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(214, 236, 255, 0.85));
+  transform: translate3d(-180px, 0, 0) rotate(18deg);
+  opacity: 0;
+  animation: meteor-run 17s linear 6s infinite;
+  will-change: transform, opacity;
+}
+@keyframes meteor-run {
+  0% { transform: translate3d(-180px, 0, 0) rotate(18deg); opacity: 0; }
+  1% { opacity: 0.9; }
+  9% { transform: translate3d(112vw, 33vh, 0) rotate(18deg); opacity: 0; }
+  100% { transform: translate3d(112vw, 33vh, 0) rotate(18deg); opacity: 0; }
+}
+.fx-rain {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 14px;
+  display: flex;
+  gap: 14px;
+  direction: ltr; 
+  opacity: 0.16;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 14%, #000 68%, transparent 97%);
+  mask-image: linear-gradient(180deg, transparent, #000 14%, #000 68%, transparent 97%);
+}
+.fx-rain i {
+  font: 700 calc(11px) / 1.4 var(--mono);
+  font-style: normal;
+  letter-spacing: 0.3em;
+  writing-mode: vertical-rl;
+  color: #7fe6f5;
+  text-shadow: 0 0 7px rgba(77, 208, 225, 0.5);
+  animation: rain-fall var(--rain-dur, 9s) linear infinite;
+  will-change: transform;
+}
+.fx-rain i:nth-child(1) { --rain-dur: 8.2s; }
+.fx-rain i:nth-child(2) { --rain-dur: 11.4s; }
+.fx-rain i:nth-child(3) { --rain-dur: 9.6s; }
+.fx-rain i:nth-child(4) { --rain-dur: 12.8s; }
+.fx-rain i:nth-child(5) { --rain-dur: 8.9s; }
+.fx-rain i:nth-child(6) { --rain-dur: 10.7s; }
+@keyframes rain-fall {
+  from { transform: translate3d(0, -50%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+html[data-pointer='nw'] .fx-depth { transform: translate3d(7px, 5px, 0); }
+html[data-pointer='n'] .fx-depth { transform: translate3d(0, 5px, 0); }
+html[data-pointer='ne'] .fx-depth { transform: translate3d(-7px, 5px, 0); }
+html[data-pointer='w'] .fx-depth { transform: translate3d(7px, 0, 0); }
+html[data-pointer='e'] .fx-depth { transform: translate3d(-7px, 0, 0); }
+html[data-pointer='sw'] .fx-depth { transform: translate3d(7px, -5px, 0); }
+html[data-pointer='s'] .fx-depth { transform: translate3d(0, -5px, 0); }
+html[data-pointer='se'] .fx-depth { transform: translate3d(-7px, -5px, 0); }
+html[data-fx='reduced'] .fx-rain,
+html[data-fx='reduced'] .fx-meteor { display: none; }
+html[data-fx='reduced'] .fx-stars { animation-duration: 260s, 12s; opacity: 0.85; }
+html[data-contrast='high'] .fx-rain { display: none; }
+@media (forced-colors: active) {
+.fx-rain,
+.fx-meteor { display: none; }
+}
+@media (max-width: 899px) {
+.fx-rain { display: none; }
+}
 </style>
     <!-- critical-css:end -->
     <!--
@@ -630,13 +773,19 @@ html[data-motion='reduced'] .hud-ring { animation: none; }
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
 
-    <!-- Decorative depth layers: drifting aurora and a light band crossing the
-         viewport. Pure CSS, pointer-inert, and switchable from M7 (Visual
-         effects). They carry no meaning, so they are hidden from assistive
-         technology; the scanline and vignette layers live on body::after. -->
+    <!-- Decorative depth layers: a starfield that drifts and parallaxes, the
+         aurora, the light band crossing the viewport, an occasional meteor,
+         and columns of hex glyphs falling down the right margin - the
+         ciphertext rain. Pure CSS, pointer-inert, and switchable from M7
+         (Visual effects). They carry no meaning, so they are hidden from
+         assistive technology; the scanline and vignette layers live on
+         body::after. -->
     <div class="fx" aria-hidden="true">
+      <span class="fx-depth"><span class="fx-stars"></span></span>
       <span class="fx-aurora"></span>
       <span class="fx-sweep"></span>
+      <span class="fx-meteor"></span>
+      <span class="fx-rain"><i>7A3F0C91E5B2D846F0A7C31B9E5D2F804C6A9B1E7D35F0C8A2E6B49D1F7C05A37A3F0C91E5B2D846F0A7C31B9E5D2F804C6A9B1E7D35F0C8A2E6B49D1F7C05A3</i><i>B8E21D6F4A09C75B3E8D12F6A4C0B97D5E28F1C6A3B07D4E9F25C8A1D6B30E7FB8E21D6F4A09C75B3E8D12F6A4C0B97D5E28F1C6A3B07D4E9F25C8A1D6B30E7F</i><i>05D9E41B7C2A8F60D3E5B19C4A7F2E08B6D3C95A1E7F40D2B8C6A39F5E1D7B0205D9E41B7C2A8F60D3E5B19C4A7F2E08B6D3C95A1E7F40D2B8C6A39F5E1D7B02</i><i>C41A7E0D9B5F28C6A30E7D14F8B2C95A0E6D3B7F19C4A8E5D20B7F6C3A9D18E4C41A7E0D9B5F28C6A30E7D14F8B2C95A0E6D3B7F19C4A8E5D20B7F6C3A9D18E4</i><i>2E8B5D0A7F3C91E6B4D28F0A5C7E13B9D6F4A0C8E27B5D3F9C1A6E0D8B47F2C52E8B5D0A7F3C91E6B4D28F0A5C7E13B9D6F4A0C8E27B5D3F9C1A6E0D8B47F2C5</i><i>F1C6A30E7D2B95C4A8E1F60D3B7C2A95E0D8F4B1C6A39E7D20F5B8C4A1E6D937F1C6A30E7D2B95C4A8E1F60D3B7C2A95E0D8F4B1C6A39E7D20F5B8C4A1E6D937</i></span>
     </div>
 
     <!-- The deck frame. Pure chrome: corners, an attitude rail, a scale and a

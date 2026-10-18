@@ -119,8 +119,14 @@ in CI before it can be uploaded.
 
 - `Permissions-Policy` beyond the directives in `_headers` needs host support
   (both hosts deliver the file's copy, so the file's list is what you get).
-- Subresource Integrity is deliberately not used: the app has no build step and
-  no content hashes, and a stale hash bricks the page (see M8 notes in the
-  README). Per-file SRI would require a build step this project does not have.
+- Subresource Integrity is only on the built path: `tools/build-site.py` pins the
+  two tag-referenced entry resources (`styles/app.css`, `src/boot-note.js`) with
+  `sha384-` integrity attributes, verified against freshly recomputed hashes in
+  the same run. Deploying the repository as-is, with no build step, serves no
+  integrity attributes at all — and `src/app.js` cannot be pinned on either path
+  because deferred boot loads it through `import()`, which has no integrity
+  attribute; it is governed by `script-src 'self'` and hashed into the service
+  worker's cache manifest instead. A stale hash bricks the page, which is why
+  the hash-free path ships no hashes.
 - HSTS is a host-level header; it belongs to Cloudflare/Netlify configuration,
   not to `_headers` (both hosts ignore HSTS in `_headers`).

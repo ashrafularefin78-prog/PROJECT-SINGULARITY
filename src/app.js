@@ -1683,7 +1683,7 @@ function renderA11y(root) {
   });
   for (const [value, label] of [
     ['auto', 'Automatic - follows the motion setting above'],
-    ['full', 'Full - aurora, scanlines, sweeping light, deck frame, parallax, warp wipe'],
+    ['full', 'Full - starfield, hex rain, aurora, scanlines, sweeping light, deck frame, parallax, warp wipe'],
     ['reduced', 'Reduced - first paint kept, motion stopped'],
     ['off', 'Off - flat and fastest to paint (the readouts stay, the chrome goes)'],
   ]) {
@@ -1749,8 +1749,8 @@ function renderA11y(root) {
       card('Preferences', [
         el('div', { class: 'grid two' }, [field('Motion', motion), field('Visual effects', fx), field('Contrast', contrast), field('Text scaling (up to 200%)', scale), field('Writing direction', dir), field('Content language', lang)]),
         el('p', { class: 'small dim', text: 'Code and terminal surfaces stay left-to-right even in RTL mode, which is what a developer actually needs.' }),
-        el('p', { class: 'small dim', text: 'Visual effects are decorative and entirely optional: the layers are hidden from assistive technology, every animation is transform-only so the compositor owns it, and \u201cOff\u201d removes the chrome completely - which is also the escape hatch if you want to reclaim frame time on a weak GPU.' }),
-        el('p', { class: 'small dim', text: 'The deck frame, the parallax zones, the warp wipe and the boot sweep are all chrome and all disappear with \u201cOff\u201d. The activity waveform and the ticker are readouts, so they stay - they just stop moving and stop glowing, because they are reporting real numbers that the header telemetry strip already exposes to assistive technology.' }),
+        el('p', { class: 'small dim', text: 'Visual effects are decorative and entirely optional: the layers are hidden from assistive technology, the motion is compositor work (transforms and opacities) apart from the hero floor\u2019s own 240px repaint and a few glitch frames on the title, and \u201cOff\u201d removes the chrome completely - which is also the escape hatch if you want to reclaim frame time on a weak GPU.' }),
+        el('p', { class: 'small dim', text: 'The starfield, the hex rain, the deck frame, the parallax zones, the warp wipe and the boot sweep are all chrome and all disappear with \u201cOff\u201d. The activity waveform and the ticker are readouts, so they stay - they just stop moving and stop glowing, because they are reporting real numbers that the header telemetry strip already exposes to assistive technology.' }),
       ]),
       card('Keyboard map', [
         el('table', {}, [

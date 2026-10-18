@@ -18,7 +18,7 @@ throwaway scripts.
 
 | Item | Value |
 |------|-------|
-| Browser | Microsoft Edge 154.0.4258.62 (Chromium), driven headlessly over the DevTools Protocol. The machine auto-updated to 155.0.4283.45 while the work was in flight: the soak and Lighthouse artifacts above were recorded on 154, and the accessibility re-run recorded 155 in `docs/reports/a11y.json`. Every number below is reported with the version its own artifact records |
+| Browser | Microsoft Edge 154.0.4258.62 (Chromium), driven headlessly over the DevTools Protocol. The machine auto-updated **twice** while the work was in flight: the soak and the first Lighthouse runs were recorded on 154, the first accessibility re-run on 155.0.4283.45, and the re-runs that follow the visual redesign — Lighthouse (same CLI, 12.8.2), layout shift, throttled LCP and accessibility — on **156.0.4314.30**. Every number below is reported with the version its own artifact records |
 | Driver | `tools/cdp.js` — a ~350-line CDP client built on Node's own `fetch`/`WebSocket` globals, no npm packages |
 | Server | `python3 tools/serve.py 5173` / `node tools/serve.js` on 127.0.0.1, serving the **real `_headers` policy** (strict CSP, COOP/COEP, Trusted Types) |
 | Instrumentation | `PerformanceObserver` installed before first paint (LCP, FCP, layout shift, long tasks), `Performance.getMetrics`, `Runtime.getHeapUsage` after an explicit GC, `HeapProfiler.takeHeapSnapshot`, the browser accessibility tree, axe-core |
@@ -67,11 +67,11 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **131.2 KiB gzip JS** (507.7 KiB raw over 19 modules) + 16.9 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
-| Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **603 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 72 ms unthrottled on loopback | **met** — see section 2 |
+| Initial JS payload | ≤ 170 KB gzip | **131.3 KiB gzip JS** (518.5 KiB raw over 19 modules) + 19.3 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
+| Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **774 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 96 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
-| Lighthouse | ≥ 95 in all four categories | desktop **100 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100** (Performance / Accessibility / Best practices / SEO) | **met in both form factors** — see section 2b |
+| Lighthouse | ≥ 95 in all four categories | desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100** (Performance / Accessibility / Best practices / SEO), re-recorded after the visual redesign | **met in both form factors** — see section 2b |
 | Cumulative layout shift | (implicit: under 0.1) | **0.002** on the mobile viewport and **0.005** desktop (`tools/cls.js`); Lighthouse agrees at 0.003 / 0.005 | **met**, with one unreproduced outlier from an earlier build reported rather than hidden (section 2b) |
 | Memory after 1 hour | ≤ 400 MB, no leaks | a **60-minute soak**, one sample per minute through all nine modules: JS heap after GC **1.10 → 1.53 MiB** (peak 1.56 MiB at minute 52), and the minute-60 heap snapshot holds **fewer nodes (70,231 vs 77,490) and less memory (5.99 vs 6.71 MiB)** than the minute-10 one | **met on the conditions run** — desktop browser, JS heap after a forced GC, not RSS or GPU memory |
 | Concurrent users | 10,000 @ p95 < 200 ms | a **ciphertext relay** driven by **1,000 simulated clients**: 50,000 envelopes, all acknowledged and delivered in 15.7 s, 0 lost, 0 duplicated, delivery **p95 12.2 ms**; no 10,000-browser-session rig | **partial** — 1,000 of 10,000 clients, one machine (section 12) |
@@ -88,10 +88,10 @@ bootstrap `src/boot-note.js` - which names the module the deferral starts - and 
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk (this report's measurement) | **131.2 KiB gzip JS over 19 modules**, 16.9 KiB gzip CSS, 507.7 KiB raw total |
+| Import-graph walk (this report's measurement) | **131.3 KiB gzip JS over 19 modules**, 19.3 KiB gzip CSS, 518.5 KiB raw total |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts the same files live and is visible on the M0 dashboard |
 
-The two largest files are `src/app.js` (43.8 KiB gzip of 136.6 KiB raw) and
+The two largest files are `src/app.js` (43.8 KiB gzip of 136.7 KiB raw) and
 `src/runtime/interpreter.js` (21.7 KiB gzip of 85.7 KiB raw) — the second grew
 during the M2 work that added `<string.h>`, `<ctype.h>`, `<math.h>`, the
 preprocessor, typedefs, two-dimensional arrays, function pointers and unions,
@@ -101,7 +101,7 @@ drifted unclaimed for a release and was corrected here when the checker gained
 it.) The brief's ceiling is 170 KB gzip, so the bundle uses ~77% of it with
 every module counted, including the ones the first paint no longer waits for.
 
-### 2. Throttled LCP — 603 ms cold, met
+### 2. Throttled LCP — 774 ms cold, met
 
 `node tools/perf.js lcp --repeat=2` navigates the app under CDP network
 emulation (Slow 4G: 150 ms RTT, 1.6 Mbps down, 750 Kbps up) and 4x CPU
@@ -111,17 +111,20 @@ from a buffered `PerformanceObserver`. Raw runs: `docs/reports/lcp.json`.
 
 | Profile | LCP | LCP element | FCP | TTFB | CLS | Long tasks | JS heap |
 |---------|-----|-------------|-----|------|-----|-----------|---------|
-| Slow 4G + 4x CPU, cold | **603 ms** | `P.lede` (the hero paragraph) | 603 ms | 45.2 ms | 0 | 1 (61 ms) | 1.2 MiB |
-| Slow 4G + 4x CPU, second navigation | 82 ms | `P.lede` | 82 ms | 7.2 ms | 0 | 0 | 2.5 MiB |
-| unthrottled loopback | 72 ms | `P.lede` | 72 ms | 8.5 ms | 0 | 0 | 1.91 MiB |
+| Slow 4G + 4x CPU, cold | **774 ms** | `P.lede` (the hero paragraph) | 774 ms | 68.0 ms | 0 | 1 (71 ms) | 1.23 MiB |
+| Slow 4G + 4x CPU, second navigation | 124 ms | `P.lede` | 124 ms | 9.8 ms | 0 | 0 | 1.15 MiB |
+| unthrottled loopback | 96 ms | `P.lede` | 96 ms | 7.8 ms | 0 | 0 | 1.95 MiB |
 
 The second throttled row is published because the gap is instructive rather than
 flattering: it is the *same browser profile* navigating a second time, so the
 document and the inline block come back out of the memory cache and the 4G
 profile never sees them. It is not a claim about a first visit. The cold run is,
-and it meets the 1.5 s target with about 897 ms of headroom where the
+and it meets the 1.5 s target with about 726 ms of headroom where the
 build before this work missed it by a factor of three (**4,705 ms**, FCP
-1,955 ms, and 86% of LCP spent waiting to paint).
+1,955 ms, and 86% of LCP spent waiting to paint). The 774 ms is a
+post-redesign re-run: the deeper inline critical block and the deeper hero
+markup raised the cold figure from the 603 ms this section recorded before the
+visual refresh, and three clean re-runs on the idle machine spread 740–775 ms.
 
 **What moved it, in the order it was done — including the attempts that failed:**
 
@@ -131,7 +134,7 @@ build before this work missed it by a factor of three (**4,705 ms**, FCP
    and 4,705 ms of LCP. It now lives in `index.html`, and the module *adopts* the
    node (`adoptHero`), replacing only the ring and the badge strip.
 2. **The first viewport's CSS is inlined.** `styles/critical.css` (generated by
-   `tools/critical-css.py`, 20.9 KiB raw / 5.3 KiB gzip) is inlined into `index.html` under a
+   `tools/critical-css.py`, 26.7 KiB raw / 6.5 KiB gzip) is inlined into `index.html` under a
    `style-src` SHA-256 — so the policy keeps `'self'` and no `'unsafe-inline'` —
    and `styles/app.css` is applied by the module once it runs. The split is not a
    hand-copied subset: the script owns it, and `--check` fails if `index.html`,
@@ -155,33 +158,43 @@ after the paint; and the page is still one module graph, so a slow link waits
 for it after the paint rather than before it. The row is about when the page
 becomes readable, which is what the brief asks.
 
-### 2b. Lighthouse — run in both form factors
+### 2b. Lighthouse — run in both form factors, re-recorded after the visual redesign
 
 `node tools/lighthouse.js --form-factor=mobile|desktop` runs the real Lighthouse
 CLI (12.8.2, installed under `.tools/`, not a project dependency) against the
 local build, with the **real `_headers` policy** served, now over a compressing
 server. Reports: `docs/reports/lighthouse-mobile.json`,
-`docs/reports/lighthouse-desktop.json`.
+`docs/reports/lighthouse-desktop.json`. The rows below are the post-redesign
+re-runs on Edge 156; the pre-redesign pair recorded the same CLI on Edge 154.
+(One interim attempt on Lighthouse 13.5.0 was discarded rather than published:
+that major removed the `font-size` audit, so its mobile best-practices 100
+is not comparable with anything here.)
 
 | Category | Mobile (412×915, simulated 4G) | Desktop | Target | Verdict |
 |----------|-------------------------------|---------|--------|---------|
-| Performance | **100** | **100** | ≥ 95 | met in both form factors |
+| Performance | **100** | **99** | ≥ 95 | met in both form factors |
 | Accessibility | **100** | **100** | ≥ 95 | met |
 | Best practices | **96** | **100** | ≥ 95 | met |
 | SEO | **100** | **100** | ≥ 95 | met |
 
-Mobile key metrics: FCP 0.9 s, LCP 1.1 s,
-TBT 0 ms, **CLS 0.003**, Speed Index 1.1 s, TTI
-1.1 s, 185 KiB total. The desktop run: FCP 0.3 s,
-LCP 0.7 s, CLS 0.005, Speed Index 0.5 s, 187 KiB total.
+Mobile key metrics: FCP 1.0 s, LCP 1.1 s,
+TBT 0 ms, **CLS 0.003**, Speed Index 1.2 s, TTI
+1.1 s, 199 KiB total. The desktop run: FCP 0.3 s,
+LCP 1.0 s, CLS 0.005, Speed Index 0.6 s, 208 KiB total.
 `render-blocking-resources` and `uses-text-compression` now pass — they were
 the two audits failing on the earlier build (an estimated 300 ms and an
 estimated 239 KiB of savings), and they are what the inline block and the
-compressing server fixed. The remaining non-perfect audits on mobile are
-`first-contentful-paint` and `largest-contentful-paint` at 0.99 (both inside
-Lighthouse's top scoring band) and `font-size` at 0 in best practices: one
+compressing server fixed. On mobile both paint audits now score 1; the one
+remaining non-perfect audit in best practices is still `font-size` at 0: one
 selector (`.small`) computes to 11.48px, just below the 12px legibility
-threshold, in the footer and a panel — not in the hero.
+threshold, in the footer and a panel — not in the hero. Desktop is the one
+number the redesign moved: `largest-contentful-paint` scores 0.95 at 1.0 s,
+the only performance audit below 1, and that single audit is what holds
+desktop Performance at 99 rather than 100. The cost is real and named — the
+inline critical block grew from 20.9 to 26.7 KiB raw for the chamfered
+surfaces and the deep-space layers, and total byte weight from 187 to
+208 KiB — and it is still 99, still ≥ 95, and still 1.5 s inside Lighthouse's
+own "good" band.
 
 #### The layout shifts the inline block introduced, and how each was fixed
 
@@ -225,13 +238,17 @@ Then the numbers refused to cooperate:
 | mobile #2 | transform geometry | 82 | **0** | 4.4 s |
 | mobile #3 (control) | **original restored** | 80 | **0** | 4.7 s |
 | mobile #4 (shipped, idle machine) | original | 80 | **0** | 4.7 s |
-| mobile #5 (shipped: inline critical CSS, deferred boot, compressing server) | original | **100** | **0.003** | 1.1 s |
+| mobile #5 (shipped: inline critical CSS, deferred boot, compressing server) | original | **100** | **0.003** | 1.1 s |
 | desktop (shipped, idle machine) | original | 98 | 0.005 | 1.0 s |
+| mobile #6 (post-redesign: chamfered surfaces, starfield, hex rain) | redesigned | **100** | **0.003** | 1.1 s |
+| desktop #2 (post-redesign, idle machine) | redesigned | 99 | 0.005 | 1.0 s |
 
-Mobile #5 is the run the section-2b numbers are taken from: the same machine, the
-shipped build, with the hero static, the critical CSS inline and the module
-booting after the first paint.
-Run #4 was the last build before that work. The layout-shifts audit lists **no shift entries at
+Mobile #6 is the run the section-2b numbers are taken from: the same machine
+and browser as #5, on the redesigned build — the deep-space layers and the
+chamfered surfaces changed what the page looks like and added ~21 KiB of
+bytes, and did not move the layout-shift scores at all (desktop's 99 is the
+LCP audit described above, not a shift). Run #5 is the pre-redesign twin.
+Run #4 was the last build before the inline-block work. The layout-shifts audit lists **no shift entries at
 all** in it, and the same audit in run #1 is where the 1.000 came from.
 
 The control run is the one that matters: with the pre-fix rule put back, CLS was
@@ -401,9 +418,12 @@ accessibility tree — the tree a screen reader is handed. Raw:
 | `#main` scrolls but could not be reached with the keyboard | **serious** | `tabindex="0"` on the scrollable region, so keyboard users can scroll the module panel |
 | content not contained by landmarks — the module tab list | moderate | the tab list is wrapped in a `<nav>`; `role="tablist"` on the `<nav>` itself had overridden its navigation landmark role |
 
-After the fixes: **0 axe-core violations, 406 passing rule results, 0 interactive
-controls without an accessible name, 0 heading level jumps**, across all nine
-views.
+After the fixes — and after the visual redesign, whose accessibility re-run
+records the same result: **0 axe-core violations, 405 passing rule results, 0
+interactive controls without an accessible name, 0 heading level jumps**,
+across all nine views. (The passing-rule count moved by one from the
+pre-redesign run's 406 because the DOM axe walks changed; the violation count
+is the one that has to stay at zero.)
 
 Text shaping, since the brief asks specifically about Bangla and Arabic inside
 the editor:
