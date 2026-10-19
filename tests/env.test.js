@@ -17,6 +17,7 @@
 import { test, assert, assertEquals } from './harness.js';
 import {
   envCube,
+  ggxPrefilteredCube,
   irradiance,
   irradianceCube,
   noiseTexture,
@@ -175,4 +176,28 @@ test('env: noiseTexture is deterministic, opaque, bounded and seeded', () => {
   let different = 0;
   for (let i = 0; i < a.data.length; i += 1) if (a.data[i] !== c.data[i]) different += 1;
   assert(different > 1000, `different seeds must differ (${different} differing bytes)`);
+});
+
+test('M3: ggxPrefilteredCube produces a valid cube map', () => {
+  const cube = ggxPrefilteredCube(8, 0.3, 16);
+  assert(cube.size === 8, 'size must match');
+  assert(cube.data.length === 6 * 8 * 8 * 4, 'data length must be 6 faces');
+  // All alpha channels should be 255 (opaque).
+  for (let i = 3; i < cube.data.length; i += 4) {
+    assert(cube.data[i] === 255, 'alpha must be 255');
+  }
+});
+
+test('M3: ggxPrefilteredCube is deterministic', () => {
+  const a = ggxPrefilteredCube(8, 0.5, 16);
+  const b = ggxPrefilteredCube(8, 0.5, 16);
+  assert(Array.from(a.data).join(',') === Array.from(b.data).join(','), 'same params, same output');
+});
+
+test('M3: ggxPrefilteredCube differs by roughness', () => {
+  const smooth = ggxPrefilteredCube(8, 0.1, 16);
+  const rough = ggxPrefilteredCube(8, 0.9, 16);
+  let different = 0;
+  for (let i = 0; i < smooth.data.length; i += 1) if (smooth.data[i] !== rough.data[i]) different += 1;
+  assert(different > 100, `different roughness must differ (${different} differing bytes)`);
 });

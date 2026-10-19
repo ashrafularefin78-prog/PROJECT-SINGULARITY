@@ -728,31 +728,34 @@ export async function importIdentityPrivate(bytes, name = 'anon') {
   const dhAlg = v.name === 'X25519' ? { name: 'X25519' } : { name: 'ECDH', namedCurve: 'P-256' };
   const signAlg = sv.name === 'Ed25519' ? { name: 'Ed25519' } : { name: 'ECDSA', namedCurve: 'P-256' };
 
-  const dhPrivKey = await subtle().importKey('pkcs8', dhPrivBytes, dhAlg, true, ['deriveBits']);
-  const dhJwk = await subtle().exportKey('jwk', dhPrivKey);
+  const dhPrivKeyExtractable = await subtle().importKey('pkcs8', dhPrivBytes, dhAlg, true, ['deriveBits']);
+  const dhJwk = await subtle().exportKey('jwk', dhPrivKeyExtractable);
   const dhPubJwk = { ...dhJwk };
   delete dhPubJwk.d;
   delete dhPubJwk.key_ops;
   const dhPubKey = await subtle().importKey('jwk', dhPubJwk, dhAlg, true, []);
+  const dhPrivKey = await subtle().importKey('pkcs8', dhPrivBytes, dhAlg, false, ['deriveBits']);
   const dhPair = { privateKey: dhPrivKey, publicKey: dhPubKey };
 
-  const signPrivKey = await subtle().importKey('pkcs8', signPrivBytes, signAlg, true, ['sign']);
-  const signJwk = await subtle().exportKey('jwk', signPrivKey);
+  const signPrivKeyExtractable = await subtle().importKey('pkcs8', signPrivBytes, signAlg, true, ['sign']);
+  const signJwk = await subtle().exportKey('jwk', signPrivKeyExtractable);
   const signPubJwk = { ...signJwk };
   delete signPubJwk.d;
   delete signPubJwk.key_ops;
   const signPubKey = await subtle().importKey('jwk', signPubJwk, signAlg, true, ['verify']);
+  const signPrivKey = await subtle().importKey('pkcs8', signPrivBytes, signAlg, false, ['sign']);
   const signPair = { privateKey: signPrivKey, publicKey: signPubKey };
 
   const id = new Identity(name, dhPair, signPair);
 
   if (spkLen > 0) {
-    const spkPrivKey = await subtle().importKey('pkcs8', spkPrivBytes, dhAlg, true, ['deriveBits']);
-    const spkJwk = await subtle().exportKey('jwk', spkPrivKey);
+    const spkPrivKeyExtractable = await subtle().importKey('pkcs8', spkPrivBytes, dhAlg, true, ['deriveBits']);
+    const spkJwk = await subtle().exportKey('jwk', spkPrivKeyExtractable);
     const spkPubJwk = { ...spkJwk };
     delete spkPubJwk.d;
     delete spkPubJwk.key_ops;
     const spkPubKey = await subtle().importKey('jwk', spkPubJwk, dhAlg, true, []);
+    const spkPrivKey = await subtle().importKey('pkcs8', spkPrivBytes, dhAlg, false, ['deriveBits']);
     id.spkPair = { privateKey: spkPrivKey, publicKey: spkPubKey };
   }
 
@@ -760,11 +763,11 @@ export async function importIdentityPrivate(bytes, name = 'anon') {
 }
 
 /** Derive an AES-256-GCM key from a passphrase using PBKDF2 (100k iterations). */
-export async function derivePassphraseKey(passphrase, salt) {
+export async function derivePassphraseKey(passphrase, salt, iterations = 600000) {
   const enc = new TextEncoder();
   const baseKey = await subtle().importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
   return subtle().deriveKey(
-    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
     baseKey,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -772,14 +775,14 @@ export async function derivePassphraseKey(passphrase, salt) {
   );
 }
 
-/** Seal an Identity's private keys with a passphrase. Returns { salt, iv, ct } (base64). */
-export async function sealPrivateKeys(identity, passphrase) {
+/** Seal an Identity's private keys with a passphrase. Returns { kdf, iterations, salt, iv, ct } (base64). */
+export async function sealPrivateKeys(identity, passphrase, iterations = 600000) {
   const privBytes = await exportIdentityPrivate(identity);
   const salt = randomBytes(16);
-  const key = await derivePassphraseKey(passphrase, salt);
+  const key = await derivePassphraseKey(passphrase, salt, iterations);
   const iv = randomBytes(12);
   const ct = await subtle().encrypt({ name: 'AES-GCM', iv }, key, privBytes);
-  return { salt: b64(salt), iv: b64(iv), ct: b64(new Uint8Array(ct)) };
+  return { kdf: 'PBKDF2-SHA256', iterations, salt: b64(salt), iv: b64(iv), ct: b64(new Uint8Array(ct)) };
 }
 
 /** Open sealed private keys with a passphrase and reconstruct the Identity. */
@@ -787,7 +790,8 @@ export async function openPrivateKeys(sealed, passphrase, name = 'anon') {
   const salt = unb64(sealed.salt);
   const iv = unb64(sealed.iv);
   const ct = unb64(sealed.ct);
-  const key = await derivePassphraseKey(passphrase, salt);
+  const iterations = sealed.iterations || 100000;
+  const key = await derivePassphraseKey(passphrase, salt, iterations);
   const pt = await subtle().decrypt({ name: 'AES-GCM', iv }, key, ct);
   return importIdentityPrivate(new Uint8Array(pt), name);
 }

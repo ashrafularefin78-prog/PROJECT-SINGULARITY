@@ -100,7 +100,7 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**218 tests across 13 suites** (~3 s in a real browser, of which 12 need it). Each
+**221 tests across 13 suites** (~3 s in a real browser, of which 12 need it). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
 runner for environments that have it (it reports those 10 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
@@ -125,11 +125,12 @@ node tools/browser-run.js --url=https://<site>/tests/browser.html  # a deploymen
 | `renderer.test.js` | 13 | 3D maths, real WebGL2 initialisation, a rendered frame, and async texture decode with GL error check |
 | `gltf.test.js` | 16 | glTF 2.0 loader: JSON and GLB binary parsing, accessor materialisation, flat-normal generation, PBR material extraction, TRS node hierarchy, non-triangle rejection, mikkelsen tangents, texture/image/sampler resolution, UV-absent degradation |
 | `fuzz.test.js` | 11 | seeded fuzzing of the C front end, the CRDT, the ciphertext decoders and the signaling parser |
+| `env.test.js` | 12 | procedural sky: SH basis, irradiance convolution, cube layouts, GGX prefilter determinism and roughness variation |
 | `motion.test.js` | 8 | pure-math motion models: spring, damping and reduced-motion resolution |
 | `substrate.test.js` | 4 | GPU substrate lifecycle, FX gating, canvas cleanup and WebGL context-loss fallback |
 
-Number check: 20 + 18 + 19 + 21 + 51 + 8 + 13 + 7 + 13 + 16 + 11 + 8 + 4 = 218.
-In a browser all 218 pass; the Node runner reports **206 pass + 12 skipped**,
+Number check: 20 + 18 + 19 + 21 + 51 + 8 + 13 + 7 + 13 + 16 + 11 + 8 + 4 + 12 = 221.
+In a browser all 218 pass; the Node runner reports **209 pass + 12 skipped**,
 because those 12 need a canvas, a WebGL2 context, IndexedDB or a peer connection.
 
 ## Technologies
@@ -173,10 +174,8 @@ the project.
 
 ## Where the score lands
 
-**Self-assessed: 684 / 1000 points** across the eight modules (95 + 88 + 90 + 93 + 88 + 92 + 55
-+ 83), before the budget and integration rows. M3 rose to 90 after adding a proper
-GGX split-sum specular prefilter (ggxPrefilteredCube) replacing the box-filter
-approximation; M4 rose to 93 after adding passphrase-encrypted private key storage.
+**Self-assessed: 680 / 1000 points** across the eight modules (95 + 88 + 90 + 92 + 88 + 92 + 55
++ 78), before the budget and integration rows. M4 wired sealing into initCrypto (90→92). M3 at 90 (GGX prefilter). M8 at 78 (no red-team/ZAP).
 
 Note: the reviewer's independent tally comes to **559 / 1000**, a 123-point gap on the updated score.
 The per-module delta is not yet reconciled. The items most likely to account for
@@ -194,7 +193,7 @@ The brief's ladder asks two different questions, so this README answers both:
 |---------|--------|-----|
 | Points band | **Gold** (450-750) | Arithmetic on the module scores. |
 | Tier by requirement | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete and five are partial, so Silver misses by one module - stated plainly rather than rounded up. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (173.5 KiB gzip JS vs 170 KB budget — slightly over), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (173.8 KiB gzip JS vs 170 KB budget — slightly over), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -217,7 +216,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (13 suites, 218 tests, fuzzer included)
+tests/                  browser test suite (13 suites, 221 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON

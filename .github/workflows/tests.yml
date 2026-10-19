@@ -5,7 +5,7 @@
 #   node     - the fast suite in bare Node: no browser, no GPU, no IndexedDB.
 #              Tests that need those skip themselves with a reason instead of
 #              failing, so a red run here means a real regression.
-#   browser  - the authoritative run in headless Chrome: all 218 tests,
+#   browser  - the authoritative run in headless Chrome: all 221 tests,
 #              including the WebGL2 renderer and the IndexedDB store.
 #   deploy   - builds the deploy artifact (SRI, service-worker cache bump,
 #              `_headers` policy) and asserts the headers the built server
