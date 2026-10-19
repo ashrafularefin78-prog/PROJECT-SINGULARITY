@@ -21,10 +21,18 @@ Each entry is derived from the commit history; the newest comes first.
   card tags, and JSON-LD.
 - Community files: CONTRIBUTING.md, CODE_OF_CONDUCT.md, this changelog, and
   issue / pull-request templates.
+- glTF 2.0 texture sampling: the loader now materialises `baseColorTexture` and
+  `normalTexture` (with scale), computes mikkelsen tangent frames, and the
+  renderer uploads SRGB8_ALPHA8 base-colour and RGBA8 normal maps with
+  per-mesh sampler state. The sample asset `assets/models/singularity-core.glb`
+  was regenerated with four embedded PNG textures (core base colour + normal,
+  ring base colour + normal). Six new tests cover texture/image/sampler
+  resolution, mikkelsen tangents and UV-absent degradation.
 
 ### Changed
-- The suite grew to **200 tests across 13 suites** with the new `motion`
-  (8) and `substrate` (4) suites.
+- The suite grew to **215 tests across 13 suites** with the new `motion`
+  (8) and `substrate` (4) suites, plus four glTF texture tests and two
+  renderer texture-decode tests.
 - The accessibility artifact was re-measured against the new dashboard DOM
   (axe-core: 0 violations, 412 passing rule results, unchanged).
 

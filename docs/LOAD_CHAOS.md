@@ -27,10 +27,10 @@ throwaway scripts.
 
 Two environments are reported on purpose:
 
-* **bare Node** (`npm test`) runs 190 of the 200 tests and skips the 10 that need
+* **bare Node** (`npm test`) runs 203 of the 215 tests and skips the 12 that need
   a canvas or IndexedDB, so the exit code means "no regressions" rather than
   "this machine has no GPU".
-* **headless Edge** (`npm run test:browser`) runs all 200, including the WebGL2
+* **headless Edge** (`npm run test:browser`) runs all 215, including the WebGL2
   renderer and the IndexedDB store, in 2.3–3.2 s depending on what else the machine
   is doing (the spread is reported rather than averaged away).
 
@@ -67,7 +67,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **160.1 KiB gzip JS** (635.6 KiB raw over 21 modules plus the stylesheet) + 25.5 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
+| Initial JS payload | ≤ 170 KB gzip | **171.4 KiB gzip JS** (671.7 KiB raw over 21 modules plus the stylesheet) + 25.5 KiB gzip CSS, measured from the import graph | **over** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **774 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 96 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -88,17 +88,17 @@ bootstrap `src/boot-note.js` - which names the module the deferral starts - and 
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk (this report's measurement) | **160.1 KiB gzip JS over 21 modules plus `styles/app.css`**, 25.5 KiB gzip CSS, 635.6 KiB raw total |
+| Import-graph walk (this report's measurement) | **171.4 KiB gzip JS over 21 modules plus `styles/app.css`**, 25.5 KiB gzip CSS, 671.7 KiB raw total |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts the same files live and is visible on the M0 dashboard |
 
-The two largest files are `src/app.js` (58.1 KiB gzip of 182.5 KiB raw) and
+The two largest files are `src/app.js` (59.0 KiB gzip of 184.7 KiB raw) and
 `src/runtime/interpreter.js` (21.7 KiB gzip of 85.7 KiB raw) — the second grew
 during the M2 work that added `<string.h>`, `<ctype.h>`, `<math.h>`, the
 preprocessor, typedefs, two-dimensional arrays, function pointers and unions,
 and `src/runtime/preprocess.js` (4.5 KiB gzip) is new from the same work. (Those
 three figures are now claims in `tools/check-docs.js`; the interpreter's had
 drifted unclaimed for a release and was corrected here when the checker gained
-it.) The brief's ceiling is 170 KB gzip, so the bundle uses ~77% of it with
+it.) The brief's ceiling is 170 KB gzip, so the bundle uses ~101% of it with
 every module counted, including the ones the first paint no longer waits for.
 
 ### 2. Throttled LCP — 774 ms cold, met

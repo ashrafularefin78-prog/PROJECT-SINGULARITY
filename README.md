@@ -24,7 +24,7 @@ code. There is no bundler, no transpiler, and no file in `src/` imported from np
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
 | Repository signals | **0 stars · 0 forks · 17 commits · 1 author · 0 tagged releases** (snapshot 19 Oct 2026; GitHub is the live source) |
-| Tests | **200 across 13 suites**, runnable in the browser from the site itself |
+| Tests | **215 across 13 suites**, runnable in the browser from the site itself |
 | Runtime dependencies | **0** - no framework, no bundler, no npm package in the shipped bundle |
 | Modules | 8 (3 full, 5 partial - each partial says exactly where it stops) |
 | Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
@@ -100,7 +100,7 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**200 tests across 13 suites** (~3 s in a real browser, of which 10 need it). Each
+**215 tests across 13 suites** (~3 s in a real browser, of which 12 need it). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
 runner for environments that have it (it reports those 10 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
@@ -122,15 +122,15 @@ node tools/browser-run.js --url=https://<site>/tests/browser.html  # a deploymen
 | `storage.test.js` | 8 | IndexedDB round-trip, compaction, file frames, v1 -> v2 migration |
 | `mesh.test.js` | 13 | presence, room isolation, pruning, ciphertext-only relay, ingress flood control, and the browser relay carrier: a sealed round trip through the node's contract, outbox failover across a dead node, sealed-frame-id dedupe, queue-then-flush, base-URL semantics |
 | `webrtc.test.js` | 7 | signaling-code validation, rejected and self-pasted codes, a real data channel between two carriers |
-| `renderer.test.js` | 11 | 3D maths, real WebGL2 initialisation and a rendered frame |
-| `gltf.test.js` | 12 | glTF 2.0 loader: JSON and GLB binary parsing, accessor materialisation, flat-normal generation, PBR material extraction, TRS node hierarchy, non-triangle rejection |
+| `renderer.test.js` | 13 | 3D maths, real WebGL2 initialisation, a rendered frame, and async texture decode with GL error check |
+| `gltf.test.js` | 16 | glTF 2.0 loader: JSON and GLB binary parsing, accessor materialisation, flat-normal generation, PBR material extraction, TRS node hierarchy, non-triangle rejection, mikkelsen tangents, texture/image/sampler resolution, UV-absent degradation |
 | `fuzz.test.js` | 11 | seeded fuzzing of the C front end, the CRDT, the ciphertext decoders and the signaling parser |
 | `motion.test.js` | 8 | pure-math motion models: spring, damping and reduced-motion resolution |
 | `substrate.test.js` | 4 | GPU substrate lifecycle, FX gating, canvas cleanup and WebGL context-loss fallback |
 
-Number check: 20 + 15 + 19 + 21 + 51 + 8 + 13 + 7 + 11 + 12 + 11 + 8 + 4 = 200.
-In a browser all 200 pass; the Node runner reports **190 pass + 10 skipped**,
-because those 10 need a canvas, a WebGL2 context, IndexedDB or a peer connection.
+Number check: 20 + 15 + 19 + 21 + 51 + 8 + 13 + 7 + 13 + 16 + 11 + 8 + 4 = 215.
+In a browser all 215 pass; the Node runner reports **203 pass + 12 skipped**,
+because those 12 need a canvas, a WebGL2 context, IndexedDB or a peer connection.
 
 ## Technologies
 
@@ -166,7 +166,7 @@ the project.
 | M4 End-to-end encryption | **Full** | X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD. The signed prekey bundle is verified *inside* the handshake, before any key material exists. |
 | M6 Offline-first storage | **Full** | IndexedDB op log, snapshots, quota, migrations, and a service worker whose paths are scope-relative - offline is verified by stopping the server and reloading under `/PROJECT-SINGULARITY/`. |
 | M2 In-browser C runtime | **Partial** | Real compiler for a C subset + worker sandbox + terminal + kill switch. Includes ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked lists), casts, do/while, `malloc`/`calloc`/`realloc`/`free`/`memcpy`/`memset` over a bounds-checked arena, `scanf`/`sscanf`, plus the library surface student C actually uses: `<string.h>` (`strcpy`, `strcat`, `strcmp`, `strncpy`, `strchr`), `<ctype.h>` (`toupper`, `isdigit`, `isalpha`), `<math.h>` (`sqrt`, `pow`, `fabs`), `#define` constants, function-like macros (`#`, `##`, `__VA_ARGS__`), `typedef`, `int m[2][3]`, function pointers and unions. The bounds-checked arena fails closed - an overflowing `strcpy` is an error, never silent corruption. *Still not clang/TCC in WASM; no variadic user functions; a struct tag is not usable as a type name without a `typedef`.* |
-| M3 3D engine | **Partial** | WebGL2 instancing to 100k, a real PCF shadow map, 1M GPU particles, and physically based shading (Cook-Torrance GGX/Smith/Schlick, hemispheric ambient, Reinhard tonemap). A glTF 2.0 loader (`src/graphics/gltf.js`) parses JSON and GLB binary, materialises accessors, flattens TRS node hierarchy into world-space transforms, generates flat normals; the M3 panel fetches `assets/models/singularity-core.glb` (generated by `tools/make-sample-glb.py`), uploads each primitive and draws it through the same BRDF, with the file's metallic/roughness/baseColor as uniforms. 12 tests cover the full parsing surface. *No texture sampling, no HDRI image-based lighting, no skeletal animation, no WebGPU.* |
+| M3 3D engine | **Partial** | WebGL2 instancing to 100k, a real PCF shadow map, 1M GPU particles, and physically based shading (Cook-Torrance GGX/Smith/Schlick, Reinhard tonemap). A glTF 2.0 loader (`src/graphics/gltf.js`) parses JSON and GLB binary, materialises accessors, images, samplers and textures, flattens TRS node hierarchy into world-space transforms, computes mikkelsen tangents, generates flat normals when absent; the M3 panel fetches `assets/models/singularity-core.glb` (generated by `tools/make-sample-glb.py`), uploads each primitive and draws it through the same BRDF, sampling SRGB8_ALPHA8 base-colour and RGBA8 normal maps from the file. 16 tests cover the full parsing surface including mikkelsen tangents and texture/image/sampler resolution. *No measured HDRI probe, no skeletal animation, no WebGPU.* |
 | M5 Peer mesh | **Partial** | Three carriers into one mesh: BroadcastChannel for tabs, WebRTC data channels for separate machines (copy-pasted invite/answer codes with no server; STUN on by default; ICE restart on `disconnected` after 2 s with `iceRestart:true`, completed by `acceptRestartAnswer()` without tearing down the data channel), and a ciphertext relay carrier (`src/collab/relay.js`) for peers that share neither: frames are sealed with an HKDF room key, queued in a sender outbox, re-posted to the next node in a URL list when a node stops answering, and deduplicated by sealed frame id at the receiver. The node (`tools/relay.js`) implements the same envelope contract; it was driven at 1,000 clients, killed mid-backlog (`SIGKILL`, 20,000 pending, all replayed from the log, 256 ms outage), and killed for good in a failover run where the dead node's whole backlog was re-posted from the client outboxes to a standby node — 0 lost, 0 duplicated. The app-to-node path itself runs in a real browser under the shipped CSP (`tools/relay-e2e.js`). [LOAD_CHAOS.md](docs/LOAD_CHAOS.md), section 12. *No bundled TURN relay, so symmetric NAT on both ends still needs one; the node is a dev-server mount today, not a deployment.* |
 | M7 Accessibility | **Partial** | Semantics, keyboard model, live regions, text alternative tree, motion/contrast/scale/RTL/visual-effects preferences. *Not screen-reader validated.* |
 | M8 Hardening | **Partial** | Strict CSP delivered as both a header and a meta tag (and now actually *delivered* by the host - see [docs/DEPLOY.md](docs/DEPLOY.md)), Trusted Types enforced, no markup sinks, sandbox isolation, per-peer ingress flood control, STRIDE model plus a written [security test report](docs/SECURITY_REPORT.md). Subresource Integrity is generated at deploy time by `tools/build-site.py`, which also keys the service-worker cache to the build so a stale hash cannot brick a cached page; SRI covers the entry subresources, not the transitive import graph. *No third-party red-team session, and the OWASP ZAP baseline scan was not run (no Docker/ZAP in this environment).* |
@@ -197,7 +197,7 @@ The brief's ladder asks two different questions, so this README answers both:
 |---------|--------|-----|
 | Points band | **Gold** (450-750) | Arithmetic on the module scores. |
 | Tier by requirement | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete and five are partial, so Silver misses by one module - stated plainly rather than rounded up. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (160.1 KiB gzip vs 170 KB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (171.4 KiB gzip JS vs 170 KB budget — slightly over), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -220,7 +220,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (13 suites, 200 tests, fuzzer included)
+tests/                  browser test suite (13 suites, 215 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
@@ -284,7 +284,7 @@ docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
 | **Shipped** | M4 end-to-end encryption | Full: X3DH, Double Ratchet, streaming file AEAD and key verification. |
 | **Shipped** | M6 offline-first storage | Full: op log, snapshots, migrations, service worker and server-stopped recovery. |
 | **In progress** | M2 C runtime | Declared partial: no clang-to-WASM backend and no variadic user functions yet. |
-| **In progress** | M3 3D engine | Declared partial: no image-based lighting, texture sampling, skeletal animation or WebGPU path yet. |
+| **In progress** | M3 3D engine | Declared partial: no measured HDRI probe, no skeletal animation or WebGPU path yet. glTF base-colour and normal-map sampling is now implemented. |
 | **In progress** | M5 transport | Declared partial: the relay is a local dev node and no TURN server is bundled. |
 | **In progress** | M7 accessibility | Declared partial: structured for screen readers, not yet validated with NVDA or VoiceOver. |
 | **In progress** | M8 hardening | Declared partial: no third-party red-team pass and no ZAP baseline run yet. |

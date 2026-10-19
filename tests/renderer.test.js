@@ -12,6 +12,7 @@ import {
   transformPoint,
 } from '../src/graphics/math.js';
 import { MAX_INSTANCES, MAX_PARTICLES, Renderer } from '../src/graphics/renderer.js';
+import { loadGltf } from '../src/graphics/gltf.js';
 
 test('M3: identity leaves a point untouched and multiply respects order', () => {
   const id = identity();
@@ -164,3 +165,97 @@ test('M3: a missing WebGL2 context fails loudly instead of silently', () => {
   }
   assert(/WebGL2 is not available/.test(message), message || 'expected init to throw');
 });
+
+// ---------------------------------------------------------------- textures
+
+/**
+ * Poll for asynchronously decoded model textures: bitmap decode happens
+ * between frames, so the textures do not exist the moment attachModel
+ * returns (it is deliberately synchronous).
+ */
+async function waitForTextures(renderer, count, timeoutMs = 10000) {
+  const deadline = performance.now() + timeoutMs;
+  let seen = 0;
+  for (;;) {
+    seen = renderer.model ? renderer.model.meshes.reduce((n, m) => n + Object.keys(m.textures).length, 0) : 0;
+    if (seen >= count) return seen;
+    if (performance.now() > deadline) throw new Error(`textures never arrived: wanted ${count}, saw ${seen}`);
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
+
+test('M3: the shipped GLB decodes both material textures and draws without GL errors', async () => {
+  const res = await fetch('/assets/models/singularity-core.glb');
+  assert(res.ok, 'the sample GLB must be reachable from the served tree');
+  const meshes = await loadGltf(await res.arrayBuffer(), true);
+  assertEquals(meshes.length, 3, 'core + ring + shard');
+  const textured = meshes.filter((m) => m.material.baseColorTexture && m.material.normalTexture);
+  assertEquals(textured.length, 2, 'core and ring carry both maps');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 320;
+  canvas.height = 200;
+  const renderer = new Renderer(canvas, { instances: 0, particles: 0 });
+  renderer.init();
+  renderer.gl.getError(); // flush any init-time error before attributing one to this test
+  const summary = renderer.attachModel(meshes);
+  assertEquals(summary.triangles, 2296, 'triangle count of the regenerated asset');
+  await waitForTextures(renderer, 4);
+  renderer.frame(16);
+  const stats = renderer.stats();
+  assertEquals(stats.modelMeshes, 3, 'all three primitives drawn');
+  assertEquals(stats.modelTextures, 4, 'two materials × (base colour + normal map)');
+  assertEquals(renderer.gl.getError(), renderer.gl.NO_ERROR,
+    'textured draw pipeline must run clean: program compile, attribute wiring and sRGB sample all valid');
+  renderer.detachModel();
+  renderer.frame(32);
+  assertEquals(renderer.stats().modelTextures, 0, 'detachModel released the textures');
+}, NEEDS_GL);
+
+test('M3: attachModel decodes canvas-rendered textures for a synthetic textured mesh', async () => {
+  const png = async (r, g, b) => {
+    const c = document.createElement('canvas');
+    c.width = 2;
+    c.height = 2;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, 0, 2, 2);
+    const blob = await new Promise((resolve) => c.toBlob(resolve, 'image/png'));
+    return new Uint8Array(await blob.arrayBuffer());
+  };
+  const baseBytes = await png(250, 120, 60);
+  const normalBytes = await png(128, 128, 255); // flat tangent-space normal (+Z)
+  const sampler = { wrapS: 10497, wrapT: 10497, magFilter: 9729, minFilter: 9729 };
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 160;
+  canvas.height = 120;
+  const renderer = new Renderer(canvas, { instances: 0, particles: 0 });
+  renderer.init();
+  renderer.gl.getError();
+  const summary = renderer.attachModel([{
+    positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+    normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+    uvs: new Float32Array([0, 0, 1, 0, 0, 1]),
+    tangents: new Float32Array([1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1]),
+    indices: new Uint32Array([0, 1, 2]),
+    worldMatrix: identity(),
+    material: {
+      baseColor: [1, 1, 1, 1],
+      metallic: 0.1,
+      roughness: 0.5,
+      doubleSided: false,
+      baseColorTexture: { bytes: baseBytes, mimeType: 'image/png', sampler },
+      normalTexture: { bytes: normalBytes, mimeType: 'image/png', sampler, scale: 1.4 },
+    },
+  }]);
+  assertEquals(summary.meshes, 1);
+  await waitForTextures(renderer, 2);
+  renderer.frame(16);
+  assertEquals(renderer.stats().modelTextures, 2, 'both textures decoded and uploaded');
+  assertEquals(renderer.gl.getError(), renderer.gl.NO_ERROR,
+    'the TBN + normal-map shader must run clean on a textured mesh');
+  renderer.detachModel();
+  renderer.frame(32);
+  assertEquals(renderer.stats().modelTextures, 0, 'detached cleanly');
+}, NEEDS_GL);

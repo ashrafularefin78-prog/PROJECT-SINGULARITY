@@ -25,8 +25,8 @@
  *
  * Deliberately not implemented (declared in docs/ARCHITECTURE.md): a measured
  * HDRI probe (the sky here is procedural, not photographed), skeletal
- * animation, glTF texture sampling. Shipping those badly would be worse than
- * declaring the gap.
+ * animation. glTF base-colour and normal-map sampling is implemented. Shipping
+ * those badly would be worse than declaring the gap.
  */
 import {
   identity,
@@ -203,8 +203,10 @@ void main() {
 // source: the file instead of the instance seed.
 
 const MODEL_VS = `#version 300 es
-in vec3 aPos;
-in vec3 aNormal;
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aUv;
+layout(location = 3) in vec4 aTangent;
 uniform mat4 uViewProj;
 uniform mat4 uLightViewProj;
 uniform mat4 uWorld;      // the node's flattened world matrix, from the GLB
@@ -213,6 +215,8 @@ uniform float uSpin;      // radians per second about the world Y axis
 out vec3 vNormal;
 out vec3 vWorld;
 out vec4 vLightSpace;
+out vec2 vUv;
+out vec4 vTangent;
 void main() {
   vec4 world = uWorld * vec4(aPos, 1.0);
   float a = uTime * uSpin;
@@ -222,13 +226,18 @@ void main() {
   // the normals; a skewing node would need the inverse-transpose instead.
   vec3 n = mat3(uWorld) * aNormal;
   vNormal = vec3(n.x * c + n.z * s, n.y, -n.x * s + n.z * c);
+  // The tangent frame travels the same way: rotate the world-space tangent
+  // through the spin, and let the fragment shader rebuild B from w.
+  vec3 t = mat3(uWorld) * aTangent.xyz;
+  vTangent = vec4(t.x * c + t.z * s, t.y, -t.x * s + t.z * c, aTangent.w);
+  vUv = aUv;
   vWorld = spun;
   vLightSpace = uLightViewProj * vec4(spun, 1.0);
   gl_Position = uViewProj * vec4(spun, 1.0);
 }`;
 
 const MODEL_DEPTH_VS = `#version 300 es
-in vec3 aPos;
+layout(location = 0) in vec3 aPos;
 uniform mat4 uLightViewProj;
 uniform mat4 uWorld;
 uniform float uTime;
@@ -245,6 +254,8 @@ precision highp float;
 in vec3 vNormal;
 in vec3 vWorld;
 in vec4 vLightSpace;
+in vec2 vUv;
+in vec4 vTangent;
 uniform vec3 uLightDir;
 uniform vec3 uCamera;
 uniform vec4 uBaseColor;   // baseColorFactor from the glTF material
@@ -252,6 +263,11 @@ uniform float uMetallic;
 uniform float uRoughness;
 uniform samplerCube uEnvIrradiance;
 uniform samplerCube uEnvSpec;
+uniform sampler2D uBaseColorTex;  // glTF baseColorTexture (SRGB8 upload linearises on sample)
+uniform sampler2D uNormalTex;     // glTF normalTexture, tangent space
+uniform int  uHasBaseColorTex;
+uniform int  uHasNormalTex;
+uniform float uNormalScale;
 out vec4 outColor;
 
 const float PI = 3.14159265359;
@@ -262,11 +278,26 @@ void main() {
   vec3 N = normalize(vNormal);
   vec3 V = normalize(uCamera - vWorld);
   vec3 L = normalize(-uLightDir);
+
+  // Normal mapping: the interpolated tangent frame is re-projected onto the
+  // surface (interpolation is not an isometry), the bitangent is rebuilt from
+  // the loader's handedness w, and the normal is perturbed in tangent space.
+  if (uHasNormalTex != 0) {
+    vec3 T = normalize(vTangent.xyz - N * dot(N, vTangent.xyz));
+    vec3 B = cross(N, T) * vTangent.w;
+    vec3 tsN = texture(uNormalTex, vUv).xyz * 2.0 - 1.0;
+    tsN.xy *= uNormalScale;
+    N = normalize(T * tsN.x + B * tsN.y + N * tsN.z);
+  }
+
   vec3 H = normalize(V + L);
 
   float metallic = clamp(uMetallic, 0.0, 1.0);
   float roughness = clamp(uRoughness, 0.04, 1.0);
+  // Sampled base colour is already linear here (fixed-function sRGB decode at
+  // sample time), so the factor simply multiplies through, as glTF specifies.
   vec3 albedo = uBaseColor.rgb;
+  if (uHasBaseColorTex != 0) albedo *= texture(uBaseColorTex, vUv).rgb;
   vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
   float NdotL = max(dot(N, L), 0.0);
@@ -459,6 +490,8 @@ export class Renderer {
     this.cpuSamples = 0;
     /** Attached glTF model: { meshes: [...], triangles, spin } or null. */
     this.model = null;
+    /** Bumped on every attachModel; guards async texture decodes. */
+    this.modelGeneration = 0;
     this.lastState = { instances: 0, particles: 0, drawCalls: 0, triangles: 0 };
   }
 
@@ -569,6 +602,7 @@ export class Renderer {
       'uViewProj', 'uLightViewProj', 'uLightDir', 'uCamera', 'uShadow', 'uShadows',
       'uTime', 'uSpin', 'uWorld', 'uBaseColor', 'uMetallic', 'uRoughness',
       'uEnvIrradiance', 'uEnvSpec',
+      'uBaseColorTex', 'uNormalTex', 'uHasBaseColorTex', 'uHasNormalTex', 'uNormalScale',
     ]);
     this.modelDepthProgram = program(gl, MODEL_DEPTH_VS, DEPTH_FS);
     this.modelDepthUniforms = uniforms(gl, this.modelDepthProgram, ['uLightViewProj', 'uWorld', 'uTime', 'uSpin']);
@@ -576,13 +610,16 @@ export class Renderer {
     this.particleUniforms = uniforms(gl, this.particleProgram, ['uViewProj', 'uTime']);
 
     // Sampler uniforms are set once: the shadow map lives on unit 0, the two
-    // environment cubes on 1 and 2, and the albedo noise on 3.
+    // environment cubes on 1 and 2, the albedo noise on 3, and the glTF
+    // bitmap textures (base colour, normal) on 4 and 5.
     gl.useProgram(this.objectProgram);
     gl.uniform1i(this.objectUniforms.uEnvIrradiance, 1);
     gl.uniform1i(this.objectUniforms.uEnvSpec, 2);
     gl.useProgram(this.modelProgram);
     gl.uniform1i(this.modelUniforms.uEnvIrradiance, 1);
     gl.uniform1i(this.modelUniforms.uEnvSpec, 2);
+    gl.uniform1i(this.modelUniforms.uBaseColorTex, 4);
+    gl.uniform1i(this.modelUniforms.uNormalTex, 5);
     gl.useProgram(this.groundProgram);
     gl.uniform1i(this.groundUniforms.uNoise, 3);
   }
@@ -718,14 +755,21 @@ export class Renderer {
    * it with the same PBR shader as everything else. Replaces any previous
    * model. Returns a small summary for the UI.
    *
+   * Synchronous: geometry and material factors are GPU-resident when this
+   * returns. Bitmap textures (base colour / normal maps) are decoded
+   * asynchronously afterwards between frames — createImageBitmap takes a
+   * round-trip — and land via _decodeModelTextures(). A generation counter
+   * makes a mid-flight detachModel() a no-op for the stragglers.
+   *
    * @param {Array} meshes   DrawMesh[] from src/graphics/gltf.js
    * @param {{ spin?: number }} [options]  radians/second about the world Y axis
    */
   attachModel(meshes, options = {}) {
     if (!this.gl) throw new Error('attachModel() needs an initialised renderer');
     this.detachModel();
+    const generation = (this.modelGeneration += 1);
     const uploaded = (meshes || []).map((mesh) => {
-      const glMesh = uploadMesh(this.gl, mesh, { position: 0, normal: 1 });
+      const glMesh = uploadMesh(this.gl, mesh, { position: 0, normal: 1, uv: 2, tangent: 3 });
       return {
         ...glMesh,
         material: {
@@ -733,8 +777,13 @@ export class Renderer {
           metallic: mesh.material.metallic,
           roughness: mesh.material.roughness,
           doubleSided: mesh.material.doubleSided,
+          normalScale: mesh.material.normalTexture ? (mesh.material.normalTexture.scale ?? 1) : 1,
+          baseColorTexture: mesh.material.baseColorTexture || null,
+          normalTexture: mesh.material.normalTexture || null,
         },
         worldMatrix: mesh.worldMatrix,
+        textures: {},
+        dropped: false,
         triangles: (mesh.indices ? mesh.indices.length : mesh.positions.length / 3) / 3,
       };
     });
@@ -742,7 +791,11 @@ export class Renderer {
       meshes: uploaded,
       triangles: uploaded.reduce((n, m) => n + m.triangles, 0),
       spin: options.spin ?? 0.25,
+      generation,
     };
+    if (uploaded.some((m) => m.material.baseColorTexture || m.material.normalTexture)) {
+      this._decodeModelTextures(generation, uploaded);
+    }
     return {
       meshes: uploaded.length,
       triangles: this.model.triangles,
@@ -750,14 +803,70 @@ export class Renderer {
     };
   }
 
-  /** Drop the attached model and release its GPU buffers. */
+  /**
+   * Decode the attached model's image bytes (PNG/JPEG, straight from the GLB)
+   * and upload them as the two sampler slots the model program reads: base
+   * colour on unit 4 (SRGB8_ALPHA8, so the GPU linearises on sample) and the
+   * tangent-space normal map on unit 5. Sampler state mirrors the glTF
+   * sampler the file shipped; mipmapped min filters trigger generateMipmap.
+   * Generation-guarded: a detach/replace during decode discards the result.
+   */
+  _decodeModelTextures(generation, meshRecords) {
+    const gl = this.gl;
+    const uploadTexture = async (mesh, slotName, texDef) => {
+      let bitmap;
+      try {
+        bitmap = await createImageBitmap(new Blob([texDef.bytes], { type: texDef.mimeType }));
+      } catch {
+        return; // undecodable image: the material stays factor-only
+      }
+      if (mesh.dropped || !this.model || this.model.generation !== generation) {
+        bitmap.close();
+        return;
+      }
+      const texture = gl.createTexture();
+      const isNormal = slotName === 'normalTexture';
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, isNormal ? gl.RGBA8 : gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+      const { wrapS, wrapT, magFilter, minFilter } = texDef.sampler;
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter === 9728 ? gl.NEAREST : gl.LINEAR);
+      // 9984-9987 are the mipmapped min-filter variants; WebGL2 mips NPOT fine.
+      if (minFilter >= 9984 && minFilter <= 9987) {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.generateMipmap(gl.TEXTURE_2D);
+      } else if (minFilter === 9728) {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      } else {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      }
+      bitmap.close();
+      mesh.textures[slotName] = { texture };
+    };
+
+    for (const mesh of meshRecords) {
+      for (const slotName of ['baseColorTexture', 'normalTexture']) {
+        const texDef = mesh.material[slotName];
+        if (texDef?.bytes) uploadTexture(mesh, slotName, texDef);
+      }
+    }
+  }
+
+  /** Drop the attached model and release its GPU buffers and textures. */
   detachModel() {
     if (!this.model) return;
     const gl = this.gl;
     if (gl) {
       for (const mesh of this.model.meshes) {
+        mesh.dropped = true;
         gl.deleteVertexArray(mesh.vao);
         for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
+        for (const slotName of ['baseColorTexture', 'normalTexture']) {
+          const uploaded = mesh.textures[slotName];
+          if (uploaded) gl.deleteTexture(uploaded.texture);
+          delete mesh.textures[slotName];
+        }
       }
     }
     this.model = null;
@@ -938,6 +1047,18 @@ export class Renderer {
         gl.uniform4fv(this.modelUniforms.uBaseColor, mesh.material.baseColor);
         gl.uniform1f(this.modelUniforms.uMetallic, mesh.material.metallic);
         gl.uniform1f(this.modelUniforms.uRoughness, mesh.material.roughness);
+        // Per-mesh sampler slots: base colour on unit 4, normal map on unit 5.
+        // The empty bind keeps a previously drawn mesh's texture out of the
+        // uniforms when this mesh lacks one (uHas* reads 0).
+        const baseTex = mesh.textures.baseColorTexture?.texture;
+        const normalTex = mesh.textures.normalTexture?.texture;
+        gl.activeTexture(gl.TEXTURE4);
+        gl.bindTexture(gl.TEXTURE_2D, baseTex || null);
+        gl.activeTexture(gl.TEXTURE5);
+        gl.bindTexture(gl.TEXTURE_2D, normalTex || null);
+        gl.uniform1i(this.modelUniforms.uHasBaseColorTex, baseTex ? 1 : 0);
+        gl.uniform1i(this.modelUniforms.uHasNormalTex, normalTex ? 1 : 0);
+        gl.uniform1f(this.modelUniforms.uNormalScale, mesh.material.normalScale);
         gl.bindVertexArray(mesh.vao);
         if (mesh.indexed) gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_INT, 0);
         else gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
@@ -963,11 +1084,15 @@ export class Renderer {
 
     gl.bindVertexArray(null);
     const modelTriangles = this.model ? Math.round(this.model.triangles) : 0;
+    const modelTextures = this.model
+      ? this.model.meshes.reduce((n, m) => n + Object.keys(m.textures).length, 0)
+      : 0;
     this.lastState = {
       instances: this.instanceCount,
       particles: this.particleCount,
       modelMeshes: this.model ? this.model.meshes.length : 0,
       modelTriangles,
+      modelTextures,
       drawCalls,
       triangles: this.instanceCount * (CUBE_INDICES.length / 3) + 2 + modelTriangles,
       shadows: this.shadows,

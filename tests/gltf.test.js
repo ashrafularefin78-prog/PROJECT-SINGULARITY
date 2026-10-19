@@ -6,7 +6,7 @@
  * GLB header parsing.  The uploadMesh helper is WebGL2-only; that path is
  * covered by the renderer's browser-only skip tests.
  */
-import { loadGltf } from '../src/graphics/gltf.js';
+import { loadGltf, computeTangents } from '../src/graphics/gltf.js';
 import { test, assert, assertEquals } from './harness.js';
 
 // ------------------------------------------------------------------ helpers
@@ -283,4 +283,178 @@ test('M3: glTF loader rejects non-triangle primitive mode', async () => {
   const url = `data:model/gltf+json;base64,${jsonB64}`;
   const meshes = await loadGltf(url);
   assertEquals(meshes.length, 0, 'non-triangle mode should yield no meshes');
+});
+
+// ------------------------------------------------------------------ textures
+
+// Fabricate PNG-shaped bytes (enough header for the mime sniffer; the Node
+// tests never decode, the browser suite does that against the real asset).
+function fakePngBytes() {
+  const bytes = new Uint8Array(32);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0); // PNG signature
+  bytes.set([0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52], 8);            // IHDR chunk header
+  bytes.set([0, 0, 0, 2, 0, 0, 0, 2, 8, 6, 0, 0, 0], 16);         // 2x2 RGBA8 IHDR body
+  return bytes;
+}
+
+/**
+ * The triangle again, but carrying UVs plus a material that references two
+ * images (base colour + normal map) through one sampler. The images ride in
+ * the same binary buffer as the geometry, exercising the bufferView path and
+ * the mime sniffer (the image entries omit mimeType).
+ */
+function makeTexturedGltf({ withUvs = true, normalScale = 2.5, warn = null } = {}) {
+  const positions = new Float32Array([0, 0, 0,  1, 0, 0,  0, 1, 0]);
+  const normals   = new Float32Array([0, 0, 1,  0, 0, 1,  0, 0, 1]);
+  const uvs       = new Float32Array([0, 0,  1, 0,  0, 1]);
+  const indices   = new Uint16Array([0, 1, 2]);
+  const png0 = fakePngBytes();
+  const png1 = fakePngBytes();
+
+  const chunks = [positions, normals];
+  if (withUvs) chunks.push(uvs);
+  chunks.push(indices, png0, png1);
+
+  const total = chunks.reduce((n, b) => n + b.byteLength, 0);
+  const combined = new Uint8Array(total);
+  let off = 0;
+  for (const b of chunks) {
+    combined.set(new Uint8Array(b.buffer, b.byteOffset, b.byteLength), off);
+    off += b.byteLength;
+  }
+  const uri = `data:application/octet-stream;base64,${btoa(String.fromCharCode(...combined))}`;
+
+  const bufferViews = [];
+  const accessors = [];
+  let bvOff = 0;
+  let bvIdx = 0;
+  const view = (bytes) => {
+    bufferViews.push({ buffer: 0, byteOffset: bvOff, byteLength: bytes.byteLength });
+    bvOff += bytes.byteLength;
+    return bvIdx++;
+  };
+
+  const posView  = view(positions);
+  const normView = view(normals);
+  const uvView   = withUvs ? view(uvs) : null;
+  const idxView  = view(indices);
+  const imgView0 = view(png0);
+  const imgView1 = view(png1);
+  const acc = (viewIdx, type, count) => {
+    const idx = accessors.length;
+    accessors.push({ bufferView: viewIdx, byteOffset: 0, componentType: 5126, type, count });
+    return idx;
+  };
+
+  const attributes = { POSITION: acc(posView, 'VEC3', 3), NORMAL: acc(normView, 'VEC3', 3) };
+  if (uvView !== null) attributes.TEXCOORD_0 = acc(uvView, 'VEC2', 3);
+
+  const gltf = {
+    asset: { version: '2.0' },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ mesh: 0 }],
+    meshes: [{
+      primitives: [{ attributes, indices: acc(idxView, 'SCALAR', 3), mode: 4, material: 0 }],
+    }],
+    accessors,
+    bufferViews,
+    buffers: [{ uri, byteLength: total }],
+    images: [
+      { bufferView: imgView0 }, // base colour — mime omitted, must be sniffed
+      { bufferView: imgView1 }, // normal map
+    ],
+    samplers: [{ wrapS: 33071, wrapT: 33648, magFilter: 9728, minFilter: 9987 }],
+    textures: [{ source: 0, sampler: 0 }, { source: 1, sampler: 0 }],
+    materials: [{
+      pbrMetallicRoughness: {
+        baseColorFactor: [1, 1, 1, 1],
+        baseColorTexture: { index: 0 },
+      },
+      normalTexture: { index: 1, scale: normalScale },
+    }],
+  };
+
+  if (warn) {
+    const original = console.warn;
+    console.warn = warn;
+    const teardown = () => { console.warn = original; };
+    const jsonB64 = btoa(unescape(encodeURIComponent(JSON.stringify(gltf))));
+    const url = `data:model/gltf+json;base64,${jsonB64}`;
+    return loadGltf(url).then((meshes) => { teardown(); return meshes; },
+      (err) => { teardown(); throw err; });
+  }
+  const jsonB64 = btoa(unescape(encodeURIComponent(JSON.stringify(gltf))));
+  return loadGltf(`data:model/gltf+json;base64,${jsonB64}`);
+}
+
+test('M3: glTF loader materialises a base colour texture and honours the sampler', async () => {
+  const [mesh] = await makeTexturedGltf();
+  const tex = mesh.material.baseColorTexture;
+  assert(tex, 'base color texture must resolve from the bufferView image');
+  assert(tex.bytes instanceof Uint8Array, 'texture bytes are a Uint8Array');
+  assertEquals(tex.bytes.length, 32, 'embedded image byteLength');
+  assertEquals(tex.mimeType, 'image/png', 'mime sniffed from the PNG signature');
+  assertEquals(tex.sampler.wrapS, 33071, 'wrapS CLAMP_TO_EDGE from the file sampler');
+  assertEquals(tex.sampler.wrapT, 33648, 'wrapT MIRRORED_REPEAT from the file sampler');
+  assertEquals(tex.sampler.magFilter, 9728, 'magFilter NEAREST from the file sampler');
+  assertEquals(tex.sampler.minFilter, 9987, 'minFilter LINEAR_MIPMAP_LINEAR from the file sampler');
+});
+
+test('M3: glTF loader carries normalTexture scale and drives mikkelsen tangent generation', async () => {
+  const [mesh] = await makeTexturedGltf();
+  const tex = mesh.material.normalTexture;
+  assert(tex, 'normal texture must resolve');
+  assertEquals(tex.scale, 2.5, 'normalTexture scale comes through');
+  const t = mesh.tangents;
+  assert(t instanceof Float32Array, 'tangents are a Float32Array');
+  assertEquals(t.length, mesh.positions.length / 3 * 4, '4 floats per vertex');
+  const tl = Math.hypot(t[0], t[1], t[2]);
+  assert(Math.abs(tl - 1) < 1e-5, `tangent is unit length (got ${tl})`);
+  const dot = t[0] * mesh.normals[0] + t[1] * mesh.normals[1] + t[2] * mesh.normals[2];
+  assert(Math.abs(dot) < 1e-5, 'tangent is orthogonal to the normal');
+  // u = +X, v = +Y, n = +Z: the mikkelsen frame must be T=(1,0,0), w=+1.
+  assert(Math.abs(t[0] - 1) < 1e-5 && Math.abs(t[1]) < 1e-5 && Math.abs(t[2]) < 1e-5,
+    `cardinal triangle tangent should be (1,0,0), got (${t[0]},${t[1]},${t[2]})`);
+  assertEquals(t[3], 1, 'handedness w is +1 for this winding');
+});
+
+test('M3: glTF loader degrades file textures to factors when the mesh has no UVs', async () => {
+  const warnings = [];
+  const [mesh] = await makeTexturedGltf({
+    withUvs: false,
+    warn: (...args) => warnings.push(args.join(' ')),
+  });
+  assertEquals(mesh.material.baseColorTexture, null, 'base colour texture dropped');
+  assertEquals(mesh.material.normalTexture, null, 'normal texture dropped');
+  assertEquals(mesh.tangents, null, 'no tangents without UVs');
+  assertEquals(mesh.material.baseColor.join(','), '1,1,1,1', 'factors kept');
+  assert(warnings.length >= 1 && warnings[0].includes('TEXCOORD_0'), 'loader warned about the missing UVs');
+});
+
+test('M3: computeTangents skips degenerate UV triangles and stays finite', () => {
+  // Two triangles spanning four vertices; the first has a zero-area UV
+  // triangle (all three UVs identical). Its vertices must still get a valid
+  // frame from the second triangle (or synthesised ones) — never NaN.
+  const positions = new Float32Array([
+    0, 0, 0, 1, 0, 0, 0, 1, 0,   // triangle A
+    1, 0, 0, 1, 1, 0, 0, 1, 0,   // triangle B
+  ]);
+  const normals = new Float32Array([
+    0, 0, 1, 0, 0, 1, 0, 0, 1,
+    0, 0, 1, 0, 0, 1, 0, 0, 1,
+  ]);
+  const uvs = new Float32Array([
+    0.5, 0.5, 0.5, 0.5, 0.5, 0.5,  // degenerate: det = 0
+    1, 0, 1, 1, 0, 1,              // healthy
+  ]);
+  const indices = new Uint32Array([0, 1, 2, 3, 4, 5]);
+  const tangents = computeTangents(positions, normals, uvs, indices);
+  assertEquals(tangents.length, 6 * 4, '6 vertices × 4 floats');
+  for (let i = 0; i < tangents.length; i += 1) {
+    assert(Number.isFinite(tangents[i]), `tangent component ${i} is finite`);
+  }
+  // Vertex 3 (only touched by the healthy triangle) carries the exact frame.
+  const tl = Math.hypot(tangents[12], tangents[13], tangents[14]);
+  assert(Math.abs(tl - 1) < 1e-5, `skipped triangle's neighbour still gets a unit tangent (got ${tl})`);
 });

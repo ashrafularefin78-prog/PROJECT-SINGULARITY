@@ -9,20 +9,28 @@
  *   ✓  Normals   (NORMAL accessor; flat normals are generated when absent)
  *   ✓  Indices   (UNSIGNED_SHORT / UNSIGNED_INT / UNSIGNED_BYTE)
  *   ✓  Triangles primitive mode (mode 4, the glTF default)
+ *   ✓  TEXCOORD_0 (vec2 float, when the primitive ships UVs)
  *   ✓  PBR metallic-roughness material (baseColorFactor, metallicFactor,
  *        roughnessFactor, doubleSided)
+ *   ✓  Textures: images (bufferView / data: URI / fetch), samplers, and the
+ *        material's baseColorTexture + normalTexture (scale honoured).
+ *        Texture
+ *        bytes are handed to the renderer as Uint8Array slices - the renderer
+ *        owns decoding (createImageBitmap) and GPU upload.
+ *   ✓  Tangent frames: computed per-vertex (mikkelsen accumulate + Gram-Schmidt
+ *        orthonormalise + handedness w) whenever a normal map exists on a
+ *        primitive that has UVs, so the renderer can perturb normals without
+ *        the file shipping a TANGENT accessor
  *   ✓  Scene hierarchy flattened into world-space transforms via TRS nodes
  *   ✓  Buffer URI (data: URI or relative URL) and GLB binary chunk
  *   ✓  URL fetches sniff the GLB magic, so `.gltf` JSON and `.glb` binaries
  *        load through the same call
  *
  * Not implemented (declared gap, not a stub):
- *   - Texture / image sampling (baseColorTexture, normalMap, …)
  *   - Skinned meshes / morph targets
  *   - Camera / light nodes
  *   - Non-triangle primitive modes (points, lines)
- *   - Sparse accessors
- *   - Extensions
+ *   - Sparse accessors, KTX2/Basis compressed textures, extensions
  *
  * Usage:
  *   import { loadGltf } from './gltf.js';
@@ -33,6 +41,8 @@
  *   {
  *     positions: Float32Array,  // flat XYZ triples
  *     normals:   Float32Array,  // flat XYZ triples (same length)
+ *     uvs:       Float32Array,  // flat UV pairs (null when TEXCOORD_0 absent)
+ *     tangents:  Float32Array,  // flat TBN quads (4N, w = handedness), or null
  *     indices:   Uint32Array,   // triangle list (or null for non-indexed)
  *     worldMatrix: Float32Array(16),
  *     material: {
@@ -40,8 +50,11 @@
  *       metallic:   number,         // 0..1
  *       roughness:  number,         // 0..1
  *       doubleSided: boolean,
+ *       baseColorTexture: { bytes, mimeType, sampler }, | null
+ *       normalTexture:    { bytes, mimeType, sampler, scale }, | null
  *     },
  *   }
+ * ; in sampler = { wrapS, wrapT, magFilter, minFilter }, the glTF enum values.
  */
 
 // ------------------------------------------------------------------ helpers
@@ -124,6 +137,97 @@ function generateFlatNormals(positions, indices) {
   return normals;
 }
 
+/**
+ * Compute per-vertex tangent frames for a triangle mesh (mikkelsen-style:
+ * accumulated over triangles, projected orthogonally onto the vertex normal,
+ * sub-normalised where the frame degenerates, with handedness in `w`).
+ *
+ * Returns a Float32Array of 4 floats per vertex (tx, ty, tz, w) such that
+ * t is unit length and dot(t, n) == 0; w = dot(cross(n, t), b) < 0 ? -1 : 1.
+ *
+ * Needed because the renderer perturbs normals with a tangent-space normal
+ * map, and most GLB files (including ours) ship no TANGENT accessor.
+ */
+export function computeTangents(positions, normals, uvs, indices) {
+  const vertCount = positions.length / 3;
+  const accT = new Float32Array(vertCount * 3);
+  const accB = new Float32Array(vertCount * 3);
+  const triCount = indices ? indices.length / 3 : vertCount / 3;
+
+  for (let t = 0; t < triCount; t += 1) {
+    const i0 = indices ? indices[t * 3] : t * 3;
+    const i1 = indices ? indices[t * 3 + 1] : t * 3 + 1;
+    const i2 = indices ? indices[t * 3 + 2] : t * 3 + 2;
+
+    const ax = positions[i0 * 3],     ay = positions[i0 * 3 + 1], az = positions[i0 * 3 + 2];
+    const bx = positions[i1 * 3],     by = positions[i1 * 3 + 1], bz = positions[i1 * 3 + 2];
+    const cx = positions[i2 * 3],     cy = positions[i2 * 3 + 1], cz = positions[i2 * 3 + 2];
+    const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+    const e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+
+    const u0 = uvs[i0 * 2],     v0 = uvs[i0 * 2 + 1];
+    const u1 = uvs[i1 * 2],     v1 = uvs[i1 * 2 + 1];
+    const u2 = uvs[i2 * 2],     v2 = uvs[i2 * 2 + 1];
+
+    const du1 = u1 - u0, dv1 = v1 - v0;
+    const du2 = u2 - u0, dv2 = v2 - v0;
+    const det = du1 * dv2 - du2 * dv1;
+    // Degenerate UV triangle: skip; neighbouring triangles supply the frame.
+    if (det === 0 || !Number.isFinite(det)) continue;
+    const r = 1 / det;
+
+    const tx = r * (dv2 * e1x - dv1 * e2x);
+    const ty = r * (dv2 * e1y - dv1 * e2y);
+    const tz = r * (dv2 * e1z - dv1 * e2z);
+    const bx2 = r * (du1 * e2x - du2 * e1x);
+    const by2 = r * (du1 * e2y - du2 * e1y);
+    const bz2 = r * (du1 * e2z - du2 * e1z);
+    for (const idx of [i0, i1, i2]) {
+      accT[idx * 3] += tx; accT[idx * 3 + 1] += ty; accT[idx * 3 + 2] += tz;
+      accB[idx * 3] += bx2; accB[idx * 3 + 1] += by2; accB[idx * 3 + 2] += bz2;
+    }
+  }
+
+  const out = new Float32Array(vertCount * 4);
+  for (let i = 0; i < vertCount; i += 1) {
+    const nx = normals[i * 3], ny = normals[i * 3 + 1], nz = normals[i * 3 + 2];
+    let tx = accT[i * 3], ty = accT[i * 3 + 1], tz = accT[i * 3 + 2];
+
+    // Project the accumulated tangent onto the tangent plane (⊥ n).
+    const dotT = tx * nx + ty * ny + tz * nz;
+    tx -= nx * dotT; ty -= ny * dotT; tz -= nz * dotT;
+    let len = Math.hypot(tx, ty, tz);
+    if (len < 1e-8) {
+      // Degenerate frame: synthesise any tangent ⊥ n.
+      if (Math.abs(nz) < 0.9) { tx = -ny; ty = nx; tz = 0; }
+      else { tx = 1; ty = 0; tz = 0; }
+      len = Math.hypot(tx, ty, tz) || 1;
+    } else {
+      // Also orthogonalise the projected tangent against the accumulated
+      // bitangent (Gram-Schmidt pass recommended by mikkelsen).
+      const b1x = accB[i * 3], b1y = accB[i * 3 + 1], b1z = accB[i * 3 + 2];
+      const dotB = tx * b1x + ty * b1y + tz * b1z;
+      tx -= b1x * dotB; ty -= b1y * dotB; tz -= b1z * dotB;
+      // Re-project ⊥ n (removing the b component can tip it off-plane).
+      const dotT2 = tx * nx + ty * ny + tz * nz;
+      tx -= nx * dotT2; ty -= ny * dotT2; tz -= nz * dotT2;
+      len = Math.hypot(tx, ty, tz) || 1;
+    }
+    tx /= len; ty /= len; tz /= len;
+
+    // Handedness from the (projected) bitangent.
+    const b1x = accB[i * 3], b1y = accB[i * 3 + 1], b1z = accB[i * 3 + 2];
+    const dotB = b1x * nx + b1y * ny + b1z * nz;
+    const bx = b1x - nx * dotB, by = b1y - ny * dotB, bz = b1z - nz * dotB;
+    // w = dot(cross(n, t), b)
+    const cx = ny * tz - nz * ty, cy = nz * tx - nx * tz, cz = nx * ty - ny * tx;
+    const w = cx * bx + cy * by + cz * bz < 0 ? -1 : 1;
+
+    out[i * 4] = tx; out[i * 4 + 1] = ty; out[i * 4 + 2] = tz; out[i * 4 + 3] = w;
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ accessor
 
 const COMPONENT_CTORS = {
@@ -185,6 +289,106 @@ async function fetchBuffer(uri, baseUrl) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`glTF: could not fetch buffer '${uri}': ${res.status}`);
   return res.arrayBuffer();
+}
+
+// ------------------------------------------------------------------ images
+
+// glTF sampler enums; these are the WebGL constants, restated for clarity:
+//   wrap: 10497 = REPEAT, 33648 = MIRRORED_REPEAT, 33071 = CLAMP_TO_EDGE
+//   filters: 9728 = NEAREST, 9729 = LINEAR, 9984-9987 = mipmapped variants
+const DEFAULT_SAMPLER = Object.freeze({
+  wrapS: 10497, wrapT: 10497, magFilter: 9729, minFilter: 9729,
+});
+
+function getSampler(gltf, samplerIdx) {
+  const s = samplerIdx != null ? (gltf.samplers || [])[samplerIdx] : null;
+  return {
+    wrapS:    s?.wrapS    ?? DEFAULT_SAMPLER.wrapS,
+    wrapT:    s?.wrapT    ?? DEFAULT_SAMPLER.wrapT,
+    magFilter: s?.magFilter ?? DEFAULT_SAMPLER.magFilter,
+    minFilter: s?.minFilter ?? DEFAULT_SAMPLER.minFilter,
+  };
+}
+
+/** Sniff an image container from its first bytes; data: URIs may omit mime. */
+function sniffImageMime(bytes) {
+  if (bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    return 'image/png';
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+      && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+    return 'image/webp';
+  }
+  return 'application/octet-stream';
+}
+
+/**
+ * Materialise image `imageIdx` into { bytes: Uint8Array, mimeType: string }.
+ * Sources: bufferView (GLB), data: URI, or a fetched relative URI.
+ * Returns null when the image cannot be materialised (the caller degrades the
+ * material to factor-only rendering rather than failing the whole model).
+ */
+async function loadImageBytes(gltf, buffers, imageIdx, baseUrl) {
+  const image = (gltf.images || [])[imageIdx];
+  if (!image) return null;
+
+  let bytes = null;
+  let uriMime = null;
+
+  if (image.bufferView != null) {
+    const bv = gltf.bufferViews[image.bufferView];
+    const src = buffers[bv.buffer];
+    const offset = bv.byteOffset || 0;
+    // Copy out: the renderer keeps these bytes alive across awaits, and we do
+    // not want a whole GLB ArrayBuffer retained for one 64 KB texture.
+    bytes = new Uint8Array(src.slice(offset, offset + bv.byteLength));
+  } else if (image.uri) {
+    if (image.uri.startsWith('data:')) {
+      const comma = image.uri.indexOf(',');
+      // decodeDataUri only yields the raw bytes; the mime is in the URI meta.
+      const meta = image.uri.slice(5, comma === -1 ? undefined : comma);
+      uriMime = meta.split(';')[0];
+      bytes = new Uint8Array(decodeDataUri(image.uri));
+    } else {
+      const url = baseUrl ? new URL(image.uri, baseUrl).href : image.uri;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      bytes = new Uint8Array(await res.arrayBuffer());
+    }
+  }
+
+  if (!bytes || !bytes.byteLength) return null;
+  const mimeType = image.mimeType || uriMime || sniffImageMime(bytes);
+  return { bytes, mimeType };
+}
+
+/**
+ * Resolve a texture reference (index into gltf.textures) to
+ * { bytes, mimeType, sampler }, decoding each distinct image at most once via
+ * the `decoded` promise-memo passed through the load call.
+ */
+async function resolveTexture(gltf, buffers, texIdx, baseUrl, decoded) {
+  if (texIdx == null) return { bytes: null, mimeType: null, sampler: DEFAULT_SAMPLER };
+  const tex = (gltf.textures || [])[texIdx];
+  if (!tex) return { bytes: null, mimeType: null, sampler: DEFAULT_SAMPLER };
+
+  let bytes = null;
+  let mimeType = null;
+  if (tex.source != null) {
+    if (!decoded.has(tex.source)) {
+      decoded.set(tex.source, loadImageBytes(gltf, buffers, tex.source, baseUrl));
+    }
+    try {
+      const img = await decoded.get(tex.source);
+      if (img) { ({ bytes, mimeType } = img); }
+    } catch {
+      // Fetch/decode failure degrades to factor-only material, not a hard error.
+    }
+  }
+  return { bytes, mimeType, sampler: getSampler(gltf, tex.sampler) };
 }
 
 // ------------------------------------------------------------------ GLB
@@ -304,6 +508,7 @@ export async function loadGltf(source, isGlb = false) {
 
   // ---- collect meshes
   const results = [];
+  const decoded = new Map(); // image index -> bytes-decode promise (shared)
 
   for (let ni = 0; ni < nodeCount; ni += 1) {
     const node = gltf.nodes[ni];
@@ -337,6 +542,15 @@ export async function loadGltf(source, isGlb = false) {
         normals = generateFlatNormals(positions, indices);
       }
 
+      // UVs — required for texture mapping; absent UVs degrade every material
+      // texture of the mesh (the renderer falls back to material factors).
+      let uvs = null;
+      if (prim.attributes.TEXCOORD_0 != null) {
+        const raw = readAccessor(gltf, buffers, prim.attributes.TEXCOORD_0);
+        uvs = raw instanceof Float32Array ? raw : new Float32Array(raw);
+        if (uvs.length !== (positions.length / 3) * 2) uvs = null;
+      }
+
       // Material
       const matIdx = prim.material;
       const matDef = matIdx != null ? (gltf.materials || [])[matIdx] : null;
@@ -346,9 +560,46 @@ export async function loadGltf(source, isGlb = false) {
         metallic:    pbr.metallicFactor   ?? 1.0,
         roughness:   pbr.roughnessFactor  ?? 1.0,
         doubleSided: matDef?.doubleSided  ?? false,
+        baseColorTexture: null,
+        normalTexture: null,
       };
 
-      results.push({ positions, normals, indices, worldMatrix: new Float32Array(worldMatrix), material });
+      // Textures — decoded here (memoised per image index), handed to the
+      // renderer as bytes. Textures only resolve when the primitive ships
+      // TEXCOORD_0: without UVs there is nothing to sample with, and the
+      // renderer falls back to the material factors.
+      if (pbr.baseColorTexture || (matDef && matDef.normalTexture)) {
+        if (!uvs) {
+          console.warn(`glTF: mesh primitive has textures but no TEXCOORD_0 - sampling is impossible, falling back to material factors`);
+        } else {
+          if (pbr.baseColorTexture?.index != null) {
+            const info = await resolveTexture(gltf, buffers, pbr.baseColorTexture.index, baseUrl, decoded);
+            material.baseColorTexture = info.bytes
+              ? { bytes: info.bytes, mimeType: info.mimeType, sampler: info.sampler }
+              : null;
+          }
+          if (matDef?.normalTexture?.index != null) {
+            const info = await resolveTexture(gltf, buffers, matDef.normalTexture.index, baseUrl, decoded);
+            material.normalTexture = info.bytes
+              ? {
+                  bytes: info.bytes,
+                  mimeType: info.mimeType,
+                  sampler: info.sampler,
+                  scale: matDef.normalTexture.scale ?? 1.0,
+                }
+              : null;
+          }
+        }
+      }
+
+      // Tangent frames — required for normal mapping; computed from geometry
+      // when the file does not ship a TANGENT accessor.
+      let tangents = null;
+      if (material.normalTexture && uvs) {
+        tangents = computeTangents(positions, normals, uvs, indices);
+      }
+
+      results.push({ positions, normals, uvs, tangents, indices, worldMatrix: new Float32Array(worldMatrix), material });
     }
   }
 
@@ -359,11 +610,15 @@ export async function loadGltf(source, isGlb = false) {
  * Upload a DrawMesh to WebGL2 and return a VAO handle ready for
  * `gl.drawElements` / `gl.drawArrays`.
  *
+ * UV and tangent attributes are bound only when both the mesh carries them
+ * and the caller provides locations — meshes without them stay valid on the
+ * plain position/normal layout (the renderer fills degenerate fallbacks).
+ *
  * The caller owns the VAO and must delete it when done.
  *
  * @param {WebGL2RenderingContext} gl
  * @param {DrawMesh} mesh
- * @param {{ position: number, normal: number }} attribLocs
+ * @param {{ position: number, normal: number, uv?: number, tangent?: number }} attribLocs
  * @returns {{ vao: WebGLVertexArrayObject, buffers: WebGLBuffer[], count: number, indexed: boolean }}
  */
 export function uploadMesh(gl, mesh, attribLocs) {
@@ -383,6 +638,22 @@ export function uploadMesh(gl, mesh, attribLocs) {
   gl.vertexAttribPointer(attribLocs.normal, 3, gl.FLOAT, false, 0, 0);
 
   const buffers = [posBuf, normBuf];
+  if (mesh.uvs && attribLocs.uv != null) {
+    const uvBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, mesh.uvs, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(attribLocs.uv);
+    gl.vertexAttribPointer(attribLocs.uv, 2, gl.FLOAT, false, 0, 0);
+    buffers.push(uvBuf);
+  }
+  if (mesh.tangents && mesh.tangents.length === mesh.positions.length / 3 * 4 && attribLocs.tangent != null) {
+    const tanBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, tanBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, mesh.tangents, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(attribLocs.tangent);
+    gl.vertexAttribPointer(attribLocs.tangent, 4, gl.FLOAT, false, 0, 0);
+    buffers.push(tanBuf);
+  }
   let count, indexed;
   if (mesh.indices) {
     const idxBuf = gl.createBuffer();
