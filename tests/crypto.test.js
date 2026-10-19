@@ -21,6 +21,11 @@ import {
   verifyBundleWith,
   x3dhInitiate,
   x3dhRespond,
+  exportIdentityPrivate,
+  importIdentityPrivate,
+  sealPrivateKeys,
+  openPrivateKeys,
+  derivePassphraseKey,
 } from '../src/crypto/e2ee.js';
 // The handshake helper lives in one place so the fuzz suite and this one cannot
 // drift apart (see tests/crypto-helpers.js).
@@ -296,4 +301,43 @@ test('M4: the wrong secret cannot open a file stream', async () => {
     failed = true;
   }
   assert(failed, 'decryption with the wrong key must fail');
+});
+
+test('M4: private keys round-trip through passphrase sealing', async () => {
+  const id = await Identity.create('alice');
+  const sealed = await sealPrivateKeys(id, 'correct horse battery staple');
+  const reopened = await openPrivateKeys(sealed, 'correct horse battery staple', 'alice');
+  // Public keys must survive the round trip.
+  const origPub = await exportDhPublic(id.dhPair);
+  const newPub = await exportDhPublic(reopened.dhPair);
+  assertEquals(b64(origPub), b64(newPub), 'dh public key must survive seal/open');
+  // The reopened identity can still do DH.
+  const bob = await Identity.create('bob');
+  const a = await dh(id.dhPair, bob.dhPair.publicKey);
+  const b = await dh(reopened.dhPair, bob.dhPair.publicKey);
+  assertEquals(b64(a), b64(b), 'reopened identity must agree on DH');
+});
+
+test('M4: wrong passphrase fails to open sealed keys', async () => {
+  const id = await Identity.create('alice');
+  const sealed = await sealPrivateKeys(id, 'right-passphrase');
+  let failed = false;
+  try {
+    await openPrivateKeys(sealed, 'wrong-passphrase', 'alice');
+  } catch {
+    failed = true;
+  }
+  assert(failed, 'wrong passphrase must fail to decrypt');
+});
+
+test('M4: export/import private keys round-trips', async () => {
+  const id = await Identity.create('alice');
+  await id.rotateSignedPrekey();
+  const bytes = await exportIdentityPrivate(id);
+  const restored = await importIdentityPrivate(bytes, 'alice');
+  const origPub = await exportDhPublic(id.dhPair);
+  const newPub = await exportDhPublic(restored.dhPair);
+  assertEquals(b64(origPub), b64(newPub), 'dh public key must survive export/import');
+  // signed prekey must survive too
+  assert(restored.spkPair !== null, 'signed prekey must survive export/import');
 });

@@ -40,7 +40,7 @@ import {
   vec3,
 } from './math.js';
 import { uploadMesh } from './gltf.js';
-import { envCube, irradianceCube, noiseTexture, shProject } from './env.js';
+import { envCube, ggxPrefilteredCube, irradianceCube, noiseTexture, shProject } from './env.js';
 
 const CUBE_VERTICES = new Float32Array([
   // +X
@@ -673,18 +673,18 @@ export class Renderer {
    * Image-based lighting from the procedural sky (src/graphics/env.js). The
    * sky is projected onto band-2 real spherical harmonics; the diffuse term
    * reads the Ramamoorthi cosine-lobe convolution as a 16^2-per-face
-   * irradiance cube, and the specular term reads the 64^2-per-face sky cube
-   * through textureLod at a roughness-driven LOD (box filter, not a GGX
-   * prefilter - stated in the shader and in env.js). Everything is
-   * deterministic and generated here: no HDRI is downloaded or bundled.
+   * irradiance cube, and the specular term reads a GGX split-sum prefiltered
+   * cube (src/graphics/env.js:ggxPrefilteredCube) at a fixed roughness, mip-
+   * mapped for intermediate levels. Everything is deterministic and generated
+   * here: no HDRI is downloaded or bundled.
    */
   _buildEnvironment() {
     const gl = this.gl;
     const coefficients = shProject();
     this.env = {
       coefficients,
-      irradiance: irradianceCube(coefficients, 16),
-      specular: envCube(64),
+       irradiance: irradianceCube(coefficients, 16),
+       specular: ggxPrefilteredCube(32, 0.4),
       noise: noiseTexture(128),
     };
 

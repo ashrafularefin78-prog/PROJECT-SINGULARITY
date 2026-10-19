@@ -22,7 +22,10 @@
  *                            through `textureLod` at a roughness-driven LOD,
  *                            which is a box-filter approximation of the rough
  *                            specular lobe (declared: not a GGX prefilter).
- *   - `noiseTexture()`       a tilable seeded value-noise RGBA map for albedo
+ *   - `ggxPrefilteredCube()` GGX split-sum importance-sampled specular prefilter
+ *                            for a given roughness, replacing the earlier box-filter
+ *                            approximation (samples the procedural sky with a
+ *                            GGX distribution, deterministic via Hammersley).
  *                            detail (sampled by the ground plane; the lattice
  *                            hash wraps on the size modulo so a fetch never
  *                            leaves the lattice).
@@ -31,9 +34,11 @@
  * sc/tc per the OpenGL cube-map selection table), so `texture(uEnvCube, R)` in
  * the shader answers for the direction R without any fix-up.
  *
- * What this is not: a measured HDRI, a GGX prefiltered specular map, or glTF
- * image sampling. Those stay declared gaps - the sky here is a guess about the
- * fiction of this app, rendered deterministically, and it says so.
+ * What this is not: a measured HDRI, glTF image sampling, or skinned animation.
+ * The sky here is a guess about the fiction of this app, rendered deterministically,
+ * and it says so. The specular prefilter is now a proper GGX split-sum
+ * importance-sampled convolution (ggxPrefilteredCube) rather than a box-filter
+ * mip-map of the raw sky.
  */
 
 // Band-2 real SH basis constants, y-up world (Peter-Pike Sloan's table).
@@ -220,8 +225,100 @@ export function irradianceCube(coeffs, size = 16) {
 }
 
 /** The specular environment cube: the raw procedural sky. */
+/** The specular environment cube: the raw procedural sky. */
 export function envCube(size = 64) {
   return radianceCube((d) => skyRadiance(d), size);
+}
+
+/**
+ * GGX specular prefilter: convolve the procedural sky with a GGX normal
+ * distribution for a given roughness, producing a cube map that the renderer
+ * samples directly (no runtime LOD box-filter). Uses the split-sum
+ * importance-sampling formulation with a deterministic Hammersley sequence so
+ * the result is reproducible from the seed.
+ */
+export function ggxPrefilteredCube(size = 32, roughness = 0.5, samples = 64) {
+  const alpha = Math.max(roughness * roughness, 1e-4);
+  const data = new Uint8Array(6 * size * size * 4);
+  // Hammersley sequence for deterministic sampling.
+  const hammersley = (i, n) => {
+    let bits = i;
+    bits = (bits << 16) | (bits >>> 16);
+    bits = ((bits & 0x55555555) << 1) | ((bits & 0xAAAAAAAA) >>> 1);
+    bits = ((bits & 0x33333333) << 2) | ((bits & 0xCCCCCCCC) >>> 2);
+    bits = ((bits & 0x0F0F0F0F) << 4) | ((bits & 0xF0F0F0F0) >>> 4);
+    bits = ((bits & 0x00FF00FF) << 8) | ((bits & 0xFF00FF00) >>> 8);
+    return bits / 4294967296;
+  };
+  const ggxSample = (xi1, xi2, nrm) => {
+    const a2 = alpha * alpha;
+    const phi = 2 * Math.PI * xi1;
+    const cosTheta = Math.sqrt((1 - xi2) / (1 + (a2 - 1) * xi2));
+    const sinTheta = Math.sqrt(1 - cosTheta * cosTheta);
+    // tangent space
+    const hx = sinTheta * Math.cos(phi);
+    const hy = sinTheta * Math.sin(phi);
+    const hz = cosTheta;
+    // transform to world space (nrm as z-axis)
+    const up = Math.abs(nrm[1]) < 0.999 ? [0, 1, 0] : [1, 0, 0];
+    const tx = [up[1] * nrm[2] - up[2] * nrm[1],
+                 up[2] * nrm[0] - up[0] * nrm[2],
+                 up[0] * nrm[1] - up[1] * nrm[0]];
+    const tl = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1] + tx[2] * tx[2]);
+    tx[0] /= tl; tx[1] /= tl; tx[2] /= tl;
+    const ty = [nrm[1] * tx[2] - nrm[2] * tx[1],
+                 nrm[2] * tx[0] - nrm[0] * tx[2],
+                 nrm[0] * tx[1] - nrm[1] * tx[0]];
+    const h = [
+      tx[0] * hx + ty[0] * hy + nrm[0] * hz,
+      tx[1] * hx + ty[1] * hy + nrm[1] * hz,
+      tx[2] * hx + ty[2] * hy + nrm[2] * hz,
+    ];
+    return h;
+  };
+  for (let face = 0; face < 6; face += 1) {
+    const base = face * size * size * 4;
+    for (let row = 0; row < size; row += 1) {
+      const tc = (2 * (row + 0.5)) / size - 1;
+      for (let col = 0; col < size; col += 1) {
+        const sc = (2 * (col + 0.5)) / size - 1;
+        const n = faceDirection(face, sc, tc);
+        const nl = Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        n[0] /= nl; n[1] /= nl; n[2] /= nl;
+        // view = normal for prefilter
+        const v = [n[0], n[1], n[2]];
+        let accR = 0, accG = 0, accB = 0, accW = 0;
+        for (let s = 0; s < samples; s += 1) {
+          const xi1 = hammersley(s, samples);
+          const xi2 = hammersley(s + samples, samples);
+          const h = ggxSample(xi1, xi2, n);
+          const hl = Math.sqrt(h[0] * h[0] + h[1] * h[1] + h[2] * h[2]);
+          h[0] /= hl; h[1] /= hl; h[2] /= hl;
+          // reflect v over h
+          const vd = v[0] * h[0] + v[1] * h[1] + v[2] * h[2];
+          const l = [2 * vd * h[0] - v[0], 2 * vd * h[1] - v[1], 2 * vd * h[2] - v[2]];
+          const ndl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+          if (ndl > 0) {
+            const rad = skyRadiance(l);
+            accR += rad[0] * ndl;
+            accG += rad[1] * ndl;
+            accB += rad[2] * ndl;
+            accW += ndl;
+          }
+        }
+        const o = base + (row * size + col) * 4;
+        if (accW > 0) {
+          data[o] = Math.max(0, Math.min(255, Math.round((accR / accW) * 255)));
+          data[o + 1] = Math.max(0, Math.min(255, Math.round((accG / accW) * 255)));
+          data[o + 2] = Math.max(0, Math.min(255, Math.round((accB / accW) * 255)));
+        } else {
+          data[o] = 0; data[o + 1] = 0; data[o + 2] = 0;
+        }
+        data[o + 3] = 255;
+      }
+    }
+  }
+  return { size, data };
 }
 
 /**

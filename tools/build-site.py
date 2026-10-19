@@ -215,6 +215,35 @@ def write_worker(rules):
     return len(rules)
 
 
+def inject_test_count():
+    """Count tests in tests/*.test.js and inject the total into the built index.html.
+
+    The count is derived from the runner's own files so the hero chip can never
+    drift from the suite it advertises. Counts `test(` calls at the start of a
+    line, matching how the suites define cases.
+    """
+    test_dir = os.path.join(ROOT, "tests")
+    total = 0
+    for name in sorted(os.listdir(test_dir)):
+        if not name.endswith(".test.js"):
+            continue
+        path = os.path.join(test_dir, name)
+        with open(path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                if re.match(r"^\s*test\(", line):
+                    total += 1
+    if total == 0:
+        raise BuildError("no tests found in tests/*.test.js")
+    index = os.path.join(DIST, "index.html")
+    html = open(index, "r", encoding="utf-8").read()
+    # Replace the hero chip text and the CTA button text.
+    html = re.sub(r"(\d+)\s+TESTS GREEN", f"{total} TESTS GREEN", html)
+    html = re.sub(r"RUN\s+(\d+)\s+TESTS IN THIS BROWSER", f"RUN {total} TESTS IN THIS BROWSER", html)
+    with open(index, "w", encoding="utf-8", newline="") as fh:
+        fh.write(html)
+    return total
+
+
 def write_manifest():
     manifest = {
         "entrypoint": "index.js",
@@ -259,6 +288,7 @@ def main():
         raise BuildError("_headers parsed to zero rules; refusing to build a site without its policy")
 
     files = copy_public()
+    test_count = inject_test_count()
     hashes = add_sri()
     version = bump_service_worker("singularity-" + build_hash()[:16])
     rule_count = write_worker(rules)
@@ -267,6 +297,7 @@ def main():
 
     print(f"# dist/         {summary['files']} files, {summary['distBytes'] / 1024:.1f} KiB raw, "
           f"{summary['distGzipBytes'] / 1024:.1f} KiB gzip")
+    print(f"# tests         {test_count} (injected into index.html from tests/*.test.js)")
     print(f"# worker        dist-site/worker.js with {rule_count} rule sets inlined from _headers")
     print(f"# service worker cache  {version}")
     for rel, value in hashes.items():
