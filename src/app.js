@@ -2777,6 +2777,7 @@ const ROADMAP = [
   { state: 'planned', what: 'OPFS and SharedArrayBuffer pooling', detail: 'Faster cold start and cross-tab memory sharing where COOP/COEP allow it.' },
   { state: 'planned', what: 'Relay deployment and NAT traversal', detail: 'A hosted relay node and a TURN story, so peer tests are not confined to one machine.' },
   { state: 'planned', what: 'Screen-reader validation pass', detail: 'Drive the interface with NVDA and VoiceOver, then fix what they find - the honest way to close M7.' },
+  { state: 'planned', what: 'URL-addressable playgrounds', detail: 'Standalone sample pages for the C runtime and the engine, so each can be tried without the full shell.' },
 ];
 
 const REPO_URL = 'https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY';

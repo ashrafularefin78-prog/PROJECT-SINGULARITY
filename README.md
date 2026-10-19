@@ -1,5 +1,10 @@
 # Project Singularity
 
+[![Live demo](https://img.shields.io/badge/live_demo-freebuff.page-6ea8fe)](https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/)
+[![Tests](https://img.shields.io/badge/tests-200_across_13_suites-57d68d)](#verify-it)
+[![Runtime dependencies](https://img.shields.io/badge/runtime_dependencies-0-b39ddb)](#technologies)
+[![License](https://img.shields.io/badge/license-MIT-8399b0)](LICENSE)
+
 ## Overview
 
 An attempt at *The Impossible Website Challenge*: one page that behaves like an
@@ -142,6 +147,17 @@ a deliberate constraint rather than a missing feature - it is what keeps the pag
 working offline and free of third-party connections. The only Python is tooling;
 the shipped page is static HTML, CSS and ES modules.
 
+### Development dependencies
+
+The shipped page needs nothing beyond a browser. The *tooling* does have an
+environment, stated plainly: Python 3 (dev server, deploy build, critical-CSS
+inliner), Node 24 for the test runner and the measurement drivers -
+`python3 tools/bootstrap-node.py` fetches a portable copy into `.tools/`, which
+is git-ignored, so nothing is installed system-wide - a Chromium-family browser
+for the headless runs (pointed at it with `BROWSER_PATH`), and ffmpeg only if
+you want to re-record the demo video. Nothing from npm is ever installed into
+the project.
+
 ## Features - what is real, and what is not
 
 | Module | Status | Notes |
@@ -277,6 +293,7 @@ docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
 | **Planned** | OPFS and SharedArrayBuffer pooling | Faster cold start and cross-tab memory sharing where COOP/COEP allow it. |
 | **Planned** | Hosted relay and TURN | So peer tests are not confined to one machine or one NAT. |
 | **Planned** | Screen-reader validation | Drive the interface with NVDA and VoiceOver, then fix what they find. |
+| **Planned** | URL-addressable playgrounds | Standalone sample pages for the C runtime and the 3D engine, so each can be tried without the full shell. |
 
 ## Author
 
@@ -289,6 +306,16 @@ from scratch against the platform's own APIs.
 - Project: [PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY)
 - Email: [ashrafularefin@gmail.com](mailto:ashrafularefin@gmail.com)
 - Live: <https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/>
+
+## Contributing
+
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the setup,
+the test gates every change must pass, and the two constraints that shape each
+patch: zero runtime dependencies, and the strict CSP / Trusted Types policy.
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) applies to every interaction in this
+repository, and [CHANGELOG.md](CHANGELOG.md) records what each pass changed.
+Bug reports and feature requests have templates; the pull-request template
+carries the verification checklist.
 
 ## License
 

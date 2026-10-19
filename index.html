@@ -27,6 +27,57 @@
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#06090d" />
     <!--
+      Discovery metadata. og:image must be an absolute URL for social scrapers;
+      it points at the live deployment, where tools/build-site.py ships it
+      (assets/ is public content - only dot-dirs, tools/ and dist* are skipped).
+    -->
+    <meta
+      name="description"
+      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 200 tests green in your browser."
+    />
+    <link rel="canonical" href="https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/" />
+    <meta property="og:title" content="Project Singularity - the impossible website challenge" />
+    <meta
+      property="og:description"
+      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 200 tests green in your browser."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/" />
+    <meta property="og:site_name" content="Project Singularity" />
+    <meta
+      property="og:image"
+      content="https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/assets/screenshots/og.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The Project Singularity dashboard: a dark instrument-panel interface with a black-hole render, live telemetry and eight module tabs."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Project Singularity - the impossible website challenge" />
+    <meta
+      name="twitter:description"
+      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 200 tests green in your browser."
+    />
+    <meta
+      name="twitter:image"
+      content="https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/assets/screenshots/og.png"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Project Singularity",
+        "applicationCategory": "WebApplication",
+        "operatingSystem": "Any modern browser",
+        "description": "One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger, with zero runtime dependencies and no framework.",
+        "author": { "@type": "Person", "name": "Ashraful Arefin" },
+        "license": "MIT",
+        "url": "https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/"
+      }
+    </script>
+    <!--
       The critical CSS: the part of styles/app.css the first viewport needs,
       inlined so the hero can paint without waiting for a stylesheet round trip.
       It is generated - run `python3 tools/critical-css.py` after editing the

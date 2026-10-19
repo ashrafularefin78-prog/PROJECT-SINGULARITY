@@ -67,7 +67,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **160.1 KiB gzip JS** (635.4 KiB raw over 21 modules plus the stylesheet) + 25.5 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
+| Initial JS payload | ≤ 170 KB gzip | **160.1 KiB gzip JS** (635.6 KiB raw over 21 modules plus the stylesheet) + 25.5 KiB gzip CSS, measured from the import graph | **met** (cold load, every module counted, worker included; the entry point is deferred past the first paint but still ships) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **774 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 96 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -88,10 +88,10 @@ bootstrap `src/boot-note.js` - which names the module the deferral starts - and 
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk (this report's measurement) | **160.1 KiB gzip JS over 21 modules plus `styles/app.css`**, 25.5 KiB gzip CSS, 635.4 KiB raw total |
+| Import-graph walk (this report's measurement) | **160.1 KiB gzip JS over 21 modules plus `styles/app.css`**, 25.5 KiB gzip CSS, 635.6 KiB raw total |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts the same files live and is visible on the M0 dashboard |
 
-The two largest files are `src/app.js` (58.1 KiB gzip of 182.3 KiB raw) and
+The two largest files are `src/app.js` (58.1 KiB gzip of 182.5 KiB raw) and
 `src/runtime/interpreter.js` (21.7 KiB gzip of 85.7 KiB raw) — the second grew
 during the M2 work that added `<string.h>`, `<ctype.h>`, `<math.h>`, the
 preprocessor, typedefs, two-dimensional arrays, function pointers and unions,
@@ -664,7 +664,7 @@ the GitHub Pages layout is reproduced locally.
 | `npm run test:browser` | Edge 154/155 via CDP, real WebGL2 + IndexedDB | **200 passed, 0 failed, 0 skipped** — 2.3 s on an idle machine, 3.2 s under load |
 | `npm run test:browser --url=<deployment>` | the same suite against the site, or against the workerd deploy artifact | **200 passed, 0 failed, 0 skipped** |
 
-`npm test` used to report those 6 as failures because the machine has no GPU.
+`npm test` used to report those 10 as failures because the machine has no GPU.
 Capability-aware skips replaced the red herrings, so a failing build now means a
 real regression. The `tests/stdlib.test.js` suite (51 tests) is the evidence
 for the M2 work: every `<string.h>`, `<ctype.h>` and `<math.h>` function the
