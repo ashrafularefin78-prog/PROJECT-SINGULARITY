@@ -17,7 +17,7 @@ test('substrate: the telemetry bus exists and starts at honest zeros', () => {
   assert(typeof telemetry.pulse === 'function', 'pulse() exists for impulses');
   telemetry.pulse('energy'); // must not throw, mount or create a canvas
   assert(document.querySelector('canvas.substrate') === null, 'pulsing without a mount creates nothing');
-});
+}, { needs: ['dom'] });
 
 test('substrate: mounting creates exactly one GPU-backed canvas and paints', async () => {
   const substrate = mountSubstrate();

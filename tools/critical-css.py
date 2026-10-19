@@ -43,14 +43,14 @@ CRITICAL_PREFIXES = [
     # base `button, .button` rule: with it deferred, the header row grew 14 px
     # at mobile width when the full sheet arrived and pushed the page down
     # (measured CLS 0.219 desktop / 0.092 mobile before this line existed).
-    ".skip-link", ".topbar", ".brand", ".cmd-hint", "kbd", "button", ".button", ".chips", ".chip",
+    ".skip-link", ".topbar", ".topbar-actions", ".brand", ".cmd-hint", ".theme-toggle", "kbd", "button", ".button", ".chips", ".chip",
     ".telemetry", ".tl", ".spark", ".noscript-note",
     # `.wave` is the deck strip's inline chart: without its 34px height the svg
     # fell back to the default 150px, which is what made the *empty* deck
     # measure 413px at first paint against 49px styled once the sheet arrived.
     "nav", ".tabs", ".tab", ".deck", ".wave",
     # the paint target
-    ".main", ".panel", ".hero", ".lede", ".ring",
+    ".main", ".panel", ".hero", ".lede", ".hero-byline", ".hero-actions", ".ring",
     # the hero heading and its paragraphs, sized by the base rules: deferred,
     # the default margins made the hero taller at first paint and the whole
     # hero moved when the sheet arrived (a measured 0.007 of CLS from each)
@@ -80,6 +80,7 @@ MUST_BE_CRITICAL = [
     ":root", "body", "body::before", ".skip-link", ".topbar", ".brand-name",
     ".chips", ".chip", ".telemetry", ".spark", ".tabs", ".tab", ".deck", ".main",
     "button", ".wave", ".hud", "#hero",
+    ".topbar-actions", ".theme-toggle", ".hero-actions", ".hero-byline",
     ".panel", ".hero", ".hero-grid", ".hero-title", ".hero-kicker",
     ".hero-badges", ".lede", ".ring", ".footer", "h1",
 ]

@@ -22,7 +22,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-aBTpMl3+1urFKphV2TK8B7HrWX95O8hy1J+jr7LDe80='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
+      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-ActgC60ZLhkgZShDeF5iw8kp+TINQ4WoWdpA13Na7+Q='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
     />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#06090d" />
@@ -901,6 +901,51 @@ html[data-theme='light'] .dial-name { color: #16202e; }
 html[data-theme='light'] .dial-slot[data-active='true'] { color: #16202e; background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(232, 240, 250, 0.99)); }
 html[data-theme='light'] .about-links a { background: rgba(255, 255, 255, 0.9); }
 html[data-theme='light'] .about-links a:hover { color: var(--accent); }
+.topbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-self: end; }
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 12px;
+  color: var(--dim);
+}
+.theme-toggle svg {
+  width: 15px; height: 15px;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.theme-toggle .icon-moon { display: none; }
+.theme-toggle[aria-pressed='true'] .icon-sun { display: none; }
+.theme-toggle[aria-pressed='true'] .icon-moon { display: block; }
+.theme-toggle-label { font: 700 calc(10px * var(--scale)) / 1 var(--mono); letter-spacing: 0.12em; }
+.theme-toggle:hover:not(:disabled) { color: var(--text); }
+html[data-theme='light'] .theme-toggle { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(232, 238, 246, 0.97)); }
+.hero-byline {
+  margin: 0 0 12px;
+  color: var(--dim);
+  font: 600 calc(11px * var(--scale)) / 1.6 var(--mono);
+  letter-spacing: 0.04em;
+}
+.hero-byline b { color: var(--text); font-weight: 700; }
+.hero-byline a { color: var(--accent-3); border-bottom: 1px dotted currentColor; }
+.hero-byline a:hover { color: var(--accent); border-bottom-style: solid; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.hero-actions .button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-bottom: 1px solid var(--line-2);
+  text-decoration: none;
+}
+.hero-actions .button.primary { border-bottom-color: rgba(110, 168, 254, 0.75); }
+.hero-actions .button:hover { text-decoration: none; }
+@media (max-width: 560px) {
+.hero-actions .button { flex: 1 1 100%; }
+}
+html[data-theme='light'] .shot a { background: #e9eef6; }
+html[data-theme='light'] .stack li { background: rgba(255, 255, 255, 0.75); }
+html[data-theme='light'] .repo-stat {
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
+}
 </style>
     <!-- critical-css:end -->
     <!--
@@ -912,9 +957,43 @@ html[data-theme='light'] .about-links a:hover { color: var(--accent); }
     <noscript><link rel="stylesheet" href="styles/app.css" /></noscript>
     <meta
       name="description"
-      content="Project Singularity: a browser-native collaborative workspace with its own CRDT, in-browser C runtime, WebGL2 engine, end-to-end encryption and offline-first storage. No runtime dependencies."
+      content="Project Singularity: a browser-native collaborative workspace with its own CRDT, in-browser C runtime, WebGL2 engine, end-to-end encryption and offline-first storage. No runtime dependencies. Built by Ashraful Arefin."
     />
-    <title>Project Singularity - The Impossible Website Challenge</title>
+    <meta name="author" content="Ashraful Arefin" />
+    <meta
+      name="keywords"
+      content="Project Singularity, Ashraful Arefin, browser-native, CRDT, WebGL2, WebCrypto, end-to-end encryption, offline-first, WebRTC, C runtime, zero dependencies, student project"
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="application-name" content="Project Singularity" />
+    <meta id="meta-theme-color" name="theme-color" content="#06090d" />
+    <link rel="canonical" href="https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/" />
+
+    <!-- Social cards. Absolute URLs: scrapers do not resolve relative ones. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Project Singularity" />
+    <meta property="og:title" content="Project Singularity - a browser-native workspace by Ashraful Arefin" />
+    <meta
+      property="og:description"
+      content="An operating system, collaborative editor, game engine and secure messenger in one page. Own CRDT, in-browser C runtime, WebGL2, E2EE and offline storage - with zero runtime dependencies."
+    />
+    <meta property="og:url" content="https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/" />
+    <meta property="og:image" content="https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/assets/screenshots/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1174" />
+    <meta property="og:image:height" content="537" />
+    <meta property="og:image:alt" content="Project Singularity dashboard - score ring, live telemetry and module deck" />
+    <meta property="og:locale" content="en_GB" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Project Singularity - a browser-native workspace by Ashraful Arefin" />
+    <meta
+      name="twitter:description"
+      content="Own CRDT, in-browser C runtime, WebGL2 engine, E2EE and offline-first storage in one page. Zero runtime dependencies. 200 tests runnable in your browser."
+    />
+    <meta name="twitter:image" content="https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/assets/screenshots/og.png" />
+    <meta name="twitter:image:alt" content="Project Singularity dashboard - score ring, live telemetry and module deck" />
+
+    <title>Project Singularity - a browser-native workspace by Ashraful Arefin</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
   </head>
@@ -958,9 +1037,29 @@ html[data-theme='light'] .about-links a:hover { color: var(--accent); }
         <span class="brand-name">PROJECT SINGULARITY</span>
         <span class="brand-sub">the impossible website challenge</span>
       </div>
-      <button class="cmd-hint" id="cmd-open" type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">
-        COMMAND <kbd>⌘K</kbd>
-      </button>
+      <div class="topbar-actions">
+        <button class="cmd-hint" id="cmd-open" type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">
+          COMMAND <kbd>⌘K</kbd>
+        </button>
+        <!-- One-click theme toggle. The preferences in M7 still own the full
+             setting; this is the shortcut a visitor expects in the header. -->
+        <button
+          class="theme-toggle"
+          id="theme-toggle"
+          type="button"
+          aria-pressed="false"
+          aria-label="Switch to light theme"
+        >
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 15.5A8.5 8.5 0 0 1 8.5 4a8.5 8.5 0 1 0 11.5 11.5Z"></path>
+          </svg>
+          <span class="theme-toggle-label">LIGHT</span>
+        </button>
+      </div>
       <div class="chips" id="status-chips" role="status" aria-live="polite" aria-label="System status"></div>
       <!-- Live readings, sampled once a second. Deliberately not a live region:
            a screen reader should hear it on demand, not every second. -->
@@ -1008,12 +1107,25 @@ html[data-theme='light'] .about-links a:hover { color: var(--accent); }
           <div>
             <p class="hero-kicker">The impossible website challenge</p>
             <h1 class="hero-title">Project Singularity</h1>
+            <p class="hero-byline">
+              Built by <b>Ashraful Arefin</b> · Computer Science &amp; Engineering student ·
+              <a href="https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY" target="_blank" rel="noopener">GitHub</a>
+              ·
+              <a href="mailto:ashrafularefin@gmail.com">Email</a>
+            </p>
             <p class="lede">One website that behaves like an operating system, a collaborative workspace, a game engine and a secure messenger at once - with zero runtime dependencies and no framework in the shipped bundle. Everything below runs in your browser right now.</p>
             <div class="hero-badges" id="hero-badges">
               <span class="chip accent">8 MODULES</span>
               <span class="chip ok">0 RUNTIME DEPS</span>
               <span class="chip ok" id="hero-tests">200 TESTS GREEN</span>
+              <span class="chip ok">MIT OPEN SOURCE</span>
               <span class="chip ok">TRUSTED TYPES ENFORCED</span>
+            </div>
+            <div class="hero-actions">
+              <a class="button primary" href="tests/browser.html" target="_blank" rel="noopener">RUN 200 TESTS IN THIS BROWSER</a>
+              <a class="button" href="#case-study">READ THE CASE STUDY</a>
+              <a class="button" href="#screenshots">SEE THE SCREENSHOTS</a>
+              <a class="button" href="docs/demo/demo.mp4" target="_blank" rel="noopener">WATCH THE 15-MIN DEMO</a>
             </div>
           </div>
           <div class="ring-wrap" id="hero-ring" aria-hidden="true">

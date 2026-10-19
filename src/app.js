@@ -1823,6 +1823,29 @@ function resolveFx() {
   return 'full';
 }
 
+/* The header switch is a shortcut for the same preference M7 owns, not a
+ * second implementation: both call applyPrefs(), which owns the tokens, the
+ * persistence and the button's own pressed state. */
+function syncThemeToggle() {
+  const button = document.getElementById('theme-toggle');
+  if (!button) return;
+  const light = (state.a11y.theme || 'dark') === 'light';
+  button.setAttribute('aria-pressed', String(light));
+  button.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+  button.title = light ? 'Switch to dark theme' : 'Switch to light theme';
+  const label = button.querySelector('.theme-toggle-label');
+  if (label) label.textContent = light ? 'DARK' : 'LIGHT';
+  const meta = document.getElementById('meta-theme-color');
+  if (meta) meta.setAttribute('content', light ? '#edf1f8' : '#06090d');
+}
+
+function toggleTheme() {
+  state.a11y.theme = (state.a11y.theme || 'dark') === 'light' ? 'dark' : 'light';
+  applyPrefs();
+  toast(`Theme: ${state.a11y.theme}`, 'ok');
+  if (state.activePanel === 'a11y') renderPanel('a11y');
+}
+
 function applyPrefs() {
   const root = document.documentElement;
   root.dataset.motion = state.a11y.motion;
@@ -1832,6 +1855,7 @@ function applyPrefs() {
   root.dataset.theme = state.a11y.theme || 'dark';
   root.lang = state.a11y.lang || 'en';
   root.dir = state.a11y.dir;
+  syncThemeToggle();
   try {
     // A theme that arrived on the URL applies to this visit and is not written
     // over the visitor's saved preference: following a shared ?theme=light link
@@ -2185,7 +2209,7 @@ function deckReading(previousOps) {
       `ops ${ops}`,
       `heap ${memory ? `${(memory.usedJSHeapSize / 1048576).toFixed(1)} MiB` : 'n/a'}`,
       `payload ${state.perf.gzip ? `${Math.round(state.perf.gzip.bytes / 1024)} KiB gzip of 170 KB` : 'measuring'}`,
-      `effects ${state.a11y.effects}`,
+      `effects ${resolveFx()}`,
       `tests ${TEST_TOTALS.total} green · ${TEST_TOTALS.suites} suites`,
       'backslash opens the module dial',
     ],
@@ -2684,6 +2708,7 @@ function adoptHero(score, band) {
       chip('8 MODULES', 'accent'),
       chip('0 RUNTIME DEPS', 'ok'),
       chip(`${TEST_TOTALS.total} TESTS GREEN`, 'ok'),
+      chip('MIT OPEN SOURCE', 'ok'),
       chip('TRUSTED TYPES ENFORCED', 'ok'),
     );
   }
@@ -2758,6 +2783,194 @@ const REPO_URL = 'https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY';
 const CONTACT_EMAIL = 'ashrafularefin@gmail.com';
 const LIVE_URL = 'https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/';
 
+/* Captured from this build with tools/demo.js and Chrome's screenshot path -
+ * not mockups and not a design comp. Dimensions are the files' intrinsic size
+ * and travel with every <img> so the gallery does not shift as it lazy-loads. */
+const SHOTS = [
+  {
+    src: 'assets/screenshots/dashboard-dark.png',
+    width: 1574,
+    height: 907,
+    title: 'Dashboard · dark',
+    note: 'The M0 overview: honest score, capabilities, roadmap, measured budget and repository signals.',
+    tag: 'M0',
+  },
+  {
+    src: 'assets/screenshots/dashboard-light.png',
+    width: 1574,
+    height: 907,
+    title: 'Dashboard · daylight',
+    note: 'The same page through the header toggle. Tokens invert; the instrument does not.',
+    tag: 'THEME',
+  },
+  {
+    src: 'assets/screenshots/editor.png',
+    width: 1574,
+    height: 907,
+    title: 'Collaborative editor',
+    note: 'M1: an RGA CRDT with live cursors and per-user undo. A second tab converges for real.',
+    tag: 'M1',
+  },
+  {
+    src: 'assets/screenshots/engine.png',
+    width: 1574,
+    height: 907,
+    title: '3D engine',
+    note: 'M3: WebGL2 instancing, PCF shadows, a million GPU particles and the glTF sample model.',
+    tag: 'M3',
+  },
+  {
+    src: 'assets/screenshots/mobile-dashboard.png',
+    width: 966,
+    height: 1644,
+    title: 'Mobile · 390 px',
+    note: 'The same shell at phone width: tabs scroll, telemetry wraps, nothing is hidden.',
+    tag: 'RESPONSIVE',
+  },
+];
+
+/* The stack, stated as platform layers rather than logo wallpaper. Everything
+ * in the first two rows is a browser API; everything in the third is code in
+ * this repository. There is no framework and no AI service to list. */
+const STACK = [
+  {
+    title: 'Platform',
+    items: ['HTML5', 'CSS3', 'JavaScript ES modules', 'Web Workers', 'Service Worker'],
+  },
+  {
+    title: 'Browser APIs',
+    items: ['WebGL2 + GLSL', 'WebCrypto', 'IndexedDB', 'WebRTC', 'BroadcastChannel', 'CompressionStream', 'Trusted Types'],
+  },
+  {
+    title: 'Written here',
+    items: ['RGA CRDT', 'C lexer / parser / interpreter', 'glTF 2.0 loader', 'X3DH + Double Ratchet', 'PBR shader'],
+  },
+  {
+    title: 'Build and delivery',
+    items: ['Python 3 stdlib', 'Node for measurement only', 'GitHub Actions', 'Cloudflare static hosting'],
+  },
+];
+
+/* A snapshot, deliberately not a runtime request. The CSP's connect-src is
+ * 'self', so the page makes no third-party connection at all - which also means
+ * no analytics and no GitHub API call. Read these as dated facts, with GitHub
+ * linked as the live source. */
+const REPO_SNAPSHOT = '19 Oct 2026';
+const REPO_SIGNALS = [
+  { value: '17', label: 'commits on main', hint: `snapshot ${REPO_SNAPSHOT}` },
+  { value: '1', label: 'author', hint: 'solo build' },
+  { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
+  { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
+  { value: '200', label: 'tests · 13 suites', hint: 'run them from this page' },
+  { value: '0', label: 'runtime dependencies', hint: 'no npm, no framework' },
+];
+
+/* The engineering case study: one decision record per module. It is written
+ * for the reviewer who has two minutes and the one who has twenty: the summary
+ * is the decision, the body is the problem, the cost and the evidence.
+ *
+ * Every claim here is already in MODULE_STATUS or in a measured artifact; this
+ * is a different cut of the same facts, not a second set of numbers. The score
+ * is the module's own partial/full score, not a recruiter-friendly rounding. */
+const CASE_STUDIES = [
+  {
+    id: 'editor',
+    mod: 'M1',
+    title: 'Collaborative editor',
+    decisionLine: 'An RGA CRDT written from scratch, with per-user undo and cursor-indexed lookups.',
+    status: 'ok',
+    score: 95,
+    problem: 'Two tabs must converge on the same document without a server, a framework or a CRDT library.',
+    decision: 'Give every character a Lamport-stamped id and an origin. Merges are commutative and idempotent, undo is scoped to the local user, and text is indexed from the last cursor instead of rescanning the document.',
+    tradeoff: 'Interior tombstones are kept because future operations can still name them, so the replicated state is larger than the visible text. The op log is bounded with a snapshot fallback for catch-up.',
+    evidence: '20 CRDT tests cover convergence, causality, undo replication, cursor parity, tombstone collection and log trimming. 20k sequential appends stay under 200k node visits; a per-append rescan would be roughly 250M. 95/100.',
+  },
+  {
+    id: 'compiler',
+    mod: 'M2',
+    title: 'C runtime in a worker',
+    decisionLine: 'A hand-written C front end and interpreter inside a budgeted, killable worker.',
+    status: 'partial',
+    score: 88,
+    problem: 'Run student C in the browser without shipping clang, TCC or a WASM build pipeline.',
+    decision: 'A lexer, parser and interpreter run in a Web Worker with step, heap, depth and wall-clock budgets. The heap is a bounds-checked arena; diagnostics carry line and column; a kill switch ends runaway programs.',
+    tradeoff: 'It is a C subset, not clang: no variadic user functions, no full preprocessor, and a struct tag needs a typedef before it is a type name. An interpreter is slower than native code or WASM.',
+    evidence: '19 compiler, 21 language and 51 stdlib tests, plus fuzzing. An overflowing strcpy fails closed rather than corrupting the heap. 88/100.',
+  },
+  {
+    id: 'engine',
+    mod: 'M3',
+    title: '3D engine',
+    decisionLine: 'WebGL2 instancing, PCF shadows, a million particles and Cook-Torrance PBR - no Three.js.',
+    status: 'partial',
+    score: 78,
+    problem: 'Provide a real 3D scene on a strict JavaScript budget and a WebGL2-only compatibility target.',
+    decision: 'Instanced draws with vertex-shader animation, a depth-only PCF shadow pass, particles generated from gl_VertexID, and a physically based shader. A glTF 2.0 loader parses JSON and GLB into the same pipeline.',
+    tradeoff: 'No texture sampling, image-based lighting, skeletal animation or WebGPU path yet. Normals are generated flat when absent, and the material model is deliberately narrow.',
+    evidence: '11 renderer and 12 glTF tests. 100k instances and 1M particles in 4 draw calls; 60 FPS at defaults and 58 at maximum on the measured machine. 78/100.',
+  },
+  {
+    id: 'crypto',
+    mod: 'M4',
+    title: 'End-to-end encryption',
+    decisionLine: 'X3DH and a Double Ratchet composed from WebCrypto, not a crypto library.',
+    status: 'ok',
+    score: 92,
+    problem: 'Private messaging without a crypto library or an audited protocol implementation to import.',
+    decision: 'Compose X3DH, a Double Ratchet, safety numbers, group epochs and streaming file AEAD from WebCrypto primitives. The signed prekey bundle is verified inside the handshake, before any key material exists.',
+    tradeoff: 'Key storage is local and not hardware-backed, and the composition has not had an independent audit. The relay sees ciphertext only, but metadata still exists.',
+    evidence: '15 crypto tests cover replay and tamper rejection, signed-bundle enforcement, group epochs and file streaming. 92/100.',
+  },
+  {
+    id: 'mesh',
+    mod: 'M5',
+    title: 'Peer mesh and relay',
+    decisionLine: 'BroadcastChannel for tabs, WebRTC for machines, and a sealed relay for peers that share neither.',
+    status: 'partial',
+    score: 88,
+    problem: 'Peers must collaborate without a signaling server, a TURN fleet or a trusted relay.',
+    decision: 'Three carriers feed one mesh: BroadcastChannel for tabs, WebRTC data channels with copy-paste invite and answer codes for machines, and a ciphertext relay with an HKDF room key, sender outbox, URL failover and sealed-frame-id dedupe.',
+    tradeoff: 'Copy-paste signaling is not seamless, and a symmetric NAT on both ends still needs a TURN server. The relay is a dev-node contract today, not a deployed fleet.',
+    evidence: '13 mesh and 7 WebRTC tests. 1,000 relay clients, 50k envelopes, 0 lost; a SIGKILL replay of 20k accepted envelopes, 0 lost, 256 ms outage; two-node failover with 0 lost and 0 duplicated. 88/100.',
+  },
+  {
+    id: 'offline',
+    mod: 'M6',
+    title: 'Offline-first storage',
+    decisionLine: 'IndexedDB op log, compacted snapshots, versioned migrations and a scope-relative service worker.',
+    status: 'ok',
+    score: 92,
+    problem: 'The app must keep working when the network disappears and survive a reload.',
+    decision: 'An IndexedDB op log plus compacted snapshots, versioned migrations and a service worker. Compaction uses a watermark and keeps a snapshot fallback for peers catching up.',
+    tradeoff: 'The browser owns quota and can evict storage. Compaction trades history for size, and there is no cloud sync: this is local-first, not multi-device backup.',
+    evidence: '8 storage tests cover round-trip, compaction, file frames and v1 to v2 migration. Offline was verified with the server stopped; a 60-minute soak ends with a smaller heap than it started. 92/100.',
+  },
+  {
+    id: 'a11y',
+    mod: 'M7',
+    title: 'Accessibility and i18n',
+    decisionLine: 'Semantics, a keyboard model and user-controlled motion, contrast, scale, direction, language and theme.',
+    status: 'partial',
+    score: 55,
+    problem: 'An instrument-dense interface has to remain usable with a keyboard, a screen reader, high contrast and 200% text.',
+    decision: 'Use semantic elements, a roving-tabindex tablist, live regions, a text alternative for the 3D scene, and preferences for motion, contrast, scale, direction, language and theme. Code stays left-to-right in RTL layouts.',
+    tradeoff: 'It has not been validated with NVDA or VoiceOver. Bangla and Arabic shaping in the editor is delegated to the browser text layout; the panel labels are translated, not the whole app.',
+    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. 55/100 - the honest ceiling until a real screen-reader pass.',
+  },
+  {
+    id: 'security',
+    mod: 'M8',
+    title: 'Hostile-environment hardening',
+    decisionLine: 'Strict CSP and Trusted Types, a sandboxed runtime, deploy-time SRI and a written STRIDE model.',
+    status: 'partial',
+    score: 83,
+    problem: 'Ship a hostile-environment app with no build server, no third-party scripts and no markup sinks.',
+    decision: 'Enforce a strict CSP and Trusted Types, isolate the runtime in a Worker, rate-limit per-peer ingress, generate SRI at deploy time, and build against a written STRIDE model. Headers are delivered in production; the meta tag carries the policy on static hosts.',
+    tradeoff: 'No third-party red-team session and no OWASP ZAP baseline yet. SRI covers entry subresources, not the transitive import graph. The meta policy cannot express frame-ancestors; the host header does.',
+    evidence: '11 fuzz tests, 0 markup sinks, headers verified header by header, and 0 axe violations. 83/100.',
+  },
+];
+
 function featIcon(name) {
   return svgEl(
     'svg',
@@ -2799,6 +3012,154 @@ function capabilityGrid() {
       ]),
     ),
   );
+}
+
+/* A native <details> per module keeps the case study scannable: the summary is
+ * the decision, and the body is the evidence a reviewer can open only when they
+ * want it. No disclosure JavaScript, no focus management to get wrong. */
+function caseField(label, body) {
+  return el('div', {}, [el('dt', { text: label }), el('dd', { text: body })]);
+}
+
+function caseStudy() {
+  return el('div', { class: 'case-study' }, [
+    el('div', { class: 'case-brief' }, [
+      el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '200 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
+    ]),
+    el('p', {
+      class: 'case-intro',
+      text: 'Read this as engineering decision records, not a feature list: the problem, the decision, the trade-off it bought, and the measurement that backs it up. Open a row for the detail, then open the live module and try the same thing yourself.',
+    }),
+    el(
+      'div',
+      { class: 'case-list' },
+      CASE_STUDIES.map((study) =>
+        el('details', { class: 'case', dataset: { mod: modKey(study.mod) } }, [
+          el('summary', { class: 'case-summary' }, [
+            el('span', { class: 'case-id', text: study.mod }),
+            el('span', { class: 'case-headline' }, [
+              el('b', { text: study.title }),
+              el('i', { text: study.decisionLine }),
+            ]),
+            el('span', {
+              class: `case-status ${study.status === 'ok' ? 'full' : 'partial'}`,
+              text: study.status === 'ok' ? 'full' : 'partial',
+            }),
+            el('span', { class: 'case-points', text: `${study.score}/100` }),
+            el('span', { class: 'case-chevron', 'aria-hidden': 'true' }),
+          ]),
+          el('div', { class: 'case-body' }, [
+            el('dl', { class: 'case-grid' }, [
+              caseField('Problem', study.problem),
+              caseField('Decision', study.decision),
+              caseField('Trade-off', study.tradeoff),
+            ]),
+            el('div', { class: 'case-evidence' }, [
+              el('b', { text: 'Evidence' }),
+              el('span', { text: study.evidence }),
+            ]),
+            el('a', { class: 'case-open', href: `#${study.id}`, text: `Open ${study.mod} in this page` }),
+          ]),
+        ]),
+      ),
+    ),
+    el('p', { class: 'small dim mt-10', text: 'Scores are the same self-assessed module scores used in the scorecard below. They are not rounded up; the partial rows cap their own ceilings.' }),
+  ]);
+}
+
+function caseStudyCard() {
+  const section = card('Engineering case study - decisions, trade-offs and evidence', [caseStudy()]);
+  section.id = 'case-study';
+  return section;
+}
+
+/* Screenshots are evidence, so each one names the module it came from and
+ * carries a caption. The anchor opens the untouched PNG in a new tab; the
+ * figure is lazy so the dashboard does not download 3 MiB it may never show. */
+function screenshotGallery() {
+  return el(
+    'div',
+    { class: 'gallery' },
+    SHOTS.map((shot) =>
+      el('figure', { class: shot.tag === 'RESPONSIVE' ? 'shot portrait' : 'shot' }, [
+        el(
+          'a',
+          {
+            href: shot.src,
+            target: '_blank',
+            rel: 'noopener',
+            'aria-label': `Open the ${shot.title} screenshot at full size`,
+          },
+          [
+            el('img', {
+              src: shot.src,
+              alt: `${shot.title} screenshot: ${shot.note}`,
+              width: String(shot.width),
+              height: String(shot.height),
+              loading: 'lazy',
+              decoding: 'async',
+            }),
+          ],
+        ),
+        el('figcaption', {}, [
+          el('b', { text: shot.title }),
+          el('span', { text: shot.note }),
+          el('em', { text: shot.tag }),
+        ]),
+      ]),
+    ),
+  );
+}
+
+function showcaseCard() {
+  const section = card('See it running - real screenshots, no mockups', [
+    screenshotGallery(),
+    el('p', {
+      class: 'small dim mt-10',
+      text: 'Every capture is the running app at desktop or phone width. Click one for the full-size PNG; the 15-minute recorded demo is linked from the hero and the About section below.',
+    }),
+  ]);
+  section.id = 'screenshots';
+  return section;
+}
+
+function stackGrid() {
+  return el(
+    'div',
+    { class: 'stack-grid' },
+    STACK.map((group) =>
+      el('div', { class: 'stack' }, [
+        el('h3', { text: group.title }),
+        el('ul', {}, group.items.map((item) => el('li', { text: item }))),
+      ]),
+    ),
+  );
+}
+
+function repoSignals() {
+  return el('div', {}, [
+    el(
+      'div',
+      { class: 'repo-grid' },
+      REPO_SIGNALS.map((signal) =>
+        el('div', { class: 'repo-stat' }, [
+          el('b', { text: signal.value }),
+          el('span', { text: signal.label }),
+          el('em', { text: signal.hint }),
+        ]),
+      ),
+    ),
+    el('p', {
+      class: 'small dim repo-note',
+      text: `Counts are a snapshot taken ${REPO_SNAPSHOT}, not a runtime request: connect-src stays 'self', so the page works offline and no third party sees a visit. GitHub is the live source of truth.`,
+    }),
+    el('div', { class: 'about-links' }, [
+      el('a', { href: REPO_URL, target: '_blank', rel: 'noopener', text: 'STAR ON GITHUB' }),
+      el('a', { href: LIVE_URL, target: '_blank', rel: 'noopener', text: 'LIVE DEPLOYMENT' }),
+    ]),
+  ]);
 }
 
 function roadmapList() {
@@ -2944,17 +3305,27 @@ function renderDashboard(root) {
         statCard('Runtime dependencies', '0', 'no bundler, no npm packages, no node_modules'),
         statCard('Modules working', `${full} full · ${MODULE_STATUS.length - full} partial`, 'nothing claimed that is not there'),
       ]),
-      note('Read this first: this is not the mythical 1000-point build, which the brief itself budgets at 20 engineers for 12 months. It is a working, tested, honest slice: the modules that are full are full, the ones that are partial say exactly where they stop, and every claim is backed by a test you can re-run.', 'warn'),
-      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column the build lands on ${achieved}, because Silver asks for four complete modules and ${full} are complete${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}. Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
       card('What this is, why it exists, who it is for', [briefBlock()]),
+      caseStudyCard(),
+      showcaseCard(),
       card('Capabilities in the shipped build', [
         capabilityGrid(),
         el('p', { class: 'small dim mt-10', text: 'Each tile names a capability that has tests behind it - open the module and re-run them. Nothing on this grid is aspirational: the aspirational material lives in the roadmap, below.' }),
+      ]),
+      card('Technologies, by layer', [
+        stackGrid(),
+        el('p', {
+          class: 'small dim stack-note',
+          text: 'No React, no bundler, no npm import inside src/, and no AI API: the intelligence here is local - a compiler, a CRDT and a renderer. That is a deliberate constraint, not a missing feature. The only Python is tooling; the shipped page is static HTML, CSS and ES modules.',
+        }),
       ]),
       card('Roadmap', [
         roadmapList(),
         el('p', { class: 'small dim mt-10', text: 'The same honesty rule as the scorecard, pointed forward: "partial" rows say exactly what is missing, and "planned" rows are not counted anywhere.' }),
       ]),
+      card('Repository signals', [repoSignals()]),
+      note('Read this first: this is not the mythical 1000-point build, which the brief itself budgets at 20 engineers for 12 months. It is a working, tested, honest slice: the modules that are full are full, the ones that are partial say exactly where they stop, and every claim is backed by a test you can re-run.', 'warn'),
+      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column the build lands on ${achieved}, because Silver asks for four complete modules and ${full} are complete${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}. Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
       bootSequenceCard(),
       card('Tier ladder', [tierLadder(achieved)]),
       card('Module score map', [
@@ -3336,6 +3707,8 @@ async function boot() {
   addEventListener('keydown', onGlobalKey);
   const commandButton = document.getElementById('cmd-open');
   if (commandButton) commandButton.addEventListener('click', openPalette);
+  const themeButton = document.getElementById('theme-toggle');
+  if (themeButton) themeButton.addEventListener('click', toggleTheme);
   logBoot('command palette armed · ctrl/cmd+K · alt+1-8 direct module jumps');
   logBoot('telemetry online · sampling every 1000 ms');
   logBoot(`ready · ${Math.round(performance.now())} ms since navigation start`);
@@ -3347,7 +3720,21 @@ async function boot() {
   // re-renders the matching panel.
   const deepLink = location.hash.replace(/^#/, '');
   renderPanel('dashboard');
-  if (deepLink && deepLink !== 'dashboard' && PANELS.some((p) => p.id === deepLink)) renderPanel(deepLink);
+  if (deepLink && deepLink !== 'dashboard' && PANELS.some((p) => p.id === deepLink)) {
+    renderPanel(deepLink);
+  } else if (deepLink === 'case-study' || deepLink === 'screenshots') {
+    // These are sections of M0, not module panels. The node exists as soon as
+    // the dashboard has rendered, so a shared link can land on the evidence.
+    const target = document.getElementById(deepLink);
+    if (target) {
+      target.scrollIntoView({ block: 'start' });
+      try {
+        history.replaceState(null, '', `#${deepLink}`);
+      } catch {
+        /* file:// refuses history state; the scroll still happened */
+      }
+    }
+  }
   addEventListener('hashchange', () => {
     const wanted = location.hash.replace(/^#/, '');
     if (wanted && wanted !== state.activePanel && PANELS.some((p) => p.id === wanted)) renderPanel(wanted);

@@ -2264,3 +2264,239 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .about-links svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 html[data-theme='light'] .about-links a { background: rgba(255, 255, 255, 0.9); }
 html[data-theme='light'] .about-links a:hover { color: var(--accent); }
+
+/* ==================================================================
+   UI v3.2 - the first screen and the evidence: a one-click theme
+   switch, CTAs that lead somewhere real, screenshots of this build,
+   the stack it is made of, and the repository's own numbers.
+   ================================================================== */
+
+/* --- header actions + theme toggle --------------------------------------- */
+.topbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-self: end; }
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 12px;
+  color: var(--dim);
+}
+.theme-toggle svg {
+  width: 15px; height: 15px;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.theme-toggle .icon-moon { display: none; }
+.theme-toggle[aria-pressed='true'] .icon-sun { display: none; }
+.theme-toggle[aria-pressed='true'] .icon-moon { display: block; }
+.theme-toggle-label { font: 700 calc(10px * var(--scale)) / 1 var(--mono); letter-spacing: 0.12em; }
+.theme-toggle:hover:not(:disabled) { color: var(--text); }
+html[data-theme='light'] .theme-toggle { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(232, 238, 246, 0.97)); }
+
+/* --- hero byline and calls to action ------------------------------------- */
+.hero-byline {
+  margin: 0 0 12px;
+  color: var(--dim);
+  font: 600 calc(11px * var(--scale)) / 1.6 var(--mono);
+  letter-spacing: 0.04em;
+}
+.hero-byline b { color: var(--text); font-weight: 700; }
+.hero-byline a { color: var(--accent-3); border-bottom: 1px dotted currentColor; }
+.hero-byline a:hover { color: var(--accent); border-bottom-style: solid; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.hero-actions .button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-bottom: 1px solid var(--line-2);
+  text-decoration: none;
+}
+.hero-actions .button.primary { border-bottom-color: rgba(110, 168, 254, 0.75); }
+.hero-actions .button:hover { text-decoration: none; }
+@media (max-width: 560px) {
+  .hero-actions .button { flex: 1 1 100%; }
+}
+
+/* --- screenshots ----------------------------------------------------------
+   A two-column column flow, so the portrait phone capture keeps its own
+   aspect ratio instead of being cropped to a landscape tile. Images are lazy
+   and carry their intrinsic size, so the card does not shift as they load. */
+.gallery { columns: 2; column-gap: 12px; }
+@media (max-width: 760px) { .gallery { columns: 1; } }
+.shot {
+  break-inside: avoid;
+  margin: 0 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+}
+.shot a { display: block; background: #05070b; border-bottom: none; }
+.shot img { display: block; width: 100%; height: auto; }
+.shot.portrait a { display: flex; justify-content: center; }
+.shot.portrait img { width: auto; max-width: 100%; max-height: 520px; }
+.shot a:hover img { transform: scale(1.012); }
+.shot img { transition: transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1); }
+.shot figcaption { padding: 10px 12px 12px; }
+.shot figcaption b { display: block; font: 700 calc(11px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.04em; }
+.shot figcaption span { display: block; color: var(--dim); font-size: 0.86em; margin-top: 2px; }
+.shot figcaption em { display: block; color: var(--accent-3); font: 700 calc(9.5px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.1em; font-style: normal; margin-top: 4px; }
+html[data-theme='light'] .shot a { background: #e9eef6; }
+
+/* --- stack --------------------------------------------------------------- */
+.stack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 10px; }
+.stack {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+}
+.stack h3 { margin-bottom: 8px; }
+.stack ul { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.stack li {
+  font: 600 calc(10px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.04em;
+  padding: 5px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--dim);
+  background: rgba(13, 19, 28, 0.6);
+}
+html[data-theme='light'] .stack li { background: rgba(255, 255, 255, 0.75); }
+.stack-note { margin-top: 10px; }
+
+/* --- repository signals --------------------------------------------------- */
+.repo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; }
+.repo-stat {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
+    linear-gradient(180deg, var(--panel), var(--bg-2));
+}
+.repo-stat b { display: block; font: 800 calc(20px * var(--scale)) / 1 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
+.repo-stat span { display: block; margin-top: 4px; color: var(--dim); font: 700 calc(9.5px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+.repo-stat em { display: block; margin-top: 4px; color: var(--dim); font: 400 calc(9.5px * var(--scale)) / 1.5 var(--mono); font-style: normal; }
+.repo-note { margin-top: 10px; }
+html[data-theme='light'] .repo-stat {
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
+}
+
+/* ==================================================================
+   UI v3.3 - the engineering case study: decision records for every
+   module, compact enough to scan and detailed enough to audit.
+   ================================================================== */
+
+/* Deep links land on the evidence, not under the operations strip. */
+#case-study, #screenshots { scroll-margin-top: 18px; }
+
+.case-study { display: grid; gap: 12px; }
+.case-brief { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.case-brief div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+}
+.case-brief b {
+  display: block;
+  font: 700 calc(9.5px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-3);
+}
+.case-brief span { display: block; margin-top: 4px; color: var(--dim); font-size: 0.86em; }
+.case-intro { margin: 0; color: var(--dim); max-width: 86ch; }
+.case-list { display: grid; gap: 8px; }
+
+.case {
+  --mod: var(--accent);
+  --mod-soft: rgba(110, 168, 254, 0.18);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+}
+.case[data-mod='1'] { --mod: #6ea8fe; --mod-soft: rgba(110, 168, 254, 0.18); }
+.case[data-mod='2'] { --mod: #f7b955; --mod-soft: rgba(247, 185, 85, 0.18); }
+.case[data-mod='3'] { --mod: #57d68d; --mod-soft: rgba(87, 214, 141, 0.18); }
+.case[data-mod='4'] { --mod: #b39ddb; --mod-soft: rgba(179, 157, 219, 0.18); }
+.case[data-mod='5'] { --mod: #4dd0e1; --mod-soft: rgba(77, 208, 225, 0.18); }
+.case[data-mod='6'] { --mod: #ffab91; --mod-soft: rgba(255, 171, 145, 0.18); }
+.case[data-mod='7'] { --mod: #c5e1a5; --mod-soft: rgba(197, 225, 165, 0.18); }
+.case[data-mod='8'] { --mod: #ff6b81; --mod-soft: rgba(255, 107, 129, 0.18); }
+
+.case-summary {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto 18px;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.case-summary::-webkit-details-marker { display: none; }
+.case-summary:hover { background: rgba(110, 168, 254, 0.05); }
+.case-summary:focus-visible { outline: 2px solid var(--mod); outline-offset: -2px; }
+
+.case-id {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 28px;
+  border: 1px solid var(--mod);
+  border-radius: 6px;
+  background: var(--mod-soft);
+  color: var(--text);
+  font: 800 calc(10.5px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.08em;
+}
+.case-headline { min-width: 0; }
+.case-headline b { display: block; font: 700 calc(12px * var(--scale)) / 1.35 var(--mono); letter-spacing: 0.03em; }
+.case-headline i { display: block; color: var(--dim); font-style: normal; font-size: 0.86em; }
+.case-status {
+  padding: 5px 7px;
+  border: 1px solid;
+  border-radius: 999px;
+  font: 700 calc(9.5px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.case-status.full { color: var(--ok); border-color: rgba(87, 214, 141, 0.55); background: rgba(87, 214, 141, 0.07); }
+.case-status.partial { color: var(--warn); border-color: rgba(247, 185, 85, 0.55); background: rgba(247, 185, 85, 0.07); }
+.case-points { color: var(--text); font: 700 calc(11px * var(--scale)) / 1 var(--mono); font-variant-numeric: tabular-nums; }
+.case-chevron::before { display: block; text-align: center; content: '+'; color: var(--accent); font: 700 18px/1 var(--mono); }
+.case[open] .case-chevron::before { content: '\2212'; }
+.case[open] .case-summary { border-bottom: 1px solid var(--line); background: rgba(110, 168, 254, 0.04); }
+
+.case-body { display: grid; gap: 12px; padding: 13px 14px 14px; }
+.case-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 0; }
+.case-grid dt {
+  color: var(--accent-3);
+  font: 700 calc(9.5px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.case-grid dd { margin: 5px 0 0; color: var(--dim); font-size: 0.9em; }
+.case-evidence { border-left: 2px solid var(--mod); padding: 7px 10px; background: rgba(110, 168, 254, 0.04); }
+.case-evidence b {
+  display: block;
+  color: var(--accent-3);
+  font: 700 calc(9.5px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.case-evidence span { display: block; margin-top: 3px; color: var(--text); font-size: 0.9em; }
+.case-open {
+  justify-self: start;
+  color: var(--accent-3);
+  border-bottom: 1px dotted currentColor;
+  font: 700 calc(10px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.08em;
+}
+.case-open:hover { color: var(--accent); border-bottom-style: solid; }
+
+@media (max-width: 760px) {
+  .case-brief { grid-template-columns: 1fr; }
+  .case-summary { grid-template-columns: 40px minmax(0, 1fr) auto 16px; gap: 9px; }
+  .case-status { display: none; }
+  .case-grid { grid-template-columns: 1fr; gap: 10px; }
+}

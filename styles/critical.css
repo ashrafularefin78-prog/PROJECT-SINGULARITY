@@ -863,3 +863,48 @@ html[data-theme='light'] .dial-name { color: #16202e; }
 html[data-theme='light'] .dial-slot[data-active='true'] { color: #16202e; background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(232, 240, 250, 0.99)); }
 html[data-theme='light'] .about-links a { background: rgba(255, 255, 255, 0.9); }
 html[data-theme='light'] .about-links a:hover { color: var(--accent); }
+.topbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-self: end; }
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 12px;
+  color: var(--dim);
+}
+.theme-toggle svg {
+  width: 15px; height: 15px;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.theme-toggle .icon-moon { display: none; }
+.theme-toggle[aria-pressed='true'] .icon-sun { display: none; }
+.theme-toggle[aria-pressed='true'] .icon-moon { display: block; }
+.theme-toggle-label { font: 700 calc(10px * var(--scale)) / 1 var(--mono); letter-spacing: 0.12em; }
+.theme-toggle:hover:not(:disabled) { color: var(--text); }
+html[data-theme='light'] .theme-toggle { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(232, 238, 246, 0.97)); }
+.hero-byline {
+  margin: 0 0 12px;
+  color: var(--dim);
+  font: 600 calc(11px * var(--scale)) / 1.6 var(--mono);
+  letter-spacing: 0.04em;
+}
+.hero-byline b { color: var(--text); font-weight: 700; }
+.hero-byline a { color: var(--accent-3); border-bottom: 1px dotted currentColor; }
+.hero-byline a:hover { color: var(--accent); border-bottom-style: solid; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.hero-actions .button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-bottom: 1px solid var(--line-2);
+  text-decoration: none;
+}
+.hero-actions .button.primary { border-bottom-color: rgba(110, 168, 254, 0.75); }
+.hero-actions .button:hover { text-decoration: none; }
+@media (max-width: 560px) {
+.hero-actions .button { flex: 1 1 100%; }
+}
+html[data-theme='light'] .shot a { background: #e9eef6; }
+html[data-theme='light'] .stack li { background: rgba(255, 255, 255, 0.75); }
+html[data-theme='light'] .repo-stat {
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
+}

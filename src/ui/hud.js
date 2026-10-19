@@ -307,7 +307,14 @@ function createDial({ modules, onSelect, onClose }) {
     onClose();
   }
 
-  return { open, close, isOpen: () => Boolean(root), move };
+  /* The blips only exist while the dial is mounted, so the live state is
+   * pushed into the dialog while it is open rather than read from a variable
+   * that belongs to the animation frame. */
+  const setLive = (live) => {
+    for (const blip of blips) blip.setAttribute('data-live', live);
+  };
+
+  return { open, close, isOpen: () => Boolean(root), move, setLive };
 }
 
 // ------------------------------------------------------------------- mount
@@ -388,8 +395,7 @@ export function mountHud({ modules, onSelect, facts }) {
       // second (document ops or engine frames). No per-module attribution is
       // invented - the whole page moved, so the whole ring says so.
       const active = (Number.isFinite(reading.fps) && reading.fps > 0) || reading.opsDelta > 0;
-      const live = active ? '1' : '0';
-      for (const blip of blips) blip.setAttribute('data-live', live);
+      dial.setLive(active ? '1' : '0');
     },
     openDial() {
       dial.open();

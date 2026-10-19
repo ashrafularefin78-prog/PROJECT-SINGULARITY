@@ -1,5 +1,7 @@
 # Project Singularity
 
+## Overview
+
 An attempt at *The Impossible Website Challenge*: one page that behaves like an
 operating system, a collaborative workspace, a game engine and a secure
 messenger at once - with **zero runtime dependencies** and no framework in the
@@ -9,7 +11,42 @@ Everything is hand-written against browser APIs: the CRDT, the C front end, the
 renderer, the crypto composition, the storage layer, the WebRTC mesh and the DOM
 code. There is no bundler, no transpiler, and no file in `src/` imported from npm.
 
-## Run it
+## At a glance
+
+| Signal | Value |
+|--------|-------|
+| Live deployment | <https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/> |
+| Built by | **Ashraful Arefin** - Computer Science & Engineering student |
+| GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
+| Repository signals | **0 stars · 0 forks · 17 commits · 1 author · 0 tagged releases** (snapshot 19 Oct 2026; GitHub is the live source) |
+| Tests | **200 across 13 suites**, runnable in the browser from the site itself |
+| Runtime dependencies | **0** - no framework, no bundler, no npm package in the shipped bundle |
+| Modules | 8 (3 full, 5 partial - each partial says exactly where it stops) |
+| Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
+| License | MIT |
+
+The repository is new. If the work is useful, a star is the cheapest way to help
+it reach the people it was built for.
+
+## Screenshots
+
+Captured from the running app, not a design mockup. Click any image for the
+full-size PNG; the recorded demo is below.
+
+| Dashboard (dark) | Dashboard (daylight) |
+|------------------|----------------------|
+| [![Dashboard](assets/screenshots/dashboard-dark.png)](assets/screenshots/dashboard-dark.png) | [![Dashboard in daylight](assets/screenshots/dashboard-light.png)](assets/screenshots/dashboard-light.png) |
+| **M1 - collaborative editor** | **M3 - 3D engine** |
+| [![Editor](assets/screenshots/editor.png)](assets/screenshots/editor.png) | [![3D engine](assets/screenshots/engine.png)](assets/screenshots/engine.png) |
+| **Engineering case study (M0)** | |
+| [![Engineering case study](assets/screenshots/case-study.png)](assets/screenshots/case-study.png) | One decision record per module on the dashboard: the problem, the architecture choice, the trade-off it bought, and the measurement that backs it. Each row opens in place and links to the live module. |
+
+<p align="center">
+  <a href="assets/screenshots/mobile-dashboard.png"><img src="assets/screenshots/mobile-dashboard.png" alt="The dashboard at phone width" width="300" /></a>
+  <br /><sub>The same shell at phone width: tabs scroll, telemetry wraps, nothing is hidden.</sub>
+</p>
+
+## Installation and run
 
 Anything that can serve static files works. Python is enough (Node is *not*
 required anywhere in this project):
@@ -58,9 +95,9 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**188 tests across 11 suites** (~3 s in a real browser, of which 6 need it). Each
+**200 tests across 13 suites** (~3 s in a real browser, of which 10 need it). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
-runner for environments that have it (it reports those 6 as skips with a reason,
+runner for environments that have it (it reports those 10 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
 real WebGL2 context, IndexedDB or RTCPeerConnection, none of which Node provides
 - and the same runner works headlessly against the deployed site:
@@ -83,10 +120,29 @@ node tools/browser-run.js --url=https://<site>/tests/browser.html  # a deploymen
 | `renderer.test.js` | 11 | 3D maths, real WebGL2 initialisation and a rendered frame |
 | `gltf.test.js` | 12 | glTF 2.0 loader: JSON and GLB binary parsing, accessor materialisation, flat-normal generation, PBR material extraction, TRS node hierarchy, non-triangle rejection |
 | `fuzz.test.js` | 11 | seeded fuzzing of the C front end, the CRDT, the ciphertext decoders and the signaling parser |
+| `motion.test.js` | 8 | pure-math motion models: spring, damping and reduced-motion resolution |
+| `substrate.test.js` | 4 | GPU substrate lifecycle, FX gating, canvas cleanup and WebGL context-loss fallback |
 
-Number check: 20 + 15 + 19 + 21 + 51 + 8 + 13 + 7 + 11 + 12 + 11 = 188 (182 pass + 6 browser-only skips).
+Number check: 20 + 15 + 19 + 21 + 51 + 8 + 13 + 7 + 11 + 12 + 11 + 8 + 4 = 200.
+In a browser all 200 pass; the Node runner reports **190 pass + 10 skipped**,
+because those 10 need a canvas, a WebGL2 context, IndexedDB or a peer connection.
 
-## What is real, and what is not
+## Technologies
+
+| Layer | What this build uses |
+|-------|----------------------|
+| Platform | HTML5, CSS3, JavaScript ES modules, Web Workers, Service Worker |
+| Browser APIs | WebGL2 + GLSL, WebCrypto, IndexedDB, WebRTC, BroadcastChannel, CompressionStream, Trusted Types |
+| Written from scratch | RGA CRDT, C lexer / parser / interpreter, glTF 2.0 loader, X3DH + Double Ratchet, Cook-Torrance PBR shader |
+| Tooling and delivery | Python 3 standard library, Node only for measurement, GitHub Actions, Cloudflare static hosting |
+
+No React, no bundler, no npm package imported by `src/`, and no AI service. The
+intelligence in this project is local: a compiler, a CRDT and a renderer. That is
+a deliberate constraint rather than a missing feature - it is what keeps the page
+working offline and free of third-party connections. The only Python is tooling;
+the shipped page is static HTML, CSS and ES modules.
+
+## Features - what is real, and what is not
 
 | Module | Status | Notes |
 |--------|--------|-------|
@@ -125,7 +181,7 @@ The brief's ladder asks two different questions, so this README answers both:
 |---------|--------|-----|
 | Points band | **Gold** (450-750) | Arithmetic on the module scores. |
 | Tier by requirement | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete and five are partial, so Silver misses by one module - stated plainly rather than rounded up. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (139.1 KiB gzip vs 170 KB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (160.1 KiB gzip vs 170 KB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -148,7 +204,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (11 suites, 188 tests, fuzzer included)
+tests/                  browser test suite (13 suites, 200 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
@@ -167,7 +223,7 @@ docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
                         reports/ (raw JSON), charts/budget.svg
 ```
 
-## Try the interesting bits
+## Usage - try the interesting bits
 
 - **Two tabs, one document.** Open the app twice; both edit the same CRDT over
   BroadcastChannel and merge live.
@@ -203,6 +259,36 @@ docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
   scanlines, sweeping light and perspective floor disappear and nothing else
   changes, because they are decorative layers painted under a flat layout. The
   telemetry strip in the header keeps reporting regardless.
+
+## Roadmap
+
+| Status | Item | Where it stands |
+|--------|------|-----------------|
+| **Shipped** | M1 collaborative editor | Full: convergence, causality, undo replication and tombstone collection under property tests. |
+| **Shipped** | M4 end-to-end encryption | Full: X3DH, Double Ratchet, streaming file AEAD and key verification. |
+| **Shipped** | M6 offline-first storage | Full: op log, snapshots, migrations, service worker and server-stopped recovery. |
+| **In progress** | M2 C runtime | Declared partial: no clang-to-WASM backend and no variadic user functions yet. |
+| **In progress** | M3 3D engine | Declared partial: no image-based lighting, texture sampling, skeletal animation or WebGPU path yet. |
+| **In progress** | M5 transport | Declared partial: the relay is a local dev node and no TURN server is bundled. |
+| **In progress** | M7 accessibility | Declared partial: structured for screen readers, not yet validated with NVDA or VoiceOver. |
+| **In progress** | M8 hardening | Declared partial: no third-party red-team pass and no ZAP baseline run yet. |
+| **Planned** | WASM backend for M2 | Compile C to WebAssembly in the worker and keep the interpreter as the fallback. |
+| **Planned** | WebGPU renderer path | A second backend behind the same engine API, with WebGL2 kept for compatibility. |
+| **Planned** | OPFS and SharedArrayBuffer pooling | Faster cold start and cross-tab memory sharing where COOP/COEP allow it. |
+| **Planned** | Hosted relay and TURN | So peer tests are not confined to one machine or one NAT. |
+| **Planned** | Screen-reader validation | Drive the interface with NVDA and VoiceOver, then fix what they find. |
+
+## Author
+
+**Ashraful Arefin** - Computer Science & Engineering student. Interested in artificial
+intelligence, software engineering, cybersecurity and open source development. This is
+a solo build: every module, test, report and measurement in the repository was written
+from scratch against the platform's own APIs.
+
+- GitHub: [ashrafularefin78-prog](https://github.com/ashrafularefin78-prog)
+- Project: [PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY)
+- Email: [ashrafularefin@gmail.com](mailto:ashrafularefin@gmail.com)
+- Live: <https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/>
 
 ## License
 

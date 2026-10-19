@@ -17,5 +17,28 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/dashboard-dark.png",
+      "sizes": "1574x907",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Project Singularity dashboard with the honest score, capabilities, roadmap and live telemetry"
+    },
+    {
+      "src": "assets/screenshots/engine.png",
+      "sizes": "1574x907",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "The WebGL2 engine drawing the glTF sample model with PBR shading"
+    },
+    {
+      "src": "assets/screenshots/mobile-dashboard.png",
+      "sizes": "966x1644",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "The same shell at phone width"
+    }
   ]
 }
