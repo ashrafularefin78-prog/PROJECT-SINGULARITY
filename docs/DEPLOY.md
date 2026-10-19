@@ -92,21 +92,38 @@ all headers delivered as _headers specifies
 Three of those lines — `frame-ancestors 'none'`, COOP and COEP — are the ones
 GitHub Pages could not send at all, and they are the reason this site moved.
 
-### Re-verified 2026-10-18
+### Re-verified 2026-10-19
 
-The hosting claim still holds for what is deployed: the live response carries
+The hosting claim still holds for what the host does: the live response carries
 `frame-ancestors 'none'` inside the CSP plus COOP and COEP — the three
 directives GitHub Pages could not send at all. The repository has moved on
-since that deployment, though. The current `_headers` expects the hashed style
-policy (`style-src 'self' 'sha256-yvouVyQJSZjC/66iRVVWI2qyOFQb9xgSLS/vTqvkONU='`),
-and the deployed build predates it, so
+since the live deployment, though. The current `_headers` expects the hashed
+style policy (`style-src 'self' 'sha256-ActgC60ZLhkgZShDeF5iw8kp+TINQ4WoWdpA13Na7+Q='`),
+and the deployed build predates it, so today's run of
 `node tools/verify-headers.js --url=https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/`
-fails five per-path comparisons today: every header arrives, but the CSP served
-is the prior revision without the hash. `node tools/verify-headers.js` (no
-`--url`) passes against the current tree. Redeploying the current tree —
-`npx wrangler pages deploy . --project-name project-singularity`, or a
-Re-deploy in the Pages dashboard — closes the gap; this environment has no
-host credentials to run that command.
+fails five per-path comparisons: every security header arrives, but the CSP
+served is the prior revision without the hash. The actual output, reproduced so
+the claim is checkable rather than asserted:
+
+```
+$ node tools/verify-headers.js --url=https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/
+# _headers: 2 rule sets (/*, /sw.js)
+  FAIL /                status 200 | missing: - | Content-Security-Policy: expected "…style-src 'self' 'sha256-ActgC60Z…'…", got "…style-src 'self'; img-src…"
+  FAIL /index.html      status 200 | missing: - | (same: served CSP lacks the style hash)
+  FAIL /sw.js           status 200 | missing: - | (same)
+  FAIL /src/app.js      status 200 | missing: - | (same)
+  FAIL /styles/app.css  status 200 | missing: - | (same)
+  ok   content-security-policy: … frame-ancestors 'none'; require-trusted-types-for 'script'
+  ok   cross-origin-opener-policy: same-origin
+  ok   cross-origin-embedder-policy: require-corp
+
+5 header check(s) failed
+```
+
+`node tools/verify-headers.js` (no `--url`) passes against the current tree.
+Redeploying the current tree — `npx wrangler pages deploy . --project-name
+project-singularity`, or a Re-deploy in the Pages dashboard — closes the gap;
+this environment has no host credentials to run that command.
 
 ### The deploy artifact, not just the host
 
