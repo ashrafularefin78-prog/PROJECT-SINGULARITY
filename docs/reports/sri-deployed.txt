@@ -1,0 +1,14 @@
+﻿# SRI and service-worker cache on the deployed artifact
+# built 2026-10-19 19:54:29 +06:00
+
+serviceWorkerVersion: singularity-47b70ce694d5f903
+
+integrity attributes in dist/index.html:
+integrity="sha384-kjZXXfEDdKHw/zn8eO55neKI7d6EV74vWpKSoIA6BT7MM+AeHk2NjC0DCAfeBSb/"
+integrity="sha384-tjZsCQV9MqssOCbGqISxd/bYLgASlMnR8BXwfAiDQnpWGve2k9bXHiBGn30JdeKZ"
+
+recomputed sha384 of styles/app.css: sha384-kjZXXfEDdKHw/zn8eO55neKI7d6EV74vWpKSoIA6BT7MM+AeHk2NjC0DCAfeBSb/
+recomputed sha384 of src/boot-note.js: sha384-tjZsCQV9MqssOCbGqISxd/bYLgASlMnR8BXwfAiDQnpWGve2k9bXHiBGn30JdeKZ
+
+sw.js cache list contains app.js: True
+sw.js cache list contains app.css: True

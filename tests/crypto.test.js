@@ -11,6 +11,7 @@ import {
   dhVariantInfo,
   encryptFile,
   exportDhPublic,
+  exportSignPublic,
   formatSafetyNumber,
   importSignPublic,
   randomBytes,
@@ -328,6 +329,53 @@ test('M4: wrong passphrase fails to open sealed keys', async () => {
     failed = true;
   }
   assert(failed, 'wrong passphrase must fail to decrypt');
+});
+
+test('M4: the sealed blob carries its KDF work factor and both key bindings', async () => {
+  const id = await Identity.create('alice');
+  const sealed = await sealPrivateKeys(id, 'a long enough passphrase');
+  assertEquals(sealed.v, 2, 'sealed blob version');
+  assertEquals(sealed.kdf, 'PBKDF2-SHA256', 'KDF name must travel with the blob');
+  assertEquals(sealed.iterations, 600000, 'default PBKDF2 iterations');
+  assert(sealed.ik && sealed.sign, 'both identity public keys must be bound into the blob');
+  const reopened = await openPrivateKeys(sealed, 'a long enough passphrase', 'alice');
+  assertEquals(reopened.dhPair.privateKey.extractable, false, 'DH private key must be non-extractable after import');
+  assertEquals(reopened.signPair.privateKey.extractable, false, 'signing private key must be non-extractable after import');
+});
+
+test('M4: tampering with either identity key binding fails closed', async () => {
+  const id = await Identity.create('alice');
+  const other = await Identity.create('mallory');
+  const sealed = await sealPrivateKeys(id, 'a long enough passphrase');
+  for (const field of ['ik', 'sign']) {
+    const tampered = { ...sealed, [field]: field === 'ik' ? b64(await exportDhPublic(other.dhPair)) : b64(await exportSignPublic(other.signPair)) };
+    let failed = false;
+    try {
+      await openPrivateKeys(tampered, 'a long enough passphrase', 'alice');
+    } catch {
+      failed = true;
+    }
+    assert(failed, `a swapped ${field} binding must fail the AEAD check`);
+  }
+});
+
+test('M4: an out-of-range KDF work factor and a short passphrase are refused', async () => {
+  const id = await Identity.create('alice');
+  const sealed = await sealPrivateKeys(id, 'a long enough passphrase');
+  let failed = false;
+  try {
+    await openPrivateKeys({ ...sealed, iterations: 1000 }, 'a long enough passphrase', 'alice');
+  } catch {
+    failed = true;
+  }
+  assert(failed, 'a KDF work factor below the floor must be refused');
+  failed = false;
+  try {
+    await sealPrivateKeys(id, 'short');
+  } catch {
+    failed = true;
+  }
+  assert(failed, 'a passphrase shorter than 8 characters must be refused');
 });
 
 test('M4: export/import private keys round-trips', async () => {

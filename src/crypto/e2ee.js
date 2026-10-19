@@ -733,7 +733,7 @@ export async function importIdentityPrivate(bytes, name = 'anon') {
   const dhPubJwk = { ...dhJwk };
   delete dhPubJwk.d;
   delete dhPubJwk.key_ops;
-  const dhPubKey = await subtle().importKey('jwk', dhPubJwk, dhAlg, true, []);
+  const dhPubKey = await subtle().importKey('jwk', dhPubJwk, dhAlg, false, []);
   const dhPrivKey = await subtle().importKey('pkcs8', dhPrivBytes, dhAlg, false, ['deriveBits']);
   const dhPair = { privateKey: dhPrivKey, publicKey: dhPubKey };
 
@@ -742,7 +742,7 @@ export async function importIdentityPrivate(bytes, name = 'anon') {
   const signPubJwk = { ...signJwk };
   delete signPubJwk.d;
   delete signPubJwk.key_ops;
-  const signPubKey = await subtle().importKey('jwk', signPubJwk, signAlg, true, ['verify']);
+  const signPubKey = await subtle().importKey('jwk', signPubJwk, signAlg, false, ['verify']);
   const signPrivKey = await subtle().importKey('pkcs8', signPrivBytes, signAlg, false, ['sign']);
   const signPair = { privateKey: signPrivKey, publicKey: signPubKey };
 
@@ -762,7 +762,7 @@ export async function importIdentityPrivate(bytes, name = 'anon') {
   return id;
 }
 
-/** Derive an AES-256-GCM key from a passphrase using PBKDF2 (100k iterations). */
+/** Derive an AES-256-GCM key from a passphrase using PBKDF2 (600k iterations). */
 export async function derivePassphraseKey(passphrase, salt, iterations = 600000) {
   const enc = new TextEncoder();
   const baseKey = await subtle().importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
@@ -775,23 +775,86 @@ export async function derivePassphraseKey(passphrase, salt, iterations = 600000)
   );
 }
 
-/** Seal an Identity's private keys with a passphrase. Returns { kdf, iterations, salt, iv, ct } (base64). */
-export async function sealPrivateKeys(identity, passphrase, iterations = 600000) {
+// The sealed blob is key material, not a generic record: its version, KDF
+// name and iteration count travel with it so a future build can raise the
+// work factor and still open an old blob. Both identity public keys are bound
+// into the AEAD associated data: swapping either key (or the version) makes
+// decryption fail before any private key is imported.
+const SEAL_VERSION = 2;
+const SEAL_AAD_LABEL = 'Singularity|SEAL|v2';
+export const SEAL_MIN_ITERATIONS = 100000;
+export const SEAL_DEFAULT_ITERATIONS = 600000;
+
+function sealAad(ikB64, signB64) {
+  return concat(TEXT.encode(SEAL_AAD_LABEL), unb64(ikB64), unb64(signB64));
+}
+
+/**
+ * Seal an Identity's private keys with a passphrase.
+ * Returns { v, kdf, iterations, salt, iv, ik, sign, ct } (all binary fields base64).
+ */
+export async function sealPrivateKeys(identity, passphrase, iterations = SEAL_DEFAULT_ITERATIONS) {
+  if (typeof passphrase !== 'string' || passphrase.length < 8) {
+    throw new Error('the passphrase must be at least 8 characters');
+  }
+  if (!Number.isInteger(iterations) || iterations < SEAL_MIN_ITERATIONS) {
+    throw new Error(`PBKDF2 iterations must be an integer >= ${SEAL_MIN_ITERATIONS}`);
+  }
   const privBytes = await exportIdentityPrivate(identity);
   const salt = randomBytes(16);
   const key = await derivePassphraseKey(passphrase, salt, iterations);
   const iv = randomBytes(12);
-  const ct = await subtle().encrypt({ name: 'AES-GCM', iv }, key, privBytes);
-  return { kdf: 'PBKDF2-SHA256', iterations, salt: b64(salt), iv: b64(iv), ct: b64(new Uint8Array(ct)) };
+  const ik = b64(await exportDhPublic(identity.dhPair));
+  const sign = b64(await exportSignPublic(identity.signPair));
+  const ct = await subtle().encrypt(
+    { name: 'AES-GCM', iv, additionalData: sealAad(ik, sign) },
+    key,
+    privBytes,
+  );
+  return {
+    v: SEAL_VERSION,
+    kdf: 'PBKDF2-SHA256',
+    iterations,
+    salt: b64(salt),
+    iv: b64(iv),
+    ik,
+    sign,
+    ct: b64(new Uint8Array(ct)),
+  };
 }
 
 /** Open sealed private keys with a passphrase and reconstruct the Identity. */
 export async function openPrivateKeys(sealed, passphrase, name = 'anon') {
+  if (!sealed || typeof sealed !== 'object') throw new Error('sealed identity is missing');
+  if (sealed.kdf && sealed.kdf !== 'PBKDF2-SHA256') {
+    throw new Error(`unsupported KDF "${sealed.kdf}" - this build only opens PBKDF2-SHA256 blobs`);
+  }
+  const iterations = Number(sealed.iterations || SEAL_MIN_ITERATIONS);
+  if (!Number.isInteger(iterations) || iterations < SEAL_MIN_ITERATIONS || iterations > 10000000) {
+    throw new Error(`refusing an out-of-range PBKDF2 work factor (${sealed.iterations})`);
+  }
   const salt = unb64(sealed.salt);
   const iv = unb64(sealed.iv);
   const ct = unb64(sealed.ct);
-  const iterations = sealed.iterations || 100000;
+  const version = Number(sealed.v || 1);
+  let aad;
+  if (version >= 2) {
+    if (!sealed.ik || !sealed.sign) {
+      throw new Error('sealed identity is missing the identity-key binding');
+    }
+    aad = sealAad(sealed.ik, sealed.sign);
+  }
   const key = await derivePassphraseKey(passphrase, salt, iterations);
-  const pt = await subtle().decrypt({ name: 'AES-GCM', iv }, key, ct);
-  return importIdentityPrivate(new Uint8Array(pt), name);
+  const params = { name: 'AES-GCM', iv };
+  if (aad) params.additionalData = aad;
+  const pt = await subtle().decrypt(params, key, ct);
+  const identity = await importIdentityPrivate(new Uint8Array(pt), name);
+  if (version >= 2) {
+    const ik = b64(await exportDhPublic(identity.dhPair));
+    const sign = b64(await exportSignPublic(identity.signPair));
+    if (ik !== sealed.ik || sign !== sealed.sign) {
+      throw new Error('sealed identity keys do not match the authenticated binding');
+    }
+  }
+  return identity;
 }

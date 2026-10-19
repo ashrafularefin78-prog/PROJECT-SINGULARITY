@@ -36,6 +36,10 @@ try {
   for (const path of PATHS) {
     const res = await fetch(origin + path);
     const received = new Map([...res.headers].map(([k, v]) => [k.toLowerCase(), v]));
+    // Drain the body before the next request. A server that answers with
+    // HTTP/1.0 closes the socket, and an undrained response makes the next
+    // fetch reuse a connection that is already gone.
+    await res.arrayBuffer();
     const expected = headersFor(rules, path);
     const missing = [];
     const wrong = [];
@@ -54,8 +58,10 @@ try {
   // The directives that cannot be expressed in HTML: if these are absent the
   // site depends on the host reading _headers at all.
   const index = await fetch(origin + '/');
+  const indexHeaders = index.headers;
+  await index.arrayBuffer();
   for (const name of REQUIRED_BY_META_LIMITATION) {
-    const value = index.headers.get(name);
+    const value = indexHeaders.get(name);
     const pass = !!value;
     console.log(`  ${pass ? 'ok  ' : 'FAIL'} ${name}: ${value || 'ABSENT'}`);
     if (!pass) failures += 1;

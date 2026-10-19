@@ -1,0 +1,32 @@
+﻿# GitHub Pages live response - what this host can and cannot deliver
+# captured 2026-10-19 19:47:18 +06:00
+
+status: 200
+Accept-Ranges: bytes
+Access-Control-Allow-Origin: *
+Age: 0
+Cache-Control: max-age=600
+Connection: keep-alive
+Content-Length: 55438
+Content-Type: text/html; charset=utf-8
+Date: Mon, 19 Oct 2026 13:47:19 GMT
+ETag: "6ad61171-d88e"
+Expires: Mon, 19 Oct 2026 13:37:17 GMT
+Last-Modified: Mon, 19 Oct 2026 12:47:45 GMT
+Server: GitHub.com
+Strict-Transport-Security: max-age=31556952
+Vary: Accept-Encoding
+Via: 1.1 varnish
+X-Cache: HIT
+X-Cache-Hits: 0
+X-Fastly-Request-ID: f99174494d706a3f5432ff362ca2ea3207e3d4e1
+x-github-edge-region: fra
+X-GitHub-Request-Id: 3BDA:81A5C:39AECD:3A175C:6AD61AB5
+x-proxy-cache: MISS
+X-Served-By: cache-sin-wsss1830025-SIN
+X-Timer: S1792417639.016398,VS0,VE266
+
+# directives a meta tag cannot express:
+  ABSENT   Content-Security-Policy   <- GitHub Pages cannot send this header
+  ABSENT   Cross-Origin-Opener-Policy   <- GitHub Pages cannot send this header
+  ABSENT   Cross-Origin-Embedder-Policy   <- GitHub Pages cannot send this header

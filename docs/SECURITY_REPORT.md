@@ -22,9 +22,9 @@ single biggest limitation of this report.
 | In-app probes (M8 panel) | Live CSP / Trusted Types behaviour, the hostile-input probe that tries `innerHTML` and `eval()` and shows the refusal |
 | Manual browser runs | Header/CSP inspection over the served response, offline shell under a subpath deployment, two-carrier WebRTC channel, encrypted message round-trip |
 
-Total suite: **221 tests across 13 suites**, all 221 green in a browser
+Total suite: **224 tests across 14 suites**, all 224 green in a browser
 (~2.3 s, runnable from the site at `/tests/browser.html`); under bare Node the
-same suite reports 203 pass and 12 browser-only skips instead of failing them.
+same suite reports 212 pass and 12 browser-only skips instead of failing them.
 
 Fuzz corpora (the numbers in the table are the counts printed by the suite):
 400 lexer inputs, 408 parser inputs, 60 sources compiled twice, 3 runaway
@@ -120,7 +120,7 @@ arithmetic, but a correctness and resource-reporting hole.
 ```bash
 python3 tools/serve.py 5173
 # app:      http://127.0.0.1:5173/
-# suite:    http://127.0.0.1:5173/tests/browser.html   (221 tests, 13 suites)
+# suite:    http://127.0.0.1:5173/tests/browser.html   (224 tests, 14 suites)
 ```
 
 The M8 panel shows the live policy state (CSP, Trusted Types, sandbox isolation)

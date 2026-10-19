@@ -656,7 +656,7 @@ button.danger {
   background: linear-gradient(180deg, rgba(255, 107, 129, 0.32), rgba(255, 107, 129, 0.12));
 }
 
-input[type='text'], input[type='number'], textarea, select {
+input[type='text'], input[type='password'], input[type='number'], textarea, select {
   font: calc(13px * var(--scale)) / 1.55 var(--mono);
   background: #060a10;
   color: var(--text);
@@ -666,7 +666,7 @@ input[type='text'], input[type='number'], textarea, select {
   width: 100%;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-input[type='text']:focus, input[type='number']:focus, textarea:focus, select:focus {
+input[type='text']:focus, input[type='password']:focus, input[type='number']:focus, textarea:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(110, 168, 254, 0.16);
   outline: none;
@@ -674,6 +674,28 @@ input[type='text']:focus, input[type='number']:focus, textarea:focus, select:foc
 textarea { resize: vertical; min-height: 130px; }
 label { font: 600 0.72em/1.5 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 6px; }
 input[type='checkbox'] { accent-color: var(--accent); width: 17px; height: 17px; }
+
+/* The passphrase dialog is a native modal <dialog>: focus trapping, Escape to
+   cancel and the backdrop are browser behaviour, not reimplemented script. */
+.passphrase-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 22px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.95);
+}
+.passphrase-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+}
+.passphrase-dialog h2 { margin-bottom: 8px; }
+.passphrase-dialog .field { margin-top: 14px; }
+.passphrase-dialog .row { margin-top: 18px; }
+.passphrase-dialog .small.bad:empty { display: none; }
 
 /* Sliders: track + thumb, no images, works in light and high-contrast modes. */
 input[type='range'] {

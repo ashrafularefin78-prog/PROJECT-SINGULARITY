@@ -93,7 +93,7 @@ silently normalised non-canonical base64 — which is the argument for having it
 ## 6. Definition of done for this pass
 
 - [x] Site boots from one URL with no install and no plugins
-- [x] 218 automated tests across 13 suites (all 218 green in a browser; 203 pass with 12 browser-only skips under bare Node), runnable from the site itself
+- [x] 224 automated tests across 14 suites (all 224 green in a browser; 212 pass with 12 browser-only skips under bare Node), runnable from the site itself
 - [x] A deterministic fuzzer for the C front end, the CRDT, the crypto decoders
       and the signaling parser
 - [x] Every module panel does something real, or says what it does not do

@@ -1,0 +1,130 @@
+{
+  "generatedAt": "2026-10-19T13:29:36.396Z",
+  "totalBytes": 2147483648,
+  "chunkBytes": 262144,
+  "frames": 8192,
+  "framesDecrypted": 8192,
+  "bytesDecrypted": 2147483648,
+  "plaintextSha256": "9d895dc4c0a2cf3473bd98719da661ab782cd18ae181ca435fdccf28ecb1affc",
+  "roundTripSha256": "9d895dc4c0a2cf3473bd98719da661ab782cd18ae181ca435fdccf28ecb1affc",
+  "digestsMatch": true,
+  "ciphertextFileBytes": 2863979433,
+  "encryptMs": 31636,
+  "decryptMs": 35485,
+  "encryptMiBPerSecond": 64.7,
+  "decryptMiBPerSecond": 57.7,
+  "peakRssBytes": 313999360,
+  "peakHeapUsedBytes": 86201112,
+  "peakArrayBuffersBytes": 32324974,
+  "nodeVersion": "v24.22.0",
+  "samples": [
+    {
+      "label": "encrypt 256 MiB",
+      "rssMiB": 198.5,
+      "heapUsedMiB": 48.4,
+      "arrayBuffersMiB": 1.9
+    },
+    {
+      "label": "encrypt 512 MiB",
+      "rssMiB": 183.5,
+      "heapUsedMiB": 24.2,
+      "arrayBuffersMiB": 1.9
+    },
+    {
+      "label": "encrypt 768 MiB",
+      "rssMiB": 213.6,
+      "heapUsedMiB": 49.6,
+      "arrayBuffersMiB": 2.5
+    },
+    {
+      "label": "encrypt 1024 MiB",
+      "rssMiB": 192.6,
+      "heapUsedMiB": 32.2,
+      "arrayBuffersMiB": 2.5
+    },
+    {
+      "label": "encrypt 1280 MiB",
+      "rssMiB": 209.9,
+      "heapUsedMiB": 57.2,
+      "arrayBuffersMiB": 3.1
+    },
+    {
+      "label": "encrypt 1536 MiB",
+      "rssMiB": 230.3,
+      "heapUsedMiB": 82.2,
+      "arrayBuffersMiB": 3.7
+    },
+    {
+      "label": "encrypt 1792 MiB",
+      "rssMiB": 205.8,
+      "heapUsedMiB": 50.1,
+      "arrayBuffersMiB": 3.7
+    },
+    {
+      "label": "encrypt 2048 MiB",
+      "rssMiB": 197,
+      "heapUsedMiB": 51.1,
+      "arrayBuffersMiB": 4.2
+    },
+    {
+      "label": "encrypt done",
+      "rssMiB": 197.1,
+      "heapUsedMiB": 51.1,
+      "arrayBuffersMiB": 4.2
+    },
+    {
+      "label": "decrypt 256 MiB",
+      "rssMiB": 228,
+      "heapUsedMiB": 16.2,
+      "arrayBuffersMiB": 5
+    },
+    {
+      "label": "decrypt 512 MiB",
+      "rssMiB": 274.9,
+      "heapUsedMiB": 66.8,
+      "arrayBuffersMiB": 26.8
+    },
+    {
+      "label": "decrypt 768 MiB",
+      "rssMiB": 252,
+      "heapUsedMiB": 23,
+      "arrayBuffersMiB": 7.8
+    },
+    {
+      "label": "decrypt 1024 MiB",
+      "rssMiB": 282.8,
+      "heapUsedMiB": 73.4,
+      "arrayBuffersMiB": 29.5
+    },
+    {
+      "label": "decrypt 1280 MiB",
+      "rssMiB": 263.9,
+      "heapUsedMiB": 26,
+      "arrayBuffersMiB": 9.3
+    },
+    {
+      "label": "decrypt 1536 MiB",
+      "rssMiB": 299.5,
+      "heapUsedMiB": 76.4,
+      "arrayBuffersMiB": 30.8
+    },
+    {
+      "label": "decrypt 1792 MiB",
+      "rssMiB": 278,
+      "heapUsedMiB": 69.6,
+      "arrayBuffersMiB": 28
+    },
+    {
+      "label": "decrypt 2048 MiB",
+      "rssMiB": 270.3,
+      "heapUsedMiB": 23.9,
+      "arrayBuffersMiB": 7.8
+    },
+    {
+      "label": "decrypt done",
+      "rssMiB": 270.3,
+      "heapUsedMiB": 23.9,
+      "arrayBuffersMiB": 7.8
+    }
+  ]
+}

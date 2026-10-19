@@ -1,7 +1,7 @@
 # Project Singularity
 
-[![Live demo](https://img.shields.io/badge/live_demo-freebuff.page-6ea8fe)](https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/)
-[![Tests](https://img.shields.io/badge/tests-200_across_13_suites-57d68d)](#verify-it)
+[![Live demo](https://img.shields.io/badge/live_demo-freebuff.page-6ea8fe)](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/)
+[![Tests](https://img.shields.io/badge/tests-224_across_14_suites-57d68d)](#verify-it)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_dependencies-0-b39ddb)](#technologies)
 [![License](https://img.shields.io/badge/license-MIT-8399b0)](LICENSE)
 
@@ -20,11 +20,11 @@ code. There is no bundler, no transpiler, and no file in `src/` imported from np
 
 | Signal | Value |
 |--------|-------|
-| Live deployment | <https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/> |
+| Live deployment | <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/> (canonical - one URL, updated by every push to `main`) |
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
 | Repository signals | **0 stars · 0 forks · 17 commits · 1 author · 0 tagged releases** (snapshot 19 Oct 2026; GitHub is the live source) |
-| Tests | **218 across 13 suites**, runnable in the browser from the site itself |
+| Tests | **224 across 14 suites**, runnable in the browser from the site itself |
 | Runtime dependencies | **0** - no framework, no bundler, no npm package in the shipped bundle |
 | Modules | 8 (3 full, 5 partial - each partial says exactly where it stops) |
 | Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
@@ -66,7 +66,7 @@ recorded from the running app by `node tools/demo.js`. No narration: the script
 in [docs/DEMO.md](docs/DEMO.md) is burned in as captions, beat by beat, and
 `docs/reports/demo.json` lists which beats performed their interaction.
 
-**Live deployment:** <https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/>
+**Live deployment:** <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/>
 (Cloudflare-backed, so the `_headers` policy actually arrives - the three
 directives a `<meta>` tag cannot express included). What was verified against
 that URL, header by header, is in [docs/DEPLOY.md](docs/DEPLOY.md); GitHub Pages
@@ -100,7 +100,7 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**221 tests across 13 suites** (~3 s in a real browser, of which 12 need it). Each
+**224 tests across 14 suites** (~3 s in a real browser, of which 12 need it). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
 runner for environments that have it (it reports those 10 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
@@ -216,7 +216,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (13 suites, 221 tests, fuzzer included)
+tests/                  browser test suite (14 suites, 224 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
@@ -301,7 +301,7 @@ from scratch against the platform's own APIs.
 - GitHub: [ashrafularefin78-prog](https://github.com/ashrafularefin78-prog)
 - Project: [PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY)
 - Email: [ashrafularefin@gmail.com](mailto:ashrafularefin@gmail.com)
-- Live: <https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/>
+- Live: <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/>
 
 ## Contributing
 

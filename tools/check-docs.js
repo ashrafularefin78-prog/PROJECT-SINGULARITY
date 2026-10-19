@@ -133,10 +133,32 @@ for (const row of durability.results) {
   );
 }
 
+// Test counts are generated, so they are checked by the generator itself. It
+// re-runs the suite, applies the same deterministic rewrite to the hero chip,
+// the meta descriptions, the scorecard, the README and the reports, and fails
+// on a claim shape it does not recognise. This is deliberately a separate
+// process: the number must come from the runner, not from a constant here.
+let testCounts = { ok: true, text: '' };
+try {
+  testCounts.text = execFileSync(process.execPath, [join(root, 'tools/test-count.js'), '--check'], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+} catch (error) {
+  testCounts.ok = false;
+  testCounts.text = `${error.stdout || ''}${error.stderr || ''}`.trim();
+}
+
 // The soak's headline is a shape, not a number: the run must have completed and
 // the last snapshot must not be bigger than the first. A checker that only
 // matches strings would pass on a report that says the opposite.
 const shapes = [
+  {
+    from: 'tools/test-count.js --check',
+    ok: testCounts.ok,
+    why: 'every published test count matches the tests/run.js summary',
+  },
   {
     from: 'docs/reports/soak.json interrupted',
     ok: soak.interrupted == null && soak.samples.length === soak.minutes,
@@ -221,6 +243,9 @@ for (const { from, ok, why } of shapes) {
   else {
     failures += 1;
     console.log(`  FAIL ${why} (${from})`);
+    if (from === 'tools/test-count.js --check' && testCounts.text) {
+      console.log(testCounts.text.split(/\r?\n/).map((line) => `       ${line}`).join('\n'));
+    }
   }
 }
 

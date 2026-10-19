@@ -1134,21 +1134,15 @@ function renderEngine(root) {
 
 // ------------------------------------------------------------------- M4 E2EE
 
-async function initCrypto() {
-  if (state.crypto) return state.crypto;
-  const you = await Identity.create(state.name);
+/**
+ * Build the demo conversation on top of an Identity. Split out from
+ * initCrypto() because the identity can now arrive from two places: a fresh
+ * key pair generated in this tab, or a passphrase-sealed blob opened from
+ * IndexedDB.
+ */
+async function startCryptoSession(you) {
   const peer = await Identity.create('grace');
   await peer.createOneTimePrekeys(1);
-  // Wire key sealing into the app: seal the identity's private keys with a
-  // passphrase and persist the blob in IndexedDB so at-rest storage is not
-  // plaintext. The passphrase here is the demo default; a real deployment
-  // prompts the user. The blob is stored under meta key 'sealed-identity'.
-  try {
-    const sealed = await sealPrivateKeys(you, 'singularity-demo');
-    if (state.store) await state.store.setMeta('sealed-identity', sealed);
-  } catch (e) {
-    // Sealing is best-effort; the in-memory identity still works.
-  }
   const opk = peer.oneTimePrekeys[0];
   const bundle = await peer.bundle();
   // M4 - the bundle is authenticated BEFORE any key material is derived. The
@@ -1168,8 +1162,168 @@ async function initCrypto() {
   const rPeer = await Ratchet.responder(peerRoot, peer.spkPair);
   const sn = await safetyNumber(ikYou, bundle.ik);
   const variant = await dhVariantInfo();
-  state.crypto = { you, peer, rYou, rPeer, bundle, sn, variant, bundleVerified, messages: [] };
+  return {
+    locked: false,
+    you,
+    peer,
+    rYou,
+    rPeer,
+    bundle,
+    sn,
+    variant,
+    bundleVerified,
+    messages: [],
+    canSeal: true,
+    sealed: null,
+    promptShown: false,
+  };
+}
+
+/**
+ * Load the identity. A sealed blob wins over a fresh key pair: if one exists
+ * the panel starts locked and the private keys are not imported until the
+ * passphrase dialog succeeds. That is the difference between "the library can
+ * seal" and "the app uses the seal".
+ */
+async function initCrypto() {
+  if (state.crypto) return state.crypto;
+  let sealed = null;
+  try {
+    if (state.store) sealed = await state.store.getMeta('sealed-identity');
+  } catch {
+    sealed = null;
+  }
+  if (sealed && sealed.ct) {
+    state.crypto = {
+      locked: true,
+      sealed,
+      messages: [],
+      variant: await dhVariantInfo(),
+      promptShown: false,
+    };
+    return state.crypto;
+  }
+  state.crypto = await startCryptoSession(await Identity.create(state.name));
   return state.crypto;
+}
+
+/**
+ * A real passphrase prompt: a native <dialog>, a password input and an
+ * explicit cancel. No passphrase is ever persisted or written to the event
+ * log; only the sealed blob goes to IndexedDB.
+ */
+function askPassphrase({ title, description, submitLabel, confirm = false, error = '' }) {
+  return new Promise((resolve) => {
+    const errorLine = el('p', { class: 'small bad', role: 'alert', text: error });
+    const input = el('input', {
+      type: 'password',
+      id: 'passphrase-input',
+      autocomplete: confirm ? 'new-password' : 'current-password',
+      minlength: '8',
+      required: true,
+    });
+    const confirmInput = confirm
+      ? el('input', {
+          type: 'password',
+          id: 'passphrase-confirm',
+          autocomplete: 'new-password',
+          minlength: '8',
+          required: true,
+        })
+      : null;
+    const form = el('form', { method: 'dialog' }, [
+      el('h2', { id: 'passphrase-title', text: title }),
+      el('p', { class: 'small dim', text: description }),
+      el('div', { class: 'field' }, [el('label', { for: 'passphrase-input', text: 'Passphrase (8+ characters)' }), input]),
+      confirmInput
+        ? el('div', { class: 'field' }, [el('label', { for: 'passphrase-confirm', text: 'Confirm passphrase' }), confirmInput])
+        : null,
+      errorLine,
+      el('div', { class: 'row' }, [
+        el('button', { type: 'submit', class: 'button primary', text: submitLabel }),
+        el('button', {
+          type: 'button',
+          class: 'button',
+          text: 'Not now',
+          onclick: () => finish(null),
+        }),
+      ]),
+    ]);
+    const dialog = el('dialog', { class: 'passphrase-dialog', 'aria-labelledby': 'passphrase-title' }, [form]);
+    const finish = (value) => {
+      if (dialog.open) dialog.close();
+      dialog.remove();
+      resolve(value);
+    };
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const value = input.value;
+      if (value.length < 8) {
+        errorLine.textContent = 'Use at least 8 characters.';
+        input.focus();
+        return;
+      }
+      if (confirmInput && value !== confirmInput.value) {
+        errorLine.textContent = 'The passphrases do not match.';
+        confirmInput.focus();
+        return;
+      }
+      finish(value);
+    });
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      finish(null);
+    });
+    document.body.appendChild(dialog);
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    input.focus();
+  });
+}
+
+async function sealIdentityWithPrompt(c) {
+  const passphrase = await askPassphrase({
+    title: 'Protect the identity at rest',
+    description:
+      'The private keys live in memory only until you seal them. They will be encrypted with AES-256-GCM under a key derived from this passphrase (PBKDF2-SHA256, 600,000 iterations) and stored in IndexedDB. Only the sealed blob is persisted; after unlocking, the imported private keys stay non-extractable.',
+    submitLabel: 'Seal identity',
+    confirm: true,
+  });
+  if (!passphrase) return false;
+  if (!state.store) throw new Error('IndexedDB is unavailable, so the identity cannot be stored sealed');
+  const sealed = await sealPrivateKeys(c.you, passphrase);
+  await state.store.setMeta('sealed-identity', sealed);
+  c.sealed = sealed;
+  c.canSeal = false;
+  c.sealedAt = Date.now();
+  return true;
+}
+
+async function unlockIdentityWithPrompt(c, reason = '') {
+  for (;;) {
+    const passphrase = await askPassphrase({
+      title: 'Unlock the sealed identity',
+      description:
+        (reason ? `${reason} ` : '') +
+        'The private keys are encrypted in IndexedDB and are not loaded until this passphrase is accepted. Nothing is sent to a server.',
+      submitLabel: 'Unlock',
+    });
+    if (!passphrase) return false;
+    try {
+      const you = await openPrivateKeys(c.sealed, passphrase, state.name);
+      const session = await startCryptoSession(you);
+      session.sealed = c.sealed;
+      session.sealedAt = c.sealedAt;
+      session.canSeal = false;
+      session.promptShown = true;
+      state.crypto = session;
+      return true;
+    } catch (error) {
+      // Wrong passphrase, a tampered blob or an unsupported KDF all fail here.
+      // The dialog stays closed; the loop re-opens it with the reason.
+      reason = `Unlock failed: ${error.message}.`;
+    }
+  }
 }
 
 function renderCrypto(root) {
@@ -1177,14 +1331,36 @@ function renderCrypto(root) {
   const transcript = el('div');
   const input = el('input', { type: 'text', value: 'meet at the usual place' });
   const relayView = el('div');
+  const atRest = el('div');
 
   const draw = () => {
     const c = state.crypto;
     clear(status);
     clear(transcript);
     clear(relayView);
+    clear(atRest);
     if (!c) {
-      status.appendChild(el('p', { class: 'dim', text: 'initialising identities…' }));
+      status.appendChild(el('p', { class: 'dim', text: 'initialising identities...' }));
+      return;
+    }
+    if (c.locked) {
+      status.appendChild(
+        el('div', { class: 'stats' }, [
+          statCard('Identity', 'locked', 'sealed blob in IndexedDB'),
+          statCard('KDF', c.sealed.kdf || 'PBKDF2-SHA256', `${Number(c.sealed.iterations || 0).toLocaleString()} iterations`),
+          statCard('Private keys', 'not loaded', 'unlock is a deliberate action'),
+        ]),
+      );
+      atRest.appendChild(
+        el('p', { class: 'small dim', text: 'A sealed identity is stored in this browser. Unlock it to run the X3DH handshake and the double ratchet.' }),
+      );
+      atRest.appendChild(
+        el('div', { class: 'row' }, [
+          button('Unlock with passphrase', async () => {
+            if (await unlockIdentityWithPrompt(c)) draw();
+          }, 'primary'),
+        ]),
+      );
       return;
     }
     status.appendChild(
@@ -1193,7 +1369,7 @@ function renderCrypto(root) {
         statCard('Message AEAD', 'AES-256-GCM', 'unique nonce per message'),
         statCard('Ratchet', 'Double Ratchet', 'forward secrecy + PCS'),
         statCard('Prekey bundle', c.bundleVerified ? 'signature verified' : 'NOT VERIFIED', 'checked before key derivation'),
-        statCard('Safety number', formatSafetyNumber(c.sn).split(' ').slice(0, 3).join(' ') + ' …', 'compare out of band'),
+        statCard('Safety number', formatSafetyNumber(c.sn).split(' ').slice(0, 3).join(' ') + ' ...', 'compare out of band'),
       ]),
     );
     const sn = el('p', { class: 'mono small', text: formatSafetyNumber(c.sn) });
@@ -1211,15 +1387,63 @@ function renderCrypto(root) {
     }
     const seen = state.relay.inspect();
     relayView.appendChild(
-      el('p', { class: 'small dim', text: `The relay holds ${seen.length} envelope(s). Every field it can read is listed below — there is no key material and no plaintext anywhere in this list.` }),
+      el('p', { class: 'small dim', text: `The relay holds ${seen.length} envelope(s). Every field it can read is listed below - there is no key material and no plaintext anywhere in this list.` }),
     );
     relayView.appendChild(
       el('ul', { class: 'list' }, seen.slice(-4).map((s) => el('li', { text: `to=${s.to} from=${s.from} fields=[${s.visibleFields.join(', ')}] ciphertext=${s.hasCiphertext}` }))),
     );
+
+    if (c.sealed) {
+      atRest.appendChild(
+        el('p', { class: 'small ok', text: `sealed at rest: ${c.sealed.kdf} - ${Number(c.sealed.iterations).toLocaleString()} iterations - identity keys bound into the AEAD associated data` }),
+      );
+      atRest.appendChild(
+        el('div', { class: 'row' }, [
+          button('Lock now (drop keys from memory)', async () => {
+            state.crypto = {
+              locked: true,
+              sealed: c.sealed,
+              messages: [],
+              variant: c.variant,
+              promptShown: true,
+            };
+            draw();
+          }),
+        ]),
+      );
+    } else if (c.canSeal) {
+      atRest.appendChild(
+        el('p', { class: 'small dim', text: 'This identity exists in memory only. Sealing it writes an encrypted blob to IndexedDB, so a reload does not leave the private keys in the clear.' }),
+      );
+      atRest.appendChild(
+        el('div', { class: 'row' }, [
+          button('Seal identity with a passphrase', async () => {
+            try {
+              if (await sealIdentityWithPrompt(c)) draw();
+            } catch (error) {
+              atRest.appendChild(el('p', { class: 'small bad', text: `sealing failed: ${error.message}` }));
+            }
+          }, 'primary'),
+        ]),
+      );
+    }
+  };
+
+  const requireUnlocked = async () => {
+    const c = await initCrypto();
+    if (c.locked) {
+      if (await unlockIdentityWithPrompt(c)) {
+        draw();
+        return state.crypto;
+      }
+      return null;
+    }
+    return c;
   };
 
   const send = async () => {
-    const c = await initCrypto();
+    const c = await requireUnlocked();
+    if (!c) return;
     const plain = input.value || '(empty)';
     const message = await c.rYou.encrypt(plain);
     state.relay.post('peer', { from: state.peerId, to: 'peer', header: message.header, ct: message.ct });
@@ -1236,7 +1460,8 @@ function renderCrypto(root) {
   };
 
   const fileDemo = async () => {
-    const c = await initCrypto();
+    const c = await requireUnlocked();
+    if (!c) return;
     const secret = randomBytes(32);
     const payload = randomBytes(700 * 1024); // 700 KiB across 3 frames
     const frames = await encryptFile(secret, payload, 256 * 1024);
@@ -1245,17 +1470,17 @@ function renderCrypto(root) {
     const after = await sha256(round);
     const ok = b64(before) === b64(after);
     transcript.appendChild(
-      el('p', { class: ok ? 'ok' : 'bad', text: `chunked file AEAD: ${frames.length} frames, ${payload.length.toLocaleString()} bytes → round-trip ${ok ? 'verified' : 'FAILED'} (sha-256 match), memory bounded to one frame at a time` }),
+      el('p', { class: ok ? 'ok' : 'bad', text: `chunked file AEAD: ${frames.length} frames, ${payload.length.toLocaleString()} bytes -> round-trip ${ok ? 'verified' : 'FAILED'} (sha-256 match), memory bounded to one frame at a time` }),
     );
   };
 
   root.appendChild(
     el('div', { class: 'panel' }, [
-      moduleHead('M4', 'End-to-end encrypted layer', 'X3DH key agreement over WebCrypto, then a Double Ratchet with a DH step per turn of the conversation. The nonce for every AES-256-GCM message is derived from that message’s unique key, so a (key, nonce) pair can never repeat. The relay in the middle is structurally incapable of reading anything.'),
+      moduleHead('M4', 'End-to-end encrypted layer', 'X3DH key agreement over WebCrypto, then a Double Ratchet with a DH step per turn of the conversation. The nonce for every AES-256-GCM message is derived from that message\'s unique key, so a (key, nonce) pair can never repeat. The relay in the middle is structurally incapable of reading anything.'),
       card('Session', [
         el('div', { class: 'row' }, [
           button('Run X3DH handshake', async () => {
-            await initCrypto();
+            await requireUnlocked();
             draw();
           }),
           button('Encrypt & deliver a message', send, 'primary'),
@@ -1264,6 +1489,7 @@ function renderCrypto(root) {
         el('div', { class: 'mt-12' }, [field('Message to encrypt', input)]),
       ]),
       status,
+      card('Identity at rest (key sealing)', [atRest]),
       el('div', { class: 'grid two' }, [
         card('Wire transcript', [transcript]),
         card('What the untrusted relay can see', [relayView]),
@@ -1277,13 +1503,26 @@ function renderCrypto(root) {
           el('li', { text: 'Out-of-order messages decrypt via skipped message keys' }),
           el('li', { text: 'Every message consumes a fresh key: 60 identical plaintexts produce 60 distinct ciphertexts' }),
           el('li', { text: 'Group epoch rotation locks out a kicked member' }),
+          el('li', { text: 'The identity is sealed with PBKDF2-SHA256 (600,000 iterations) and AES-256-GCM; both identity public keys are bound into the associated data, and the imported private keys are non-extractable (3 tests)' }),
         ]),
       ]),
     ]),
   );
-  initCrypto().then(draw).catch((err) => {
-    status.appendChild(el('p', { class: 'bad', text: `crypto unavailable: ${err.message}` }));
-  });
+
+  initCrypto()
+    .then(async (c) => {
+      draw();
+      if (c.locked && !c.promptShown) {
+        c.promptShown = true;
+        if (await unlockIdentityWithPrompt(c)) draw();
+      } else if (!c.locked && !c.sealed && c.canSeal && !c.promptShown) {
+        c.promptShown = true;
+        if (await sealIdentityWithPrompt(c)) draw();
+      }
+    })
+    .catch((error) => {
+      status.appendChild(el('p', { class: 'bad', text: `crypto unavailable: ${error.message}` }));
+    });
 }
 
 // ------------------------------------------------------------------- M5 mesh
@@ -2659,14 +2898,11 @@ async function remeasurePayload() {
 
 // ---------------------------------------------------------------- M0 dashboard
 
-// The suite's own totals, kept in one place so the dashboard cannot drift from
-// the runner: tests/browser.html loads 13 suites and tests/run.js exits non-zero
-// unless every one of these passes. The count is the runner's, not an estimate.
-// Counted from the suite itself, not maintained by hand: bare Node reports
-// 209 passed + 12 skipped = 221 total (the skipped ones need a document or
-// WebGL2), and the browser runner runs all 218 green over 19 test files
-// (tests/*.test.js).
-const TEST_TOTALS = { total: 221, suites: 13 };
+// The suite's own totals are generated from the runner, not maintained by
+// hand: tools/test-count.js --write rewrites this line and every other
+// published count from node tests/run.js --json, and tools/check-docs.js
+// fails the build when a claim drifts from it.
+const TEST_TOTALS = { total: 224, suites: 14 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch; convergence, causality and undo are tested. Index lookups walk from a cursor instead of rescanning (20k single-character appends visit 0 nodes, benchmarked in tests/rga.test.js), tombstone collection runs under a peer-derived watermark, and the op log is bounded with a snapshot fallback for catch-up. Interior tombstones are retained by design: an op can still name one as its origin.' },
@@ -2788,7 +3024,7 @@ const ROADMAP = [
 
 const REPO_URL = 'https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY';
 const CONTACT_EMAIL = 'ashrafularefin@gmail.com';
-const LIVE_URL = 'https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/';
+const LIVE_URL = 'https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/';
 
 /* Captured from this build with tools/demo.js and Chrome's screenshot path -
  * not mockups and not a design comp. Dimensions are the files' intrinsic size
@@ -2868,7 +3104,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '200', label: 'tests · 13 suites', hint: 'run them from this page' },
+  { value: '224', label: 'tests - 14 suites', hint: 'run them from this page' },
   { value: '0', label: 'runtime dependencies', hint: 'no npm, no framework' },
 ];
 
@@ -3032,7 +3268,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '200 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '224 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -3489,7 +3725,10 @@ function updateChips() {
   refs.chips.append(
     chip(online ? 'ONLINE' : 'OFFLINE', online ? 'ok' : 'warn'),
     chip(`${peers} PEER${peers === 1 ? '' : 'S'}`),
-    chip('E2EE READY', state.crypto ? 'ok' : 'accent'),
+    chip(
+      state.crypto && state.crypto.locked ? 'E2EE LOCKED' : state.crypto ? 'E2EE READY' : 'E2EE STANDBY',
+      state.crypto && !state.crypto.locked ? 'ok' : 'accent',
+    ),
     chip('CRDT RGA', 'accent'),
     chip(`TT ${trustedTypesActive() ? 'ON' : 'OFF'}`, trustedTypesActive() ? 'ok' : 'warn'),
     chip(globalThis.crossOriginIsolated ? 'ISOLATED' : 'NOT ISOLATED', globalThis.crossOriginIsolated ? 'ok' : 'warn'),
