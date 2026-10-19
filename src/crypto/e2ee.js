@@ -733,7 +733,7 @@ export async function importIdentityPrivate(bytes, name = 'anon') {
   const dhPubJwk = { ...dhJwk };
   delete dhPubJwk.d;
   delete dhPubJwk.key_ops;
-  const dhPubKey = await subtle().importKey('jwk', dhPubJwk, dhAlg, false, []);
+  const dhPubKey = await subtle().importKey('jwk', dhPubJwk, dhAlg, true, []);
   const dhPrivKey = await subtle().importKey('pkcs8', dhPrivBytes, dhAlg, false, ['deriveBits']);
   const dhPair = { privateKey: dhPrivKey, publicKey: dhPubKey };
 
@@ -742,7 +742,7 @@ export async function importIdentityPrivate(bytes, name = 'anon') {
   const signPubJwk = { ...signJwk };
   delete signPubJwk.d;
   delete signPubJwk.key_ops;
-  const signPubKey = await subtle().importKey('jwk', signPubJwk, signAlg, false, ['verify']);
+  const signPubKey = await subtle().importKey('jwk', signPubJwk, signAlg, true, ['verify']);
   const signPrivKey = await subtle().importKey('pkcs8', signPrivBytes, signAlg, false, ['sign']);
   const signPair = { privateKey: signPrivKey, publicKey: signPubKey };
 

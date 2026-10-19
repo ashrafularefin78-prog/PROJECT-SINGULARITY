@@ -25,6 +25,12 @@ import { openLocalStore } from './storage/db.js';
 import { Sandbox } from './runtime/sandbox.js';
 import { MAX_INSTANCES, MAX_PARTICLES, Renderer } from './graphics/renderer.js';
 import { loadGltf } from './graphics/gltf.js';
+import { createDashboardParticles } from './graphics/dashboard-particles.js';
+import { initTheming, getTheming, setTheme } from './ui/theming.js';
+import { createTransitionRenderer, transitionPanels } from './ui/transitions.js';
+import { initA11yAI, getA11yAI } from './ui/a11y-ai.js';
+import { createHolographicText, createHolographicButton } from './ui/holographic.js';
+import { initTelemetry, getTelemetry } from './ui/telemetry-advanced.js';
 import {
   Identity,
   Ratchet,
@@ -2902,7 +2908,7 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 224, suites: 14 };
+const TEST_TOTALS = { total: 244, suites: 15 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch; convergence, causality and undo are tested. Index lookups walk from a cursor instead of rescanning (20k single-character appends visit 0 nodes, benchmarked in tests/rga.test.js), tombstone collection runs under a peer-derived watermark, and the op log is bounded with a snapshot fallback for catch-up. Interior tombstones are retained by design: an op can still name one as its origin.' },
@@ -2943,6 +2949,15 @@ function adoptHero(score, band) {
     ]);
   }
   refs.hero = hero;
+
+  // The holographic sheen on the wordmark. Idempotent (a class and a handful
+  // of CSSOM properties), so the redraw path can call it every time; the
+  // data-fx and data-contrast guards that switch it off live in app.css.
+  const heroTitle = hero.querySelector('.hero-title');
+  if (heroTitle && !heroTitle.dataset.holo) {
+    heroTitle.dataset.holo = '1';
+    createHolographicText(heroTitle, { shimmerSpeed: 3 });
+  }
 
   const badges = hero.querySelector('.hero-badges');
   if (badges) {
@@ -3104,7 +3119,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '224', label: 'tests - 14 suites', hint: 'run them from this page' },
+  { value: '244', label: 'tests - 15 suites', hint: 'run them from this page' },
   { value: '0', label: 'runtime dependencies', hint: 'no npm, no framework' },
 ];
 
@@ -3268,7 +3283,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '224 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '244 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -3550,6 +3565,14 @@ function renderDashboard(root) {
       ]),
       card('What this is, why it exists, who it is for', [briefBlock()]),
       caseStudyCard(),
+      card('Contributing & changelog', [
+        el('p', { class: 'small dim', text: 'The project is open to contributions. The guide covers setup, the test gates every change must pass, and the two constraints (zero runtime dependencies, strict CSP / Trusted Types). The changelog is shown below so recent changes are visible without leaving the app.' }),
+        el('div', { class: 'row gap-8 mt-8' }, [
+          el('a', { href: 'CONTRIBUTING.md', target: '_blank', rel: 'noopener', text: 'Contributing guide' }),
+          el('a', { href: 'CHANGELOG.md', target: '_blank', rel: 'noopener', text: 'Full changelog' }),
+        ]),
+        el('pre', { id: 'changelog-preview', class: 'changelog-preview' }, ['Loading changelog…']),
+      ]),
       showcaseCard(),
       card('Capabilities in the shipped build', [
         capabilityGrid(),
@@ -3607,6 +3630,7 @@ function renderDashboard(root) {
           el('li', { text: 'python3 tools/serve.py 5173 && open the URL (Node is not required anywhere)' }),
           el('li', { text: 'Open /tests/browser.html to run the whole suite in this browser' }),
           el('li', { text: 'Open a second tab to see the CRDT, presence and cursors synchronise for real' }),
+          el('li', { text: 'Try the standalone playgrounds: /playground/c.html (C runtime) and /playground/m3.html (WebGL2 engine)' }),
           el('li', { text: 'Read docs/PLAN.md, docs/ARCHITECTURE.md, docs/THREAT_MODEL.md, docs/SECURITY_REPORT.md and docs/LOAD_CHAOS.md' }),
         ]),
       ]),
@@ -3633,6 +3657,13 @@ function renderDashboard(root) {
   draw();
   setTimeout(draw, 1200);
   setTimeout(draw, 4000);
+  setTimeout(() => {
+    const pre = document.getElementById('changelog-preview');
+    if (!pre) return;
+    fetch('CHANGELOG.md').then((r) => (r.ok ? r.text() : Promise.reject(new Error('bad status'))))
+      .then((t) => { pre.textContent = String(t).slice(0, 4000); })
+      .catch(() => { pre.textContent = 'Changelog unavailable.'; });
+  }, 0);
   // The 170 KB budget is measured rather than asserted: every shipped script is
   // fetched and compressed with CompressionStream, then the row is redrawn.
   measureGzipBudget().then((result) => {
@@ -3768,29 +3799,51 @@ function renderPanel(id) {
   const previous = state.activePanel;
   state.activePanel = id;
   const panel = PANELS.find((p) => p.id === id) || PANELS[0];
-  clear(refs.main);
-  const container = el('div', { role: 'tabpanel', id: `panel-${panel.id}`, 'aria-labelledby': `tab-${panel.id}` });
-  container.className = 'panel-host';
-  refs.main.appendChild(container);
-
+  
   // Leaving M3 must stop the render loop: an animation running for an
   // invisible panel is pure battery burn.
   if (id !== 'engine' && state.renderer) state.renderer.stop();
 
-  panel.render(container);
+  const newContainer = el('div', { role: 'tabpanel', id: `panel-${panel.id}`, 'aria-labelledby': `tab-${panel.id}` });
+  newContainer.className = 'panel-host';
+  
+  const oldContainer = refs.main.firstElementChild;
+  if (oldContainer && previous && id !== previous) {
+    refs.main.appendChild(newContainer);
+    newContainer.style.opacity = '0';
+    
+    // Use futuristic transition
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!prefersReduced && state.transitionRenderer) {
+      state.transitionRenderer.start(oldContainer, newContainer, {
+        type: 'morph',
+        duration: 400,
+        onComplete: () => {
+          if (oldContainer.parentNode) oldContainer.remove();
+          newContainer.style.opacity = '';
+        },
+      }).catch(() => {
+        if (oldContainer.parentNode) oldContainer.remove();
+        newContainer.style.opacity = '';
+      });
+    } else {
+      if (oldContainer.parentNode) oldContainer.remove();
+      newContainer.style.opacity = '';
+    }
+  } else {
+    clear(refs.main);
+    refs.main.appendChild(newContainer);
+  }
+
+  panel.render(newContainer);
   renderTabs();
   document.title = `${panel.label} · Project Singularity`;
-  // Deep links: #editor lands on the editor, #security on M8. replaceState
-  // (not pushState) keeps the tab switch out of session history, matching the
-  // tablist semantics; a file:// origin refuses it, hence the guard.
   try {
     if (location.hash !== `#${panel.id}`) history.replaceState(null, '', `#${panel.id}`);
   } catch {
     /* file:// refuses history state; the panel switch still happened */
   }
-  // A wipe over the arriving module - one element, one animation, and the
-  // first paint (M0 at boot) is left alone so the boot sweep is not doubled.
-  if (previous) state.hud?.warp(container, panel.id);
+  if (previous) state.hud?.warp(newContainer, panel.id);
 }
 
 /* Yield past a paint. A deferred module script runs before the browser's first
@@ -3826,6 +3879,16 @@ function loadFullStylesheet() {
 }
 
 async function boot() {
+  // Legacy-deployment notice: an older build is still reachable on freebuff.page.
+  // When this code runs there, surface a banner pointing at the canonical host.
+  if (typeof location !== 'undefined' && /freebuff\.page$/i.test(location.hostname)) {
+    const banner = el('div', { class: 'note warn', role: 'status' }, [
+      'This is a legacy preview. The current build lives at ',
+      el('a', { href: 'https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/', text: 'https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/' }),
+      '.',
+    ]);
+    if (document.body) document.body.prepend(banner);
+  }
   // Preferences are applied before the first paint, not after: the theme,
   // contrast, scaling and direction tokens live on <html>, and a returning
   // light-theme user should never see a dark flash of the static hero while
@@ -3953,11 +4016,108 @@ async function boot() {
   addEventListener('keydown', onGlobalKey);
   const commandButton = document.getElementById('cmd-open');
   if (commandButton) commandButton.addEventListener('click', openPalette);
+  if (commandButton) {
+    try {
+      createHolographicButton(commandButton, { glow: false });
+    } catch { /* the ripple is decoration; the palette opens without it */ }
+  }
   const themeButton = document.getElementById('theme-toggle');
   if (themeButton) themeButton.addEventListener('click', toggleTheme);
   logBoot('command palette armed · ctrl/cmd+K · alt+1-8 direct module jumps');
   logBoot('telemetry online · sampling every 1000 ms');
   logBoot(`ready · ${Math.round(performance.now())} ms since navigation start`);
+
+  // Initialize dynamic theming system
+  try {
+    initTheming({ autoTimeBased: true, respectReducedMotion: true });
+    const theming = getTheming();
+    if (theming) {
+      theming.onThemeChange((current, target, progress) => {
+        const particles = state.dashboardParticles;
+        if (particles && target !== 'high-contrast') {
+          particles.setColorScheme(target);
+        }
+        // Update dashboard stats chips theme
+        updateChips();
+      });
+    }
+    logBoot('dynamic theming initialized · time-based transitions active');
+  } catch (err) {
+    logBoot(`theming unavailable · ${err && err.message ? err.message : err}`);
+  }
+
+  // Initialize dashboard particle system
+  try {
+    const heroCanvas = document.getElementById('hero-canvas');
+    if (heroCanvas) {
+      state.dashboardParticles = createDashboardParticles(heroCanvas, {
+        particleCount: 50000,
+        layerCount: 3,
+      });
+      state.dashboardParticles.start();
+      logBoot('dashboard particles initialized · 150k GPU particles active');
+    }
+  } catch (err) {
+    logBoot(`dashboard particles unavailable · ${err && err.message ? err.message : err}`);
+  }
+
+  // Initialize transition renderer
+  try {
+    const transitionCanvas = document.createElement('canvas');
+    transitionCanvas.id = 'transition-canvas';
+    transitionCanvas.style.cssText = 'display:none;position:fixed;top:0;left:0;z-index:9999;pointer-events:none;';
+    document.body.appendChild(transitionCanvas);
+    state.transitionRenderer = createTransitionRenderer(transitionCanvas);
+    logBoot('transition renderer initialized · GPU-accelerated panel transitions');
+  } catch (err) {
+    logBoot(`transition renderer unavailable · ${err && err.message ? err.message : err}`);
+  }
+
+  // Initialize advanced telemetry with predictive analytics. Noise-free on
+  // purpose: this engine is the app's own instrument panel, on-device and
+  // never transmitted, so differential privacy would only blur its readings.
+  // The exportData() path is where an aggregate would opt into a budget.
+  try {
+    state.telemetry = initTelemetry({ samplingRate: 1000, privacyBudget: 0 });
+    const telemetry = getTelemetry();
+    if (telemetry) {
+      telemetry.addAlert('fps', (value) => value > 0 && value < 30, 'frame rate fell below 30 fps', 'warning');
+      telemetry.on('alert', (alert) => {
+        logBoot(`telemetry alert · ${alert.message} (${Math.round(alert.value)} fps)`);
+        state.dashboardParticles?.setIntensity?.(0.6);
+      });
+      telemetry.on('anomaly', (anomaly) => {
+        if (anomaly.severity === 'critical') {
+          logBoot(`telemetry anomaly · ${anomaly.metric} at z=${anomaly.zScore.toFixed(1)}`);
+        }
+      });
+    }
+    logBoot('advanced telemetry initialized · prediction + anomaly detection active');
+  } catch (err) {
+    logBoot(`advanced telemetry unavailable · ${err && err.message ? err.message : err}`);
+  }
+
+  // Initialize AI-driven accessibility
+  try {
+    state.a11yAI = initA11yAI({
+      enableCognitiveLoad: true,
+      enableVisionAdaptation: true,
+      enableMotorAdaptation: true,
+    });
+    const a11yAI = getA11yAI();
+    if (a11yAI) {
+      a11yAI.on('cognitive-load', (load) => {
+        // Update telemetry with cognitive load
+        if (state.hud) state.hud.setCognitiveLoad?.(load);
+      });
+      a11yAI.on('high-load-adaptation', () => {
+        logBoot('a11y: high cognitive load adaptations applied');
+      });
+    }
+    logBoot('AI-driven accessibility initialized · cognitive load monitoring active');
+  } catch (err) {
+    logBoot(`a11y AI unavailable · ${err && err.message ? err.message : err}`);
+  }
   // Deep links: opening the page at #editor or #security lands directly on that
   // module, which is also how the README screenshots are framed. The incoming
   // hash is read *before* the dashboard renders, because renderPanel keeps the

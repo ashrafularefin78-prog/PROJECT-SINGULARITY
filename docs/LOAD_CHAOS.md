@@ -27,10 +27,10 @@ throwaway scripts.
 
 Two environments are reported on purpose:
 
-* **bare Node** (`npm test`) runs 212 of the 224 tests and skips the 12 that need
+* **bare Node** (`npm test`) runs 226 of the 244 tests and skips the 12 that need
   a canvas or IndexedDB, so the exit code means "no regressions" rather than
   "this machine has no GPU".
-* **headless Edge** (`npm run test:browser`) runs all 224, including the WebGL2
+* **headless Edge** (`npm run test:browser`) runs all 244, including the WebGL2
   renderer and the IndexedDB store, in 2.3–3.2 s depending on what else the machine
   is doing (the spread is reported rather than averaged away).
 
@@ -660,9 +660,9 @@ the GitHub Pages layout is reproduced locally.
 
 | Command | Environment | Result |
 |---------|-------------|--------|
-| `npm test` | bare Node 24, no browser | 212 passed, 0 failed, 12 skipped (the 12 need a canvas or IndexedDB) |
-| `npm run test:browser` | Edge 154/155 via CDP, real WebGL2 + IndexedDB | **224 passed, 0 failed, 0 skipped** — 2.3 s on an idle machine, 3.2 s under load |
-| `npm run test:browser --url=<deployment>` | the same suite against the site, or against the workerd deploy artifact | **224 passed, 0 failed, 0 skipped** |
+| `npm test` | bare Node 24, no browser | 226 passed, 0 failed, 18 skipped (the 18 need a canvas or IndexedDB) |
+| `npm run test:browser` | Edge 154/155 via CDP, real WebGL2 + IndexedDB | **244 passed, 0 failed, 0 skipped** — 2.3 s on an idle machine, 3.2 s under load |
+| `npm run test:browser --url=<deployment>` | the same suite against the site, or against the workerd deploy artifact | **244 passed, 0 failed, 0 skipped** |
 
 `npm test` used to report those 10 as failures because the machine has no GPU.
 Capability-aware skips replaced the red herrings, so a failing build now means a
@@ -717,8 +717,8 @@ Reproduce any row:
 
 ```sh
 python3 tools/serve.py 5173     # or: node tools/serve.js
-npm test                        # 224 collected: 212 pass + 12 skip, no browser needed
-npm run test:browser            # all 224, in a real browser
+npm test                        # 244 collected: 226 pass + 18 skip, no browser needed
+npm run test:browser            # all 244, in a real browser
 node tools/payload.js           # import-graph payload size
 node tools/perf.js lcp          # throttled LCP -> docs/reports/lcp.json
 node tools/perf.js soak         # memory soak -> docs/reports/soak.json

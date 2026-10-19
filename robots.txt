@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/sitemap.xml

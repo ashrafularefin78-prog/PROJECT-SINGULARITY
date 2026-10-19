@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Singularity - 3D engine playground</title>
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-ActgC60ZLhkgZShDeF5iw8kp+TINQ4WoWdpA13Na7+Q='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
+  />
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; background: #0b0f14; color: #e6edf3; }
+    h1 { font-size: 18px; }
+    canvas { width: 100%; max-width: 960px; height: 480px; display: block; border: 1px solid #2a3440; }
+    #status { margin-top: 8px; font-size: 13px; color: #8b949e; }
+  </style>
+</head>
+<body>
+  <h1>M3 - WebGL2 engine playground (pre-loaded glTF scene)</h1>
+  <canvas id="c"></canvas>
+  <div id="status">starting…</div>
+  <script type="module">
+    import { Renderer } from '../src/graphics/renderer.js';
+    import { loadGltf } from '../src/graphics/gltf.js';
+    const canvas = document.getElementById('c');
+    const status = document.getElementById('status');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(canvas.clientWidth * dpr);
+    canvas.height = Math.floor(480 * dpr);
+    try {
+      const renderer = new Renderer(canvas, { instances: 5000, particles: 50000, shadows: true });
+      renderer.init();
+      renderer.start();
+      status.textContent = 'renderer running; loading sample model…';
+      const url = new URL('../assets/models/singularity-core.glb', import.meta.url).href;
+      loadGltf(url).then((meshes) => {
+        const summary = renderer.attachModel(meshes, { spin: 0.18 });
+        status.textContent = `sample model: ${summary.meshes} meshes, ${summary.triangles.toLocaleString()} triangles`;
+      }).catch((err) => { status.textContent = `model failed: ${err.message}`; });
+    } catch (err) {
+      status.textContent = `engine unavailable: ${err.message}`;
+    }
+  </script>
+</body>
+</html>

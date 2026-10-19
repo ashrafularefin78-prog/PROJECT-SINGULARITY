@@ -142,7 +142,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run: **224 tests, 14 suites, all
+Open **/tests/browser.html** and let the suite run: **244 tests, 15 suites, all
 green, no skips**, including the fuzzer. Then name the gaps: no red-team session, no
 audited crypto, no TURN, no measured HDRI probe/IBL, no clang→WASM, no screen-reader pass, and
 no distributed load or chaos rig.

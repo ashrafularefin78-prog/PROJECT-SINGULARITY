@@ -22,7 +22,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-ActgC60ZLhkgZShDeF5iw8kp+TINQ4WoWdpA13Na7+Q='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
+      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-1BOQes/p9BgrpUIzRlEMVyF/J8AouR1pXUT/Q5w0sjM='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
     />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#06090d" />
@@ -33,13 +33,13 @@
     -->
     <meta
       name="description"
-      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 224 tests green in your browser."
+      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 244 tests green in your browser."
     />
     <link rel="canonical" href="https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/" />
     <meta property="og:title" content="Project Singularity - the impossible website challenge" />
     <meta
       property="og:description"
-      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 224 tests green in your browser."
+      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 244 tests green in your browser."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/" />
@@ -58,7 +58,7 @@
     <meta name="twitter:title" content="Project Singularity - the impossible website challenge" />
     <meta
       name="twitter:description"
-      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 224 tests green in your browser."
+      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 244 tests green in your browser."
     />
     <meta
       name="twitter:image"
@@ -326,6 +326,18 @@ p { margin: 0 0 8px; }
     linear-gradient(180deg, var(--panel), var(--bg-2));
   box-shadow: inset 0 -46px 54px -52px rgba(110, 168, 254, 0.85);
 }
+.hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.6;
+}
+.hero-canvas.reduced { display: none; }
+html[data-fx='off'] .hero-canvas { display: none; }
+html[data-fx='reduced'] .hero-canvas { opacity: 0.2; }
 .hero::after {
   content: '';
   position: absolute; inset: 0 0 auto 0; height: 1px;
@@ -997,6 +1009,21 @@ html[data-theme='light'] .repo-stat {
     linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
     linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
 }
+html[data-fx='reduced'] .holo-text { animation-duration: 12s; }
+html[data-fx='off'] .holo-text {
+  animation: none !important;
+  background: none !important;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  color: inherit !important;
+}
+html[data-contrast='high'] .holo-text {
+  animation: none !important;
+  background: none !important;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  color: inherit !important;
+}
 </style>
     <!-- critical-css:end -->
     <!--
@@ -1039,7 +1066,7 @@ html[data-theme='light'] .repo-stat {
     <meta name="twitter:title" content="Project Singularity - a browser-native workspace by Ashraful Arefin" />
     <meta
       name="twitter:description"
-      content="Own CRDT, in-browser C runtime, WebGL2 engine, E2EE and offline-first storage in one page. Zero runtime dependencies. 224 tests runnable in your browser."
+      content="Own CRDT, in-browser C runtime, WebGL2 engine, E2EE and offline-first storage in one page. Zero runtime dependencies. 244 tests runnable in your browser."
     />
     <meta name="twitter:image" content="https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/assets/screenshots/og.png" />
     <meta name="twitter:image:alt" content="Project Singularity dashboard - score ring, live telemetry and module deck" />
@@ -1168,18 +1195,19 @@ html[data-theme='light'] .repo-stat {
             <div class="hero-badges" id="hero-badges">
               <span class="chip accent">8 MODULES</span>
               <span class="chip ok">0 RUNTIME DEPS</span>
-              <span class="chip ok" id="hero-tests">224 tests GREEN</span>
+              <span class="chip ok" id="hero-tests">244 tests GREEN</span>
               <span class="chip ok">MIT OPEN SOURCE</span>
               <span class="chip ok">TRUSTED TYPES ENFORCED</span>
             </div>
             <div class="hero-actions">
-              <a class="button primary" href="tests/browser.html" target="_blank" rel="noopener">RUN 224 tests IN THIS BROWSER</a>
+              <a class="button primary" href="tests/browser.html" target="_blank" rel="noopener">RUN 244 tests IN THIS BROWSER</a>
               <a class="button" href="#case-study">READ THE CASE STUDY</a>
               <a class="button" href="#screenshots">SEE THE SCREENSHOTS</a>
               <a class="button" href="docs/demo/demo.mp4" target="_blank" rel="noopener">WATCH THE 15-MIN DEMO</a>
             </div>
           </div>
-          <div class="ring-wrap" id="hero-ring" aria-hidden="true">
+          <canvas id="hero-canvas" class="hero-canvas" aria-hidden="true" width="800" height="600"></canvas>
+            <div class="ring-wrap" id="hero-ring" aria-hidden="true">
             <svg class="ring" viewBox="0 0 188 188"><circle class="ring-track" cx="94" cy="94" r="82"></circle></svg>
             <span class="ring-cap" id="hero-ring-cap">points band: …</span>
           </div>

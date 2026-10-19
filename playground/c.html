@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Singularity - C runtime playground</title>
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-ActgC60ZLhkgZShDeF5iw8kp+TINQ4WoWdpA13Na7+Q='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'"
+  />
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; background: #0b0f14; color: #e6edf3; }
+    h1 { font-size: 18px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    textarea { width: 100%; min-height: 260px; font-family: monospace; font-size: 13px; background: #11161d; color: #e6edf3; border: 1px solid #2a3440; padding: 8px; }
+    pre { background: #11161d; border: 1px solid #2a3440; padding: 8px; min-height: 120px; white-space: pre-wrap; }
+    button { background: #1f6feb; color: #fff; border: 0; padding: 8px 14px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>M2 - In-browser C runtime playground</h1>
+  <p class="small">Edit the C source below, then run. Powered by the same worker and sandbox as the full shell.</p>
+  <textarea id="source"></textarea>
+  <div class="row">
+    <button id="run">Run</button>
+    <button id="stop">Stop</button>
+  </div>
+  <pre id="output"></pre>
+  <script type="module">
+    import { Sandbox } from '../src/runtime/sandbox.js';
+    const sandbox = new Sandbox({ timeLimitMs: 3000 });
+    const source = document.getElementById('source');
+    const output = document.getElementById('output');
+    const runBtn = document.getElementById('run');
+    let active = null;
+    const sample = `#include <stdio.h>\nint main(void) {\n  int n;\n  printf("enter n: ");\n  scanf("%d", &n);\n  printf("n*n = %d\\n", n*n);\n  return 0;\n}\n`;
+    source.value = sample;
+    runBtn.addEventListener('click', async () => {
+      output.textContent = 'running…';
+      const handle = sandbox.start(source.value, { stdin: '7\\n' });
+      active = handle;
+      handle.promise.then((r) => {
+        active = null;
+        output.textContent = (r.output || '') + (r.error ? `\\n[${r.error.stage}] ${r.error.message}` : '') + (r.killed ? '\\n(killed)' : '');
+      });
+    });
+    document.getElementById('stop').addEventListener('click', () => { if (active && active.kill) active.kill(); });
+  </script>
+</body>
+</html>

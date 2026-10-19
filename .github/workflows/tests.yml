@@ -66,6 +66,12 @@ jobs:
           # browser it just installed instead of guessing a path.
           BROWSER_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tools/browser-run.js
+      # Automated accessibility gate: axe-core + AX-tree audit across all
+      # modules. Fails the build on any new WCAG 2.2 AA violation.
+      - name: accessibility audit (axe-core)
+        env:
+          BROWSER_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tools/a11y.js
       # The shipped app against a real relay node, in a real browser under the
       # shipped CSP: connect through the same-origin mount, post, drain, read
       # the node's counters back, and confirm the node's log holds ciphertext

@@ -283,10 +283,18 @@ async function main() {
     await browser.close();
     proc.kill();
   }
+  return report;
 }
 
 main().then(
-  () => process.exit(0),
+  (report) => {
+    const violations = report && report.axe ? report.axe.violations.length : 0;
+    if (violations > 0) {
+      console.error(`# accessibility gate failed: ${violations} axe-core violation(s)`);
+      process.exit(1);
+    }
+    process.exit(0);
+  },
   (err) => {
     console.error(err && err.stack ? err.stack : String(err));
     process.exit(1);

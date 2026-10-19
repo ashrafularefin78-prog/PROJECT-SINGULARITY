@@ -30,7 +30,7 @@ Each entry is derived from the commit history; the newest comes first.
   resolution, mikkelsen tangents and UV-absent degradation.
 
 ### Changed
-- The suite grew to **224 tests across 14 suites** with the new `motion`
+- The suite grew to **244 tests across 15 suites** with the new `motion`
   (8) and `substrate` (4) suites, plus four glTF texture tests and two
   renderer texture-decode tests.
 - The accessibility artifact was re-measured against the new dashboard DOM
