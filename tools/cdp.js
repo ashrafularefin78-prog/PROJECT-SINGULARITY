@@ -176,6 +176,9 @@ export class Browser {
     const profile = mkdtempSync(join(tmpdir(), 'singularity-cdp-'));
     const args = [
       '--remote-debugging-port=0',
+      // Chrome 111+ refuses WebSocket handshakes to the debug port unless the
+      // client's Origin is allowed; node's WebSocket sends none, so allow all.
+      '--remote-allow-origins=*',
       `--user-data-dir=${profile}`,
       '--no-first-run',
       '--no-default-browser-check',
@@ -201,17 +204,24 @@ export class Browser {
     args.push(...extraArgs);
 
     const proc = spawn(exe, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
+      // stdio is ignored, not piped: the endpoint is discovered from the
+      // DevToolsActivePort file below, and piping the child's stdio fails on
+      // hosts where a sandbox forbids named pipes. The child is detached so
+      // the browser survives even where a sandbox job object would otherwise
+      // terminate GUI children launched straight from CreateProcess (the
+      // launcher exits with STATUS_BREAKPOINT and no port file on such
+      // hosts); the caller still owns the handle and kills it in close().
+      stdio: 'ignore',
+      detached: true,
       env: { ...process.env, ...env },
     });
 
-    // The endpoint arrives in one of two ways, and both have to be accepted:
-    // the historical "DevTools listening on ws://..." line on stderr, and the
-    // DevToolsActivePort file inside the profile. The file matters because
-    // current Edge on Windows launches a stub that writes the file and then
-    // exits 0 immediately (no stderr line at all, in headless and windowed mode
-    // alike). Treating that exit as a failed launch is what broke every browser
-    // driven tool on this machine until it was measured with
+    // The endpoint arrives through the DevToolsActivePort file inside the
+    // profile. This is the mechanism that matters, because current Edge on
+    // Windows launches a stub that writes the file and then exits 0
+    // immediately (no stderr line at all, in headless and windowed mode
+    // alike). Treating that exit as a failed launch is what broke every
+    // browser-driven tool on this machine until it was measured with
     // .tools/scratch/launch-probe.mjs: the browser was alive the whole time.
     const portFile = join(profile, 'DevToolsActivePort');
     const readPortFile = () => {
@@ -224,9 +234,8 @@ export class Browser {
       return null;
     };
     const wsUrl = await new Promise((resolve, reject) => {
-      let buf = '';
       let settled = false;
-      const timer = setTimeout(() => finish(reject, new Error(`browser did not start: ${buf.slice(-500)}`)), 30000);
+      const timer = setTimeout(() => finish(reject, new Error('browser did not start: no DevToolsActivePort file appeared')), 30000);
       const poll = setInterval(() => {
         const url = readPortFile();
         if (url) finish(resolve, url);
@@ -238,11 +247,6 @@ export class Browser {
         clearInterval(poll);
         settle(value);
       }
-      proc.stderr.on('data', (chunk) => {
-        buf += String(chunk);
-        const m = /DevTools listening on (ws:\/\/\S+)/.exec(buf);
-        if (m) finish(resolve, m[1]);
-      });
       proc.on('exit', (code) => {
         // The launcher exiting is not the browser exiting: give the profile a
         // moment to publish its port before calling this a failure. A browser
@@ -250,7 +254,7 @@ export class Browser {
         setTimeout(() => {
           const url = readPortFile();
           if (url) finish(resolve, url);
-          else finish(reject, new Error(`browser exited with code ${code}: ${buf.slice(-500)}`));
+          else finish(reject, new Error(`browser exited with code ${code} and published no DevToolsActivePort`));
         }, 3000);
       });
     });
