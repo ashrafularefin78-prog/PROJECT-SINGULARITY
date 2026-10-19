@@ -22,8 +22,10 @@
  *                            through `textureLod` at a roughness-driven LOD,
  *                            which is a box-filter approximation of the rough
  *                            specular lobe (declared: not a GGX prefilter).
- *   - `noiseTexture()`       a tilable seeded value-noise RGBA map the instanced
- *                            cubes sample for albedo detail.
+ *   - `noiseTexture()`       a tilable seeded value-noise RGBA map for albedo
+ *                            detail (sampled by the ground plane; the lattice
+ *                            hash wraps on the size modulo so a fetch never
+ *                            leaves the lattice).
  *
  * The cube faces are laid out in the GL sampling convention (major axis, then
  * sc/tc per the OpenGL cube-map selection table), so `texture(uEnvCube, R)` in
@@ -223,9 +225,11 @@ export function envCube(size = 64) {
 }
 
 /**
- * A tilable seeded value-noise RGBA texture for albedo detail. Tilable by
- * wrapping the lattice hash on the size modulo, so texel (0, y) equals texel
- * (size, y) and the sample never shows a seam.
+ * A tilable seeded value-noise RGBA texture for albedo detail. The lattice hash
+ * wraps on the size modulo, so every cell of the lattice is complete and a
+ * fetch never reads past the lattice's edge - the value function has no
+ * boundary, which is what makes the result tile cleanly at the texture's own
+ * edges.
  */
 export function noiseTexture(size = 128, seed = 0x5eed) {
   const lattice = new Float32Array(size * size);
@@ -259,10 +263,10 @@ export function noiseTexture(size = 128, seed = 0x5eed) {
       const m0 = at(x20, y20) * (1 - s2x) + at(x20 + 1, y20) * s2x;
       const m1 = at(x20, y20 + 1) * (1 - s2x) + at(x20 + 1, y20 + 1) * s2x;
       const fine = m0 * (1 - s2y) + m1 * s2y;
-      const v = Math.max(-1, Math.min(1, lerp * 0.72 + fine * 0.28 + coarse * 0));
-      const q = ((v + 1) / 2) * 255;
+      const v = Math.max(-1, Math.min(1, coarse * 0.72 + fine * 0.28));
+      const q = ((v + 1) / 2) * 255; // already 0..255; encode() would square it
       const o = (row * size + col) * 4;
-      data[o] = encode(q);
+      data[o] = Math.max(0, Math.min(255, Math.round(q)));
       data[o + 1] = encode(q);
       data[o + 2] = encode(q);
       data[o + 3] = 255;

@@ -15,14 +15,18 @@
  *     Cook-Torrance BRDF chunk as the instanced cubes - material values come
  *     from the file, not from a seed
  *   - physically based shading: a Cook-Torrance BRDF (GGX distribution, Smith
- *     geometry, Schlick Fresnel) with per-instance metallic/roughness, a
- *     hemispheric ambient standing in for image-based lighting, and Reinhard
- *     tone mapping, plus a hand-written
- *     perspective/orbit camera
+ *     geometry, Schlick Fresnel) with per-instance metallic/roughness, and
+ *     image-based lighting from a deterministic procedural sky
+ *     (src/graphics/env.js): the diffuse term samples a band-2 spherical
+ *     harmonics irradiance cube, the specular term samples the sky itself
+ *     through textureLod at a roughness-driven LOD (a box-filter approximation
+ *     of the rough lobe - declared: not a GGX prefilter), and Reinhard
+ *     tone mapping, plus a hand-written perspective/orbit camera
  *
- * Deliberately not implemented (declared in docs/ARCHITECTURE.md): PBR with
- * a real HDRI probe, skeletal animation, texture sampling. Shipping those
- * badly would be worse than declaring the gap.
+ * Deliberately not implemented (declared in docs/ARCHITECTURE.md): a measured
+ * HDRI probe (the sky here is procedural, not photographed), skeletal
+ * animation, glTF texture sampling. Shipping those badly would be worse than
+ * declaring the gap.
  */
 import {
   identity,
@@ -36,6 +40,7 @@ import {
   vec3,
 } from './math.js';
 import { uploadMesh } from './gltf.js';
+import { envCube, irradianceCube, noiseTexture, shProject } from './env.js';
 
 const CUBE_VERTICES = new Float32Array([
   // +X
@@ -140,6 +145,8 @@ in vec4 vLightSpace;
 in float vSeed;
 uniform vec3 uLightDir;      // direction the light travels
 uniform vec3 uCamera;
+uniform samplerCube uEnvIrradiance;
+uniform samplerCube uEnvSpec;
 out vec4 outColor;
 
 const float PI = 3.14159265359;
@@ -171,15 +178,18 @@ void main() {
   vec3 diffuse = (1.0 - F) * (1.0 - metallic) * albedo / PI;
   vec3 direct = (diffuse + specular) * radiance * NdotL * shadow;
 
-  // Approximate image-based lighting with a hemispheric ambient: sky above,
-  // floor bounce below, sampled by the normal. This is not an HDRI probe and
-  // the shader says so; it exists so dielectrics are not lit from nowhere and
-  // metals are not black.
-  vec3 sky = vec3(0.17, 0.23, 0.36);
-  vec3 floorBounce = vec3(0.05, 0.055, 0.075);
-  vec3 ambientSource = mix(floorBounce, sky, N.y * 0.5 + 0.5);
-  vec3 ambient = ambientSource * albedo * (1.0 - metallic) * 0.55;
-  vec3 envSpecular = ambientSource * F0 * (1.0 - roughness) * 1.35;
+  // Image-based lighting from the procedural sky (src/graphics/env.js), not a
+  // hand-mixed ambient: the irradiance cube carries the Ramamoorthi
+  // cosine-lobe convolution of the band-2 SH projection of the sky, and the
+  // specular cube is the sky itself read through textureLod at a
+  // roughness-driven LOD - a box-filter approximation of the rough specular
+  // lobe, declared as such rather than sold as a GGX prefilter.
+  vec3 R = reflect(-V, N);
+  vec3 skyIrradiance = texture(uEnvIrradiance, N).rgb;
+  vec3 skyReflection = textureLod(uEnvSpec, R, roughness * 4.0).rgb;
+  vec3 Fv = fresnelSchlick(NdotV, F0);
+  vec3 ambient = skyIrradiance * albedo * (1.0 - metallic) * (1.0 - Fv);
+  vec3 envSpecular = skyReflection * Fv;
 
   vec3 color = direct + ambient + envSpecular;
   // Reinhard tone map, so the specular highlights roll off instead of clipping.
@@ -240,6 +250,8 @@ uniform vec3 uCamera;
 uniform vec4 uBaseColor;   // baseColorFactor from the glTF material
 uniform float uMetallic;
 uniform float uRoughness;
+uniform samplerCube uEnvIrradiance;
+uniform samplerCube uEnvSpec;
 out vec4 outColor;
 
 const float PI = 3.14159265359;
@@ -269,11 +281,14 @@ void main() {
   vec3 diffuse = (1.0 - F) * (1.0 - metallic) * albedo / PI;
   vec3 direct = (diffuse + specular) * radiance * NdotL * shadow;
 
-  vec3 sky = vec3(0.17, 0.23, 0.36);
-  vec3 floorBounce = vec3(0.05, 0.055, 0.075);
-  vec3 ambientSource = mix(floorBounce, sky, N.y * 0.5 + 0.5);
-  vec3 ambient = ambientSource * albedo * (1.0 - metallic) * 0.55;
-  vec3 envSpecular = ambientSource * F0 * (1.0 - roughness) * 1.35;
+  // Same image-based lighting as the instanced cubes: SH irradiance for the
+  // diffuse term, roughness-LOD box-filtered sky for the specular term.
+  vec3 R = reflect(-V, N);
+  vec3 skyIrradiance = texture(uEnvIrradiance, N).rgb;
+  vec3 skyReflection = textureLod(uEnvSpec, R, roughness * 4.0).rgb;
+  vec3 Fv = fresnelSchlick(NdotV, F0);
+  vec3 ambient = skyIrradiance * albedo * (1.0 - metallic) * (1.0 - Fv);
+  vec3 envSpecular = skyReflection * Fv;
 
   vec3 color = direct + ambient + envSpecular;
   outColor = vec4(color / (color + vec3(1.0)), 1.0);
@@ -303,6 +318,7 @@ uniform vec3 uLightDir;
 uniform vec3 uCamera;
 uniform highp sampler2DShadow uShadow;  // ES 3.00 requires an explicit precision
 uniform float uShadows;
+uniform sampler2D uNoise;   // tilable value noise from src/graphics/env.js
 out vec4 outColor;
 void main() {
   vec3 p = vLightSpace.xyz / vLightSpace.w;
@@ -319,7 +335,8 @@ void main() {
     shadow = mix(1.0, sum / 9.0, uShadows);
   }
   float checker = mod(floor(vWorld.x / 4.0) + floor(vWorld.z / 4.0), 2.0);
-  vec3 base = mix(vec3(0.055, 0.07, 0.09), vec3(0.085, 0.105, 0.13), checker);
+  float grain = texture(uNoise, vWorld.xz / 16.0).r;
+  vec3 base = mix(vec3(0.055, 0.07, 0.09), vec3(0.085, 0.105, 0.13), checker) * (0.9 + grain * 0.2);
   float ndl = max(dot(normalize(vNormal), -uLightDir), 0.0);
   float rim = 1.0 - max(dot(normalize(vNormal), normalize(uCamera - vWorld)), 0.0);
   vec3 color = base * (0.35 + ndl * shadow * 1.1) + vec3(0.04, 0.05, 0.07) * rim;
@@ -472,6 +489,7 @@ export class Renderer {
     this._buildCube();
     this._buildGround();
     this._buildPrograms();
+    this._buildEnvironment();
     this._buildInstances();
     this._buildParticles();
     this._buildShadowFramebuffer();
@@ -494,6 +512,9 @@ export class Renderer {
       shadowMapSize: this.shadowSize || 0,
       instances: this.instanceCount,
       particles: this.particleCount,
+      environment: this.env
+        ? `procedural sky IBL (band-2 SH diffuse cube, roughness-LOD specular cube ${this.env.specular.size}^2/face)`
+        : 'none',
     };
   }
 
@@ -535,10 +556,11 @@ export class Renderer {
     this.objectProgram = program(gl, OBJECT_VS, OBJECT_FS);
     this.objectUniforms = uniforms(gl, this.objectProgram, [
       'uViewProj', 'uLightViewProj', 'uTime', 'uLightDir', 'uCamera', 'uShadow', 'uShadows',
+      'uEnvIrradiance', 'uEnvSpec',
     ]);
     this.groundProgram = program(gl, GROUND_VS, GROUND_FS);
     this.groundUniforms = uniforms(gl, this.groundProgram, [
-      'uViewProj', 'uLightViewProj', 'uLightDir', 'uCamera', 'uShadow', 'uShadows',
+      'uViewProj', 'uLightViewProj', 'uLightDir', 'uCamera', 'uShadow', 'uShadows', 'uNoise',
     ]);
     this.depthProgram = program(gl, DEPTH_VS, DEPTH_FS);
     this.depthUniforms = uniforms(gl, this.depthProgram, ['uLightViewProj', 'uTime']);
@@ -546,11 +568,23 @@ export class Renderer {
     this.modelUniforms = uniforms(gl, this.modelProgram, [
       'uViewProj', 'uLightViewProj', 'uLightDir', 'uCamera', 'uShadow', 'uShadows',
       'uTime', 'uSpin', 'uWorld', 'uBaseColor', 'uMetallic', 'uRoughness',
+      'uEnvIrradiance', 'uEnvSpec',
     ]);
     this.modelDepthProgram = program(gl, MODEL_DEPTH_VS, DEPTH_FS);
     this.modelDepthUniforms = uniforms(gl, this.modelDepthProgram, ['uLightViewProj', 'uWorld', 'uTime', 'uSpin']);
     this.particleProgram = program(gl, PARTICLE_VS, PARTICLE_FS);
     this.particleUniforms = uniforms(gl, this.particleProgram, ['uViewProj', 'uTime']);
+
+    // Sampler uniforms are set once: the shadow map lives on unit 0, the two
+    // environment cubes on 1 and 2, and the albedo noise on 3.
+    gl.useProgram(this.objectProgram);
+    gl.uniform1i(this.objectUniforms.uEnvIrradiance, 1);
+    gl.uniform1i(this.objectUniforms.uEnvSpec, 2);
+    gl.useProgram(this.modelProgram);
+    gl.uniform1i(this.modelUniforms.uEnvIrradiance, 1);
+    gl.uniform1i(this.modelUniforms.uEnvSpec, 2);
+    gl.useProgram(this.groundProgram);
+    gl.uniform1i(this.groundUniforms.uNoise, 3);
   }
 
   _buildInstances() {
@@ -596,6 +630,61 @@ export class Renderer {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 1, gl.FLOAT, false, 4, 0);
     gl.bindVertexArray(null);
+  }
+
+  /**
+   * Image-based lighting from the procedural sky (src/graphics/env.js). The
+   * sky is projected onto band-2 real spherical harmonics; the diffuse term
+   * reads the Ramamoorthi cosine-lobe convolution as a 16^2-per-face
+   * irradiance cube, and the specular term reads the 64^2-per-face sky cube
+   * through textureLod at a roughness-driven LOD (box filter, not a GGX
+   * prefilter - stated in the shader and in env.js). Everything is
+   * deterministic and generated here: no HDRI is downloaded or bundled.
+   */
+  _buildEnvironment() {
+    const gl = this.gl;
+    const coefficients = shProject();
+    this.env = {
+      coefficients,
+      irradiance: irradianceCube(coefficients, 16),
+      specular: envCube(64),
+      noise: noiseTexture(128),
+    };
+
+    const uploadCube = (faces, mips) => {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, tex);
+      const faceBytes = faces.size * faces.size * 4;
+      for (let face = 0; face < 6; face += 1) {
+        gl.texImage2D(
+          gl.TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, gl.RGBA8, faces.size, faces.size, 0,
+          gl.RGBA, gl.UNSIGNED_BYTE,
+          new Uint8Array(faces.data.buffer, faces.data.byteOffset + face * faceBytes),
+        );
+      }
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, mips ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      if (mips) {
+        gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAX_LOD, 4.0);
+      }
+      return tex;
+    };
+    this.envIrradianceTexture = uploadCube(this.env.irradiance, false);
+    this.envSpecTexture = uploadCube(this.env.specular, true);
+
+    this.noiseTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA8, this.env.noise.size, this.env.noise.size, 0,
+      gl.RGBA, gl.UNSIGNED_BYTE, this.env.noise.data,
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
   }
 
   _buildShadowFramebuffer() {
@@ -797,6 +886,14 @@ export class Renderer {
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
+    // Environment cubes (units 1 and 2) and the albedo noise (unit 3) are
+    // bound once per frame; the sampler uniforms were fixed at program build.
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.envIrradianceTexture);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.envSpecTexture);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
 
     gl.useProgram(this.groundProgram);
     gl.uniformMatrix4fv(this.groundUniforms.uViewProj, false, viewProj);
