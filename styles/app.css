@@ -519,14 +519,14 @@ p { margin: 0 0 8px; }
 /* Every module owns a hue, so the panel you are in is recognisable from the
    badge, the top rule and its score meter alike. The hues are declared here as
    custom properties - never as style attributes, which the CSP forbids. */
-.mod-head[data-mod='1'], .map-tile[data-mod='1'], progress.module-bar[data-mod='1'], .tab[data-mod='1'] { --mod: #6ea8fe; --mod-soft: rgba(110, 168, 254, 0.18); }
-.mod-head[data-mod='2'], .map-tile[data-mod='2'], progress.module-bar[data-mod='2'], .tab[data-mod='2'] { --mod: #f7b955; --mod-soft: rgba(247, 185, 85, 0.18); }
-.mod-head[data-mod='3'], .map-tile[data-mod='3'], progress.module-bar[data-mod='3'], .tab[data-mod='3'] { --mod: #57d68d; --mod-soft: rgba(87, 214, 141, 0.18); }
-.mod-head[data-mod='4'], .map-tile[data-mod='4'], progress.module-bar[data-mod='4'], .tab[data-mod='4'] { --mod: #b39ddb; --mod-soft: rgba(179, 157, 219, 0.18); }
-.mod-head[data-mod='5'], .map-tile[data-mod='5'], progress.module-bar[data-mod='5'], .tab[data-mod='5'] { --mod: #4dd0e1; --mod-soft: rgba(77, 208, 225, 0.18); }
-.mod-head[data-mod='6'], .map-tile[data-mod='6'], progress.module-bar[data-mod='6'], .tab[data-mod='6'] { --mod: #ffab91; --mod-soft: rgba(255, 171, 145, 0.18); }
-.mod-head[data-mod='7'], .map-tile[data-mod='7'], progress.module-bar[data-mod='7'], .tab[data-mod='7'] { --mod: #c5e1a5; --mod-soft: rgba(197, 225, 165, 0.18); }
-.mod-head[data-mod='8'], .map-tile[data-mod='8'], progress.module-bar[data-mod='8'], .tab[data-mod='8'] { --mod: #ff6b81; --mod-soft: rgba(255, 107, 129, 0.18); }
+.mod-head[data-mod='1'], .map-tile[data-mod='1'], .feat[data-mod='1'], progress.module-bar[data-mod='1'], .tab[data-mod='1'] { --mod: #6ea8fe; --mod-soft: rgba(110, 168, 254, 0.18); }
+.mod-head[data-mod='2'], .map-tile[data-mod='2'], .feat[data-mod='2'], progress.module-bar[data-mod='2'], .tab[data-mod='2'] { --mod: #f7b955; --mod-soft: rgba(247, 185, 85, 0.18); }
+.mod-head[data-mod='3'], .map-tile[data-mod='3'], .feat[data-mod='3'], progress.module-bar[data-mod='3'], .tab[data-mod='3'] { --mod: #57d68d; --mod-soft: rgba(87, 214, 141, 0.18); }
+.mod-head[data-mod='4'], .map-tile[data-mod='4'], .feat[data-mod='4'], progress.module-bar[data-mod='4'], .tab[data-mod='4'] { --mod: #b39ddb; --mod-soft: rgba(179, 157, 219, 0.18); }
+.mod-head[data-mod='5'], .map-tile[data-mod='5'], .feat[data-mod='5'], progress.module-bar[data-mod='5'], .tab[data-mod='5'] { --mod: #4dd0e1; --mod-soft: rgba(77, 208, 225, 0.18); }
+.mod-head[data-mod='6'], .map-tile[data-mod='6'], .feat[data-mod='6'], progress.module-bar[data-mod='6'], .tab[data-mod='6'] { --mod: #ffab91; --mod-soft: rgba(255, 171, 145, 0.18); }
+.mod-head[data-mod='7'], .map-tile[data-mod='7'], .feat[data-mod='7'], progress.module-bar[data-mod='7'], .tab[data-mod='7'] { --mod: #c5e1a5; --mod-soft: rgba(197, 225, 165, 0.18); }
+.mod-head[data-mod='8'], .map-tile[data-mod='8'], .feat[data-mod='8'], progress.module-bar[data-mod='8'], .tab[data-mod='8'] { --mod: #ff6b81; --mod-soft: rgba(255, 107, 129, 0.18); }
 
 .mod-head {
   --mod: var(--accent);
@@ -2097,3 +2097,170 @@ html[data-fx='off'] .dial-blip { animation: none; }
 .map-pts,
 .segs[aria-label],
 .stat b { font-variant-numeric: tabular-nums; }
+
+/* ==================================================================
+   UI v3.1 - the daylight theme, and the sections a project page is
+   read for: what this is, what it does, where it is going, who made it.
+   ================================================================== */
+
+/* --- theme: light ---------------------------------------------------------
+   The same instrument in daylight: tokens invert, and the handful of
+   surfaces that hardcoded a dark colour get their counterparts. Everything
+   else follows the tokens. Applied by M7 (Theme) and persisted with the
+   other preferences; ?theme=light also works for a shareable URL. */
+html[data-theme='light'] {
+  --bg: #edf1f8;
+  --bg-2: #e5ebf4;
+  --panel: #ffffff;
+  --panel-2: #f3f6fb;
+  --line: #ccd8e7;
+  --line-2: #a3b7d0;
+  --text: #16202e;
+  --dim: #475b76;
+  --accent: #2f6bdd;
+  --accent-2: #7c5fc9;
+  --accent-3: #0d8ba0;
+  --ok: #17875a;
+  --warn: #9d6207;
+  --bad: #c33a55;
+  --shadow: 0 18px 40px -28px rgba(23, 43, 77, 0.45);
+  --glow: 0 0 26px -8px rgba(47, 107, 221, 0.5);
+  --glow-cyan: 0 0 22px -8px rgba(13, 139, 160, 0.4);
+  --ring-hot: rgba(214, 106, 58, 0.45);
+}
+html[data-theme='light'] body {
+  background:
+    radial-gradient(1100px 620px at 8% -12%, rgba(47, 107, 221, 0.10), transparent 62%),
+    radial-gradient(900px 560px at 96% 6%, rgba(124, 95, 201, 0.09), transparent 60%),
+    radial-gradient(1000px 700px at 50% 118%, rgba(13, 139, 160, 0.08), transparent 62%),
+    var(--bg);
+}
+html[data-theme='light'] body::after {
+  background-image: repeating-linear-gradient(to bottom, rgba(30, 60, 100, 0.012) 0 1px, transparent 1px 3px);
+}
+html[data-theme='light'] body::before {
+  background-image:
+    repeating-linear-gradient(to right, rgba(47, 107, 221, 0.05) 0 1px, transparent 1px 68px),
+    repeating-linear-gradient(to bottom, rgba(47, 107, 221, 0.05) 0 1px, transparent 1px 68px);
+}
+html[data-theme='light'] .substrate { opacity: 0.22; }
+html[data-theme='light'] .topbar { background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(238, 243, 250, 0.78)); }
+html[data-theme='light'] .tabs { background: rgba(240, 245, 251, 0.82); }
+html[data-theme='light'] .tab { background: rgba(255, 255, 255, 0.72); }
+html[data-theme='light'] .tab[aria-selected='true'] {
+  color: #12203a;
+  background: linear-gradient(180deg, var(--mod-soft), rgba(255, 255, 255, 0.5)), rgba(255, 255, 255, 0.96);
+}
+html[data-theme='light'] .brand-name { background: linear-gradient(92deg, #16202e 8%, var(--accent) 55%, var(--accent-2) 100%); -webkit-background-clip: text; background-clip: text; }
+html[data-theme='light'] .chip { background: rgba(255, 255, 255, 0.88); }
+html[data-theme='light'] .cmd-hint kbd { background: rgba(255, 255, 255, 0.9); }
+html[data-theme='light'] .deck { background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(238, 243, 250, 0.72)); }
+html[data-theme='light'] .footer { background: rgba(246, 249, 253, 0.85); }
+html[data-theme='light'] button,
+html[data-theme='light'] .button { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(232, 238, 246, 0.97)); }
+html[data-theme='light'] kbd { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(233, 239, 247, 0.97)); }
+html[data-theme='light'] input[type='text'],
+html[data-theme='light'] input[type='number'],
+html[data-theme='light'] textarea,
+html[data-theme='light'] select { background: #ffffff; }
+html[data-theme='light'] .hero-title { background: linear-gradient(100deg, #16202e 6%, #2c4a76 42%, var(--accent) 72%, var(--accent-2) 100%); -webkit-background-clip: text; background-clip: text; }
+html[data-theme='light'] .stat b { background: linear-gradient(96deg, #16202e, #2f6bdd 65%, var(--accent-2)); -webkit-background-clip: text; background-clip: text; }
+html[data-theme='light'] .ring-track { stroke: #d3ddeb; }
+html[data-theme='light'] .ring-score { fill: #16202e; }
+html[data-theme='light'] .tier-chip { background: rgba(255, 255, 255, 0.78); }
+html[data-theme='light'] .tier-chip.current { background: linear-gradient(180deg, rgba(184, 196, 212, 0.25), rgba(255, 255, 255, 0.94)); }
+html[data-theme='light'] .tier-chip.current b,
+html[data-theme='light'] .tier-chip .achieved { color: #16202e; }
+html[data-theme='light'] .editor-head,
+html[data-theme='light'] .terminal-head { background: linear-gradient(180deg, rgba(244, 247, 252, 0.97), rgba(232, 238, 246, 0.97)); }
+html[data-theme='light'] .gutter { background: rgba(246, 249, 253, 0.95); color: #6d84a0; }
+html[data-theme='light'] .editor-status { background: rgba(246, 249, 253, 0.92); }
+/* Terminals are instruments: they stay dark in daylight, so the boot log and
+   the C output keep their green-on-black readout rather than flipping to a
+   washed-out print of themselves. The surrounding shell still goes light. */
+html[data-theme='light'] .terminal-shell { background: rgba(250, 253, 251, 0.92); }
+html[data-theme='light'] .scope { background: rgba(255, 255, 255, 0.82); }
+html[data-theme='light'] .scope-plot { background: repeating-linear-gradient(to right, rgba(47, 107, 221, 0.08) 0 1px, transparent 1px 24px), repeating-linear-gradient(to bottom, rgba(47, 107, 221, 0.08) 0 1px, transparent 1px 10px), rgba(255, 255, 255, 0.85); }
+html[data-theme='light'] .spark { background: rgba(255, 255, 255, 0.75); }
+html[data-theme='light'] .mesh-log { background: rgba(255, 255, 255, 0.82); }
+html[data-theme='light'] .peer { background: rgba(255, 255, 255, 0.85); }
+html[data-theme='light'] .canvas-overlay { color: #2b4a74; background: rgba(255, 255, 255, 0.8); }
+html[data-theme='light'] .palette { background: radial-gradient(120% 80% at 50% 0%, rgba(226, 234, 245, 0.72), rgba(214, 224, 238, 0.94)); }
+html[data-theme='light'] .toast { background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 245, 251, 0.98)); }
+html[data-theme='light'] .dial { background: rgba(232, 238, 247, 0.55); }
+html[data-theme='light'] .dial-core { background: radial-gradient(closest-side, rgba(255, 255, 255, 0.96), rgba(240, 245, 251, 0.7)); }
+html[data-theme='light'] .noscript-note { background: rgba(255, 255, 255, 0.92); }
+html[data-theme='light'] .stat {
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
+}
+html[data-theme='light'] .dial-slot { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.97)); }
+html[data-theme='light'] .dial-name { color: #16202e; }
+html[data-theme='light'] .dial-slot[data-active='true'] { color: #16202e; background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(232, 240, 250, 0.99)); }
+
+/* --- links ---------------------------------------------------------------
+   Anchors had no house style: the new About section is the first place the
+   page links out, so they get one that matches the chips. */
+a { color: var(--accent-3); text-decoration: none; border-bottom: 1px dotted currentColor; }
+a:hover { color: var(--accent); border-bottom-style: solid; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --- project brief: what / why / who -------------------------------------- */
+.brief { display: grid; gap: 10px; }
+.brief div { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 14px; align-items: baseline; }
+.brief dt { font: 700 calc(10.5px * var(--scale)) / 1.5 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-3); }
+.brief dd { margin: 0; color: var(--text); }
+.brief dd span { display: block; color: var(--dim); font-size: 0.92em; }
+@media (max-width: 560px) {
+  .brief div { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* --- capabilities grid -----------------------------------------------------
+   One tile per real capability. The icon is an inline SVG stroked with the
+   module hue: no icon font, no image request, nothing to install. */
+.feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 10px; }
+.feat {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+}
+.feat svg { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 1px; stroke: var(--mod, var(--accent)); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 6px var(--mod-soft, rgba(110, 168, 254, 0.3))); }
+.feat b { display: block; font: 700 calc(11.5px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.05em; }
+.feat span { color: var(--dim); font-size: 0.86em; }
+
+/* --- roadmap --------------------------------------------------------------- */
+.roadmap { display: grid; gap: 5px; margin: 0; padding: 0; }
+.roadmap li { display: flex; gap: 12px; align-items: baseline; padding: 7px 4px; border-bottom: 1px dashed var(--line); }
+.roadmap li:last-child { border-bottom: none; }
+.roadmap .status { flex: 0 0 auto; width: 74px; text-align: center; font: 700 calc(9.5px * var(--scale)) / 1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid var(--line-2); border-radius: 999px; padding: 4px 6px; color: var(--dim); }
+.roadmap .done .status { color: var(--ok); border-color: rgba(87, 214, 141, 0.55); }
+.roadmap .active .status { color: var(--warn); border-color: rgba(247, 185, 85, 0.55); }
+.roadmap .planned .status { color: var(--dim); }
+.roadmap .w { color: var(--text); }
+.roadmap .w i { display: block; color: var(--dim); font-style: normal; font-size: 0.86em; }
+
+/* --- about + contact -------------------------------------------------------- */
+.about-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 720px) { .about-grid { grid-template-columns: 1fr; } }
+.about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.about-links a {
+  display: inline-flex; align-items: center; gap: 7px;
+  font: 700 calc(10.5px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.09em;
+  padding: 8px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: rgba(13, 19, 28, 0.85);
+  color: var(--text);
+  border-bottom: 1px solid var(--line-2);
+}
+.about-links a:hover { border-color: var(--accent); color: #fff; }
+.about-links svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+html[data-theme='light'] .about-links a { background: rgba(255, 255, 255, 0.9); }
+html[data-theme='light'] .about-links a:hover { color: var(--accent); }

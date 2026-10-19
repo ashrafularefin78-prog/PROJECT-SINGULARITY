@@ -242,12 +242,20 @@ export async function loadGltf(source, isGlb = false) {
     baseUrl = null;
   } else {
     baseUrl = String(source);
-    const res = await fetch(baseUrl);
-    if (!res.ok) throw new Error(`glTF: fetch failed for '${baseUrl}': ${res.status}`);
+    // A data: URI is decoded in place rather than fetched: the app ships
+    // `connect-src 'self'`, and a data: URL is not 'self', so a fetch() would
+    // be refused - and there is nothing to fetch anyway, the bytes are already
+    // here. (The same rule the buffer loop below already applies.)
+    const buffer = baseUrl.startsWith('data:')
+      ? decodeDataUri(baseUrl)
+      : await (async () => {
+          const res = await fetch(baseUrl);
+          if (!res.ok) throw new Error(`glTF: fetch failed for '${baseUrl}': ${res.status}`);
+          return res.arrayBuffer();
+        })();
     // A URL can point at either container: .gltf JSON (or a data: URI) or a
     // .glb binary. Sniff the GLB magic instead of trusting the extension, so
     // both work through the same call.
-    const buffer = await res.arrayBuffer();
     const magic = buffer.byteLength >= 4 ? new DataView(buffer).getUint32(0, true) : 0;
     if (magic === GLB_MAGIC) {
       const { json, bin } = parseGlb(buffer);

@@ -19,13 +19,13 @@ test('substrate: the telemetry bus exists and starts at honest zeros', () => {
   assert(document.querySelector('canvas.substrate') === null, 'pulsing without a mount creates nothing');
 });
 
-test('substrate: mounting creates exactly one GPU-backed canvas and paints', NEEDS_GL, async () => {
+test('substrate: mounting creates exactly one GPU-backed canvas and paints', async () => {
   const substrate = mountSubstrate();
   assert(substrate, 'the substrate mounts on this browser');
   const canvas = dom().querySelector('canvas.substrate');
   assert(canvas === substrate.canvas, 'one canvas, registered in the document');
   assert(mountSubstrate() === substrate, 'the mount is idempotent');
-  assert(['gpu', 'reduced', 'stopped'].includes(substrate.mode()), `mode resolves: ${substrate.mode()}`);
+  assert(['webgl2', 'reduced', 'stopped'].includes(substrate.mode()), `mode resolves: ${substrate.mode()}`);
 
   await nextFrame();
   await nextFrame();
@@ -42,9 +42,9 @@ test('substrate: mounting creates exactly one GPU-backed canvas and paints', NEE
   assert(after.frames > before, 'the loop keeps painting while allowed');
   unmountSubstrate();
   assert(dom().querySelector('canvas.substrate') === null, 'destroy removes the canvas');
-});
+}, NEEDS_GL);
 
-test('substrate: fx off stops the loop and fx full restarts it', NEEDS_GL, async () => {
+test('substrate: fx off stops the loop and fx full restarts it', async () => {
   const html = dom().documentElement;
   const previousFx = html.dataset.fx ? html.dataset.fx : '';
   const substrate = mountSubstrate();
@@ -74,9 +74,9 @@ test('substrate: fx off stops the loop and fx full restarts it', NEEDS_GL, async
   unmountSubstrate();
   assert(true);
   void stills;
-});
+}, NEEDS_GL);
 
-test('substrate: a lost WebGL context degrades to the CSS scene, not a blank page', NEEDS_GL, async () => {
+test('substrate: a lost WebGL context degrades to the CSS scene, not a blank page', async () => {
   const substrate = mountSubstrate();
   const canvas = substrate.canvas;
   const lost = new Event('webglcontextlost', { bubbles: false, cancelable: true });
@@ -86,4 +86,4 @@ test('substrate: a lost WebGL context degrades to the CSS scene, not a blank pag
   assert(!substrate.stats().running, 'no more frames on a dead context');
   unmountSubstrate();
   assert(dom().querySelector('canvas.substrate') === null, 'destroy still cleans up');
-});
+}, NEEDS_GL);

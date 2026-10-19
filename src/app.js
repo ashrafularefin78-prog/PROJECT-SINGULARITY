@@ -71,7 +71,8 @@ const state = {
   peerClocks: new Map(),
   serviceWorker: { status: 'pending' },
   perf: { jsBytes: 0, gzip: null, lcp: null, inp: null, memory: null },
-  a11y: { motion: 'auto', contrast: 'normal', scale: '1', dir: 'ltr', fx: 'auto' },
+  a11y: { motion: 'auto', contrast: 'normal', scale: '1', dir: 'ltr', fx: 'auto', theme: 'dark' },
+  transientTheme: false,
   activePanel: 'dashboard',
   listeners: [],
   // Real startup events, timestamped from the first frame, plus short histories
@@ -1828,10 +1829,15 @@ function applyPrefs() {
   root.dataset.contrast = state.a11y.contrast;
   root.dataset.scale = state.a11y.scale;
   root.dataset.fx = resolveFx();
+  root.dataset.theme = state.a11y.theme || 'dark';
   root.lang = state.a11y.lang || 'en';
   root.dir = state.a11y.dir;
   try {
-    localStorage.setItem('singularity.a11y', JSON.stringify(state.a11y));
+    // A theme that arrived on the URL applies to this visit and is not written
+    // over the visitor's saved preference: following a shared ?theme=light link
+    // should not permanently repaint someone else's app.
+    if (state.transientTheme) state.transientTheme = false;
+    else localStorage.setItem('singularity.a11y', JSON.stringify(state.a11y));
   } catch {
     /* private mode: preferences simply do not persist */
   }
@@ -1892,6 +1898,22 @@ function renderA11y(root) {
     contrast.appendChild(opt);
   }
 
+  // Theme: the same layout and physics in daylight (tokens invert; see the
+  // data-theme block in styles/app.css). Persisted with the other preferences,
+  // and ?theme=light makes a shareable URL for a screenshot or a review.
+  const theme = el('select', {
+    onchange: (e) => {
+      state.a11y.theme = e.target.value;
+      applyPrefs();
+      renderPanel('a11y');
+    },
+  });
+  for (const [value, label] of [['dark', 'Dark - deep space (default)'], ['light', 'Light - daylight instrument']]) {
+    const opt = el('option', { value, text: label });
+    if ((state.a11y.theme || 'dark') === value) opt.selected = true;
+    theme.appendChild(opt);
+  }
+
   const scale = el('select', {
     onchange: (e) => {
       state.a11y.scale = e.target.value;
@@ -1935,7 +1957,7 @@ function renderA11y(root) {
     el('div', { class: 'panel' }, [
       moduleHead('M7', 'Accessibility and internationalisation', 'The interface is built from semantic elements with real labels, a logical focus order, a roving-tabindex tablist and a skip link. Accessibility preferences are user-controlled here rather than trapped behind a media query, and the 3D scene publishes a live text alternative.'),
       card('Preferences', [
-        el('div', { class: 'grid two' }, [field('Motion', motion), field('Visual effects', fx), field('Contrast', contrast), field('Text scaling (up to 200%)', scale), field('Writing direction', dir), field('Content language', lang)]),
+        el('div', { class: 'grid two' }, [field('Motion', motion), field('Visual effects', fx), field('Theme', theme), field('Contrast', contrast), field('Text scaling (up to 200%)', scale), field('Writing direction', dir), field('Content language', lang)]),
         el('p', { class: 'small dim', text: 'Code and terminal surfaces stay left-to-right even in RTL mode, which is what a developer actually needs.' }),
         el('p', { class: 'small dim', text: 'Visual effects are decorative and entirely optional: the layers are hidden from assistive technology, the motion is compositor work (transforms and opacities) apart from the hero floor\u2019s own 240px repaint and a few glitch frames on the title, and \u201cOff\u201d removes the chrome completely - which is also the escape hatch if you want to reclaim frame time on a weak GPU.' }),
         el('p', { class: 'small dim', text: 'The starfield, the hex rain, the deck frame, the parallax zones, the warp wipe and the boot sweep are all chrome and all disappear with \u201cOff\u201d. The activity waveform and the ticker are readouts, so they stay - they just stop moving and stop glowing, because they are reporting real numbers that the header telemetry strip already exposes to assistive technology.' }),
@@ -2342,6 +2364,8 @@ function paletteCommands() {
     { group: 'Display', name: 'Visual effects: full', keywords: 'aurora scanlines animation', run: () => setPref('fx', 'full') },
     { group: 'Display', name: 'Visual effects: reduced', keywords: 'calm animation', run: () => setPref('fx', 'reduced') },
     { group: 'Display', name: 'Visual effects: off (fastest)', keywords: 'flat performance', run: () => setPref('fx', 'off') },
+    { group: 'Display', name: 'Theme: dark (deep space)', keywords: 'night theme color scheme', run: () => setPref('theme', 'dark') },
+    { group: 'Display', name: 'Theme: light (daylight instrument)', keywords: 'day theme color scheme', run: () => setPref('theme', 'light') },
     { group: 'Display', name: 'High contrast', keywords: 'forced colours accessibility', run: () => setPref('contrast', 'high') },
     { group: 'Display', name: 'Normal contrast', keywords: 'accessibility', run: () => setPref('contrast', 'normal') },
     { group: 'Display', name: 'Reduce motion', keywords: 'animation accessibility', run: () => setPref('motion', 'reduced') },
@@ -2600,18 +2624,19 @@ async function remeasurePayload() {
 // ---------------------------------------------------------------- M0 dashboard
 
 // The suite's own totals, kept in one place so the dashboard cannot drift from
-// the runner: tests/browser.html loads 11 suites and tests/run.js exits non-zero
+// the runner: tests/browser.html loads 13 suites and tests/run.js exits non-zero
 // unless every one of these passes. The count is the runner's, not an estimate.
-// Counted from the suite itself, not maintained by hand: `npm test` reports
-// 182 passed + 6 skipped = 188 total, over 11 test files (tests/*.test.js), and
-// the browser runner runs all 188. It was 152/10 until the M2 stdlib additions
-// (enums, prototypes, sprintf, qsort, fgets); the glTF suite then grew the
-// totals to 183/11, but its file was missed off the browser runner's list, so
-// the browser really ran 171. The list names all 11 suites and the browser runs
-// all 188, matching the static hero chip in index.html. The M5 relay carrier
-// added five of the newest tests (sealed round trip, outbox failover, frame-id
-// dedupe, queued flush, base-URL semantics).
-const TEST_TOTALS = { total: 188, suites: 11 };
+// Counted from the suite itself, not maintained by hand: bare Node reports
+// 190 passed + 10 skipped = 200 total (the skipped ones need a document or
+// WebGL2), and the browser runner runs all 200 green over 13 test files
+// (tests/*.test.js). History: it was 152/10 until the M2 stdlib additions
+// (enums, prototypes, sprintf, qsort, fgets); the glTF suite grew it to 183/11
+// but its file was initially missed off the browser runner's list, so the
+// browser really ran 171 until that was fixed; the M5 relay carrier added five
+// more; and UI v3 added the motion suite (8 pure-math tests) and the substrate
+// suite (4 browser-only tests), landing at 200/13, matching the static hero
+// chip in index.html.
+const TEST_TOTALS = { total: 200, suites: 13 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch; convergence, causality and undo are tested. Index lookups walk from a cursor instead of rescanning (20k single-character appends visit 0 nodes, benchmarked in tests/rga.test.js), tombstone collection runs under a peer-derived watermark, and the op log is bounded with a snapshot fallback for catch-up. Interior tombstones are retained by design: an op can still name one as its origin.' },
@@ -2680,6 +2705,156 @@ function adoptHero(score, band) {
     }
   }
   return hero;
+}
+
+/* Dashboard sections that answer the questions a visiting human actually
+ * arrives with: what is this, what does it do, where is it going, who built
+ * it. Everything here repeats only facts the repository already proves - the
+ * tiles name capabilities that each have tests behind them, and the roadmap
+ * marks the same partials the scorecard does. */
+
+const FEATURE_ICONS = {
+  // Hand-drawn 24x24 stroke geometry: three icons are paths, the rest are
+  // primitives, and nothing is fetched from an icon font or a CDN.
+  text: ['M4 7h16', 'M4 12h11', 'M4 17h16'],
+  code: ['m9 7-5 5 5 5', 'm15 7 5 5-5 5'],
+  cube: ['M12 2 4 7v10l8 5 8-5V7l-8-5Z', 'M12 22V12', 'M4 7l8 5 8-5'],
+  shield: ['M12 2l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V5l8-3Z'],
+  mesh: ['M12 3v4', 'M12 17v4', 'M3 12h4', 'M17 12h4', 'M12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6'],
+  cloud: ['M7 17a4 4 0 1 1 .5-8 5 5 0 0 1 9.5 1.5A3.5 3.5 0 0 1 16.5 17H7Z', 'M4 4l16 16'],
+  person: ['M12 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5', 'M5.5 20a6.5 6.5 0 0 1 13 0'],
+  lock: ['M6 11V8a6 6 0 0 1 12 0v3', 'M5 11h14v10H5Z', 'M12 15v3'],
+};
+
+const FEATURES = [
+  { mod: '1', icon: 'text', title: 'Real-time collaboration', text: 'An RGA sequence CRDT with convergence and causality proven by property tests, replicated per-user undo, and cursors that converge the same way the text does. No Yjs, no OT server.' },
+  { mod: '2', icon: 'code', title: 'C runtime in a worker', text: 'A compiler front end and a sandboxed interpreter with step, heap, depth and wall-clock budgets, a live call stack, and a kill switch that terminates a runaway program.' },
+  { mod: '3', icon: 'cube', title: 'Hand-written 3D engine', text: 'WebGL2 instancing to 100k objects, PCF shadow maps, a million GPU particles, Cook-Torrance PBR and a real glTF 2.0 loader - no three.js anywhere.' },
+  { mod: '4', icon: 'shield', title: 'End-to-end encryption', text: 'X3DH agreement and a Double Ratchet composed from WebCrypto primitives, plus a streaming AEAD path for file transfer, with a verified prekey bundle.' },
+  { mod: '5', icon: 'mesh', title: 'Peer mesh and relay', text: 'Tabs find each other over BroadcastChannel, machines over WebRTC data channels, and a ciphertext-only relay with an outbox keeps messages moving through failure.' },
+  { mod: '6', icon: 'cloud', title: 'Offline-first storage', text: 'IndexedDB op log with snapshots and schema migrations, a service worker for the shell, and a deterministic recovery path exercised with the server stopped.' },
+  { mod: '7', icon: 'person', title: 'Accessible by construction', text: 'A keyboard model, roving-tabindex tabs, live regions, a text alternative for the 3D scene, and user-controlled motion, contrast, scale, direction, language and theme.' },
+  { mod: '8', icon: 'lock', title: 'Hardened surface', text: 'Strict CSP with Trusted Types, zero markup sinks, sandbox isolation for the runtime, flood control on the relay, and a written STRIDE model it is actually built against.' },
+];
+
+const ROADMAP = [
+  { state: 'done', what: 'M1 - Collaborative editor', detail: '95/100. Full: convergence, causality, undo replication, tombstone GC - all under property tests.' },
+  { state: 'done', what: 'M4 - Secure communication', detail: 'Full: X3DH, Double Ratchet, streaming file AEAD, key verification.' },
+  { state: 'done', what: 'M6 - Offline-first', detail: 'Full: op log, snapshots, migrations, service worker, server-stopped recovery.' },
+  { state: 'done', what: 'The suite', detail: `${TEST_TOTALS.total} tests in ${TEST_TOTALS.suites} suites, runnable in your browser from this site.` },
+  { state: 'active', what: 'M2 - Runtime (88/100)', detail: 'Declared partial: no clang-to-WASM backend yet and no variadic user functions. Next: a real WASM compilation path.' },
+  { state: 'active', what: 'M3 - Engine (78/100)', detail: 'Declared partial: no image-based lighting, texture sampling or skeletal animation, and no WebGPU path yet.' },
+  { state: 'active', what: 'M5 - Transport (88/100)', detail: 'Declared partial: the relay runs as a local dev node; no bundled TURN server for symmetric NATs.' },
+  { state: 'active', what: 'M7 - Accessibility (55/100)', detail: 'Declared partial: structured for screen readers but not yet validated in an NVDA or VoiceOver session.' },
+  { state: 'active', what: 'M8 - Hardening (83/100)', detail: 'Declared partial: no third-party red-team pass and no ZAP baseline run yet.' },
+  { state: 'planned', what: 'WASM backend for M2', detail: 'Compile C to WebAssembly in the worker and keep the interpreter as the fallback.' },
+  { state: 'planned', what: 'WebGPU renderer path', detail: 'A second backend behind the same engine API, with the WebGL2 path kept for compatibility.' },
+  { state: 'planned', what: 'OPFS and SharedArrayBuffer pooling', detail: 'Faster cold start and cross-tab memory sharing where COOP/COEP allow it.' },
+  { state: 'planned', what: 'Relay deployment and NAT traversal', detail: 'A hosted relay node and a TURN story, so peer tests are not confined to one machine.' },
+  { state: 'planned', what: 'Screen-reader validation pass', detail: 'Drive the interface with NVDA and VoiceOver, then fix what they find - the honest way to close M7.' },
+];
+
+const REPO_URL = 'https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY';
+const CONTACT_EMAIL = 'ashrafularefin@gmail.com';
+const LIVE_URL = 'https://site-7b30ffebca394f959117a11319fb4dfc.freebuff.page/';
+
+function featIcon(name) {
+  return svgEl(
+    'svg',
+    { viewBox: '0 0 24 24', 'aria-hidden': 'true' },
+    (FEATURE_ICONS[name] || []).map((d) => svgEl('path', { d })),
+  );
+}
+
+function briefBlock() {
+  const row = (term, headline, body) =>
+    el('div', {}, [el('dt', { text: term }), el('dd', {}, [el('b', { text: headline }), el('span', { text: body })])]);
+  return el('dl', { class: 'brief' }, [
+    row(
+      'What',
+      'An operating system living in a browser tab.',
+      'One page that behaves like an operating system, a collaborative workspace, a game engine and a secure messenger at once - hand-written against browser APIs, with zero runtime dependencies and no framework in the shipped bundle.',
+    ),
+    row(
+      'Why',
+      'The Impossible Website Challenge, taken seriously.',
+      'The brief budgets 20 engineers for 12 months, calls success "practically zero", and awards honest partial credit by name. This is a solo attempt: every partial is declared as a partial, and every claim is measured or it is not made.',
+    ),
+    row(
+      'Who',
+      'For builders, reviewers and curious students.',
+      'Open it, run the test suite from the page itself, open a second tab and watch the CRDT converge, stop the server and watch it survive. Nothing here needs to be taken on trust - the source is the demo.',
+    ),
+  ]);
+}
+
+function capabilityGrid() {
+  return el(
+    'div',
+    { class: 'feat-grid' },
+    FEATURES.map((f) =>
+      el('div', { class: 'feat', dataset: { mod: f.mod } }, [
+        featIcon(f.icon),
+        el('div', {}, [el('b', { text: f.title }), el('span', { class: 'block', text: f.text })]),
+      ]),
+    ),
+  );
+}
+
+function roadmapList() {
+  const word = { done: 'shipped', active: 'partial', planned: 'planned' };
+  return el(
+    'ul',
+    { class: 'roadmap' },
+    ROADMAP.map((r) =>
+      el('li', { class: r.state }, [
+        el('span', { class: 'status', text: word[r.state] }),
+        el('span', { class: 'w' }, [el('b', { text: r.what }), el('i', { text: r.detail })]),
+      ]),
+    ),
+  );
+}
+
+function aboutSection() {
+  const LINK_ICONS = {
+    arrow: ['M7 17 17 7', 'M9 7h8v8'],
+    mail: ['M3 6h18v12H3Z', 'm3 7 9 6 9-6'],
+    play: ['M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18', 'm10 9 5 3-5 3Z'],
+  };
+  const link = (href, label, iconName, external) => {
+    const a = el('a', { href, target: external ? '_blank' : null, rel: external ? 'noopener' : null }, [
+      svgEl('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, (LINK_ICONS[iconName] || []).map((d) => svgEl('path', { d }))),
+      el('span', { text: label }),
+    ]);
+    return a;
+  };
+  const left = el('div', {}, [
+    el('p', {}, [
+      el('b', { text: 'Ashraful Arefin' }),
+      el('span', {
+        text: ' - Computer Science and Engineering student. Interested in artificial intelligence, software engineering and security, and in open source as a way of learning in public. PROJECT SINGULARITY is a solo answer to a brief sized for twenty people: every module, test, report and measurement in the repository was built from scratch against the platform\u2019s own APIs.',
+      }),
+    ]),
+    el('p', { class: 'small dim', text: 'Everything is open. Read the source, run the suite, and hold the numbers to what the pages claim - issues and pull requests are read.' }),
+    el('div', { class: 'about-links' }, [
+      link(REPO_URL, 'SOURCE · GITHUB', 'arrow', true),
+      link(`mailto:${CONTACT_EMAIL}`, 'EMAIL THE AUTHOR', 'mail', false),
+      link('tests/browser.html', 'TESTS IN THIS BROWSER', 'play', true),
+      link('docs/demo/demo.mp4', 'DEMO VIDEO · 15 MIN', 'play', true),
+      link(LIVE_URL, 'LIVE DEPLOYMENT', 'arrow', true),
+    ]),
+  ]);
+  const right = el('div', {}, [
+    el('h3', { text: 'Contact' }),
+    el('table', {}, [
+      el('tbody', {}, [
+        el('tr', {}, [el('th', { text: 'Email' }), el('td', {}, [el('a', { href: `mailto:${CONTACT_EMAIL}`, text: CONTACT_EMAIL })])]),
+        el('tr', {}, [el('th', { text: 'GitHub' }), el('td', {}, [el('a', { href: REPO_URL, target: '_blank', rel: 'noopener', text: 'ashrafularefin78-prog' })])]),
+        el('tr', {}, [el('th', { text: 'Project' }), el('td', { class: 'dim', text: 'PROJECT SINGULARITY · 2026 · solo build' })]),
+      ]),
+    ]),
+  ]);
+  return el('div', { class: 'about-grid' }, [left, right]);
 }
 
 function renderDashboard(root) {
@@ -2771,6 +2946,15 @@ function renderDashboard(root) {
       ]),
       note('Read this first: this is not the mythical 1000-point build, which the brief itself budgets at 20 engineers for 12 months. It is a working, tested, honest slice: the modules that are full are full, the ones that are partial say exactly where they stop, and every claim is backed by a test you can re-run.', 'warn'),
       note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column the build lands on ${achieved}, because Silver asks for four complete modules and ${full} are complete${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}. Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
+      card('What this is, why it exists, who it is for', [briefBlock()]),
+      card('Capabilities in the shipped build', [
+        capabilityGrid(),
+        el('p', { class: 'small dim mt-10', text: 'Each tile names a capability that has tests behind it - open the module and re-run them. Nothing on this grid is aspirational: the aspirational material lives in the roadmap, below.' }),
+      ]),
+      card('Roadmap', [
+        roadmapList(),
+        el('p', { class: 'small dim mt-10', text: 'The same honesty rule as the scorecard, pointed forward: "partial" rows say exactly what is missing, and "planned" rows are not counted anywhere.' }),
+      ]),
       bootSequenceCard(),
       card('Tier ladder', [tierLadder(achieved)]),
       card('Module score map', [
@@ -2812,6 +2996,7 @@ function renderDashboard(root) {
           el('li', { text: 'Read docs/PLAN.md, docs/ARCHITECTURE.md, docs/THREAT_MODEL.md, docs/SECURITY_REPORT.md and docs/LOAD_CHAOS.md' }),
         ]),
       ]),
+      card('About the developer', [aboutSection()]),
     ]),
   );
 
@@ -2978,9 +3163,17 @@ function renderPanel(id) {
   panel.render(container);
   renderTabs();
   document.title = `${panel.label} · Project Singularity`;
-    // A wipe over the arriving module - one element, one animation, and the
-    // first paint (M0 at boot) is left alone so the boot sweep is not doubled.
-    if (previous) state.hud?.warp(container, panel.id);
+  // Deep links: #editor lands on the editor, #security on M8. replaceState
+  // (not pushState) keeps the tab switch out of session history, matching the
+  // tablist semantics; a file:// origin refuses it, hence the guard.
+  try {
+    if (location.hash !== `#${panel.id}`) history.replaceState(null, '', `#${panel.id}`);
+  } catch {
+    /* file:// refuses history state; the panel switch still happened */
+  }
+  // A wipe over the arriving module - one element, one animation, and the
+  // first paint (M0 at boot) is left alone so the boot sweep is not doubled.
+  if (previous) state.hud?.warp(container, panel.id);
 }
 
 /* Yield past a paint. A deferred module script runs before the browser's first
@@ -3016,6 +3209,34 @@ function loadFullStylesheet() {
 }
 
 async function boot() {
+  // Preferences are applied before the first paint, not after: the theme,
+  // contrast, scaling and direction tokens live on <html>, and a returning
+  // light-theme user should never see a dark flash of the static hero while
+  // the rest of boot runs. Reading localStorage is synchronous, and this is
+  // the only part of boot that has to happen before the browser paints.
+  try {
+    const saved = JSON.parse(localStorage.getItem('singularity.a11y') || 'null');
+    if (saved) Object.assign(state.a11y, saved);
+  } catch {
+    /* ignore corrupt preferences */
+  }
+  // ?theme=light on the URL drops into the daylight theme on first load: it is
+  // how the screenshots in the README are captured, and how a reviewer can
+  // share the exact view they are looking at.
+  try {
+    const wanted = new URLSearchParams(location.search).get('theme');
+    if (wanted === 'light' || wanted === 'dark') {
+      state.a11y.theme = wanted;
+      state.transientTheme = true;
+    }
+  } catch {
+    /* a weird URL must never stop the boot */
+  }
+  if (state.a11y.motion === 'auto' && globalThis.matchMedia) {
+    state.a11y.motion = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced' : 'full';
+  }
+  applyPrefs();
+
   // The full sheet is requested immediately (index.html preloads it) but applied
   // asynchronously, and boot waits for it further down before drawing anything.
   const stylesheet = loadFullStylesheet();
@@ -3035,17 +3256,7 @@ async function boot() {
   refs.telemetry = document.getElementById('telemetry');
   logBoot('shell initialising · 9 modules registered');
 
-  try {
-    const saved = JSON.parse(localStorage.getItem('singularity.a11y') || 'null');
-    if (saved) Object.assign(state.a11y, saved);
-  } catch {
-    /* ignore corrupt preferences */
-  }
-  if (state.a11y.motion === 'auto' && globalThis.matchMedia) {
-    state.a11y.motion = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced' : 'full';
-  }
-  applyPrefs();
-  logBoot(`preferences applied · motion ${state.a11y.motion} · contrast ${state.a11y.contrast} · effects ${document.documentElement.dataset.fx}`);
+  logBoot(`preferences applied · motion ${state.a11y.motion} · contrast ${state.a11y.contrast} · theme ${state.a11y.theme} · effects ${document.documentElement.dataset.fx}`);
 
   // M6: open storage and rebuild the document from the snapshot + op log.
   state.store = await openLocalStore();
@@ -3128,7 +3339,19 @@ async function boot() {
   logBoot('command palette armed · ctrl/cmd+K · alt+1-8 direct module jumps');
   logBoot('telemetry online · sampling every 1000 ms');
   logBoot(`ready · ${Math.round(performance.now())} ms since navigation start`);
+  // Deep links: opening the page at #editor or #security lands directly on that
+  // module, which is also how the README screenshots are framed. The incoming
+  // hash is read *before* the dashboard renders, because renderPanel keeps the
+  // URL in step with the active tab and would otherwise normalise #editor to
+  // #dashboard before the check ran. Back/forward navigation between hashes
+  // re-renders the matching panel.
+  const deepLink = location.hash.replace(/^#/, '');
   renderPanel('dashboard');
+  if (deepLink && deepLink !== 'dashboard' && PANELS.some((p) => p.id === deepLink)) renderPanel(deepLink);
+  addEventListener('hashchange', () => {
+    const wanted = location.hash.replace(/^#/, '');
+    if (wanted && wanted !== state.activePanel && PANELS.some((p) => p.id === wanted)) renderPanel(wanted);
+  });
   updateChips();
 
   addEventListener('online', updateChips);

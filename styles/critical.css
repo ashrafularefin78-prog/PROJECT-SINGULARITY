@@ -753,3 +753,113 @@ html[data-contrast='high'] .fx-nebula { display: none; }
 @media (forced-colors: active) {
 .fx-nebula { display: none; }
 }
+:root {
+  
+  --disk-hot: #ffa07a;
+  --ring-hot: rgba(255, 160, 122, 0.55);
+  --spring-fast: 210;
+  --spring-critical: 1;
+}
+html[data-fx='off'] .substrate { display: none; }
+html[data-contrast='high'] .substrate { display: none; }
+html[data-fx='reduced'] .substrate { opacity: 0.72; }
+html[data-substrate='gpu'] .fx-aurora,
+html[data-substrate='gpu'] .fx-nebula { opacity: 0.4; }
+html[data-substrate='gpu'][data-fx='reduced'] .fx-aurora,
+html[data-substrate='gpu'][data-fx='reduced'] .fx-nebula { opacity: 0.72; }
+.panel-host[data-enter='1'] { animation: panel-dolly 0.42s cubic-bezier(0.16, 0.84, 0.44, 1) both; }
+html[data-motion='reduced'] .panel-host[data-enter='1'] { animation: none; }
+html[data-fx='off'] .panel-host[data-enter='1'] { animation: none; }
+html[data-fx='off'] .dial-blip[data-live='1'] + .dial-halo,
+html[data-fx='off'] .dial-blip { animation: none; }
+.deck-value { font-variant-numeric: tabular-nums; }
+html[data-theme='light'] {
+  --bg: #edf1f8;
+  --bg-2: #e5ebf4;
+  --panel: #ffffff;
+  --panel-2: #f3f6fb;
+  --line: #ccd8e7;
+  --line-2: #a3b7d0;
+  --text: #16202e;
+  --dim: #475b76;
+  --accent: #2f6bdd;
+  --accent-2: #7c5fc9;
+  --accent-3: #0d8ba0;
+  --ok: #17875a;
+  --warn: #9d6207;
+  --bad: #c33a55;
+  --shadow: 0 18px 40px -28px rgba(23, 43, 77, 0.45);
+  --glow: 0 0 26px -8px rgba(47, 107, 221, 0.5);
+  --glow-cyan: 0 0 22px -8px rgba(13, 139, 160, 0.4);
+  --ring-hot: rgba(214, 106, 58, 0.45);
+}
+html[data-theme='light'] body {
+  background:
+    radial-gradient(1100px 620px at 8% -12%, rgba(47, 107, 221, 0.10), transparent 62%),
+    radial-gradient(900px 560px at 96% 6%, rgba(124, 95, 201, 0.09), transparent 60%),
+    radial-gradient(1000px 700px at 50% 118%, rgba(13, 139, 160, 0.08), transparent 62%),
+    var(--bg);
+}
+html[data-theme='light'] body::after {
+  background-image: repeating-linear-gradient(to bottom, rgba(30, 60, 100, 0.012) 0 1px, transparent 1px 3px);
+}
+html[data-theme='light'] body::before {
+  background-image:
+    repeating-linear-gradient(to right, rgba(47, 107, 221, 0.05) 0 1px, transparent 1px 68px),
+    repeating-linear-gradient(to bottom, rgba(47, 107, 221, 0.05) 0 1px, transparent 1px 68px);
+}
+html[data-theme='light'] .substrate { opacity: 0.22; }
+html[data-theme='light'] .topbar { background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(238, 243, 250, 0.78)); }
+html[data-theme='light'] .tabs { background: rgba(240, 245, 251, 0.82); }
+html[data-theme='light'] .tab { background: rgba(255, 255, 255, 0.72); }
+html[data-theme='light'] .tab[aria-selected='true'] {
+  color: #12203a;
+  background: linear-gradient(180deg, var(--mod-soft), rgba(255, 255, 255, 0.5)), rgba(255, 255, 255, 0.96);
+}
+html[data-theme='light'] .brand-name { background: linear-gradient(92deg, #16202e 8%, var(--accent) 55%, var(--accent-2) 100%); -webkit-background-clip: text; background-clip: text; }
+html[data-theme='light'] .chip { background: rgba(255, 255, 255, 0.88); }
+html[data-theme='light'] .cmd-hint kbd { background: rgba(255, 255, 255, 0.9); }
+html[data-theme='light'] .deck { background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(238, 243, 250, 0.72)); }
+html[data-theme='light'] .footer { background: rgba(246, 249, 253, 0.85); }
+html[data-theme='light'] button,
+html[data-theme='light'] .button { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(232, 238, 246, 0.97)); }
+html[data-theme='light'] kbd { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(233, 239, 247, 0.97)); }
+html[data-theme='light'] input[type='text'],
+html[data-theme='light'] input[type='number'],
+html[data-theme='light'] textarea,
+html[data-theme='light'] select { background: #ffffff; }
+html[data-theme='light'] .hero-title { background: linear-gradient(100deg, #16202e 6%, #2c4a76 42%, var(--accent) 72%, var(--accent-2) 100%); -webkit-background-clip: text; background-clip: text; }
+html[data-theme='light'] .stat b { background: linear-gradient(96deg, #16202e, #2f6bdd 65%, var(--accent-2)); -webkit-background-clip: text; background-clip: text; }
+html[data-theme='light'] .ring-track { stroke: #d3ddeb; }
+html[data-theme='light'] .ring-score { fill: #16202e; }
+html[data-theme='light'] .tier-chip { background: rgba(255, 255, 255, 0.78); }
+html[data-theme='light'] .tier-chip.current { background: linear-gradient(180deg, rgba(184, 196, 212, 0.25), rgba(255, 255, 255, 0.94)); }
+html[data-theme='light'] .tier-chip.current b,
+html[data-theme='light'] .tier-chip .achieved { color: #16202e; }
+html[data-theme='light'] .editor-head,
+html[data-theme='light'] .terminal-head { background: linear-gradient(180deg, rgba(244, 247, 252, 0.97), rgba(232, 238, 246, 0.97)); }
+html[data-theme='light'] .gutter { background: rgba(246, 249, 253, 0.95); color: #6d84a0; }
+html[data-theme='light'] .editor-status { background: rgba(246, 249, 253, 0.92); }
+html[data-theme='light'] .terminal-shell { background: rgba(250, 253, 251, 0.92); }
+html[data-theme='light'] .scope { background: rgba(255, 255, 255, 0.82); }
+html[data-theme='light'] .scope-plot { background: repeating-linear-gradient(to right, rgba(47, 107, 221, 0.08) 0 1px, transparent 1px 24px), repeating-linear-gradient(to bottom, rgba(47, 107, 221, 0.08) 0 1px, transparent 1px 10px), rgba(255, 255, 255, 0.85); }
+html[data-theme='light'] .spark { background: rgba(255, 255, 255, 0.75); }
+html[data-theme='light'] .mesh-log { background: rgba(255, 255, 255, 0.82); }
+html[data-theme='light'] .peer { background: rgba(255, 255, 255, 0.85); }
+html[data-theme='light'] .canvas-overlay { color: #2b4a74; background: rgba(255, 255, 255, 0.8); }
+html[data-theme='light'] .palette { background: radial-gradient(120% 80% at 50% 0%, rgba(226, 234, 245, 0.72), rgba(214, 224, 238, 0.94)); }
+html[data-theme='light'] .toast { background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 245, 251, 0.98)); }
+html[data-theme='light'] .dial { background: rgba(232, 238, 247, 0.55); }
+html[data-theme='light'] .dial-core { background: radial-gradient(closest-side, rgba(255, 255, 255, 0.96), rgba(240, 245, 251, 0.7)); }
+html[data-theme='light'] .noscript-note { background: rgba(255, 255, 255, 0.92); }
+html[data-theme='light'] .stat {
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
+}
+html[data-theme='light'] .dial-slot { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.97)); }
+html[data-theme='light'] .dial-name { color: #16202e; }
+html[data-theme='light'] .dial-slot[data-active='true'] { color: #16202e; background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(232, 240, 250, 0.99)); }
+html[data-theme='light'] .about-links a { background: rgba(255, 255, 255, 0.9); }
+html[data-theme='light'] .about-links a:hover { color: var(--accent); }
