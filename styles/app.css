@@ -1996,3 +1996,104 @@ html[data-contrast='high'] .fx-nebula { display: none; }
 @media (forced-colors: active) {
   .fx-nebula { display: none; }
 }
+
+/* ==================================================================
+   UI v3 - the Singularity Substrate, motion tokens and the radar dial
+   ------------------------------------------------------------------
+   The GPU layer (src/ui/substrate.js) renders a raymarched singularity whose
+   uniforms are the page's real telemetry; this section styles it with the
+   same rules every decorative layer obeys - fixed, pointer-inert, aria-hidden,
+   and gone under the M7 switch, reduced motion, high contrast and forced
+   colours. The sizing lives in canvas *attributes* set by the module; the
+   stylesheet handles only position, masking and the on/off states.
+
+   Motion policy: element entrances run off mass-spring-damper physics
+   (src/ui/motion.js). The CSS below carries the reduced-motion contract the
+   same way the rest of the sheet does - html[data-motion='reduced'] and
+   html[data-fx='off'] both stop the animations, so the spring solver and the
+   stylesheet agree about when things move.
+   ================================================================== */
+
+:root {
+  /* Telemetry-derived hues, kept next to the v2 tokens on purpose: blue leads,
+     purple rides alongside, cyan marks life - and the new warm alarm colour is
+     the error channel the substrate flashes when a command fails. */
+  --disk-hot: #ffa07a;
+  --ring-hot: rgba(255, 160, 122, 0.55);
+  --spring-fast: 210;
+  --spring-critical: 1;
+}
+
+/* --- the substrate canvas ----------------------------------------------- */
+.substrate {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.92;
+  transition: opacity 0.35s ease;
+}
+html[data-fx='off'] .substrate { display: none; }
+html[data-contrast='high'] .substrate { display: none; }
+html[data-fx='reduced'] .substrate { opacity: 0.72; }
+@media (forced-colors: active) {
+  .substrate { display: none; }
+}
+
+/* Tilt the flat decorative layers aside when the GPU scene is live: two skies
+   are one too many, so the CSS aurora only carries the reduced/lost states
+   where the substrate is not drawing. */
+html[data-substrate='gpu'] .fx-aurora,
+html[data-substrate='gpu'] .fx-nebula { opacity: 0.4; }
+html[data-substrate='gpu'][data-fx='reduced'] .fx-aurora,
+html[data-substrate='gpu'][data-fx='reduced'] .fx-nebula { opacity: 0.72; }
+
+/* --- module dolly: the entrance fires through the singularity --------------
+   The .panel-host container gets data-enter='1' from the HUD's warp() call.
+   Spring-filled: fast arrival (k=210), critically damped, no overshoot - the
+   visual reading of the solver the tests assert. */
+.panel-host[data-enter='1'] { animation: panel-dolly 0.42s cubic-bezier(0.16, 0.84, 0.44, 1) both; }
+@keyframes panel-dolly {
+  from { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.992); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+html[data-motion='reduced'] .panel-host[data-enter='1'] { animation: none; }
+html[data-fx='off'] .panel-host[data-enter='1'] { animation: none; }
+
+/* --- the radar dial -------------------------------------------------------
+   Module score blips on the ring: radius is the module's real points, the
+   live mark lights when the telemetry sampler says the module moved. Pure
+   SVG presentation attributes carry the geometry (CSP-safe), CSS carries the
+   state. */
+.dial-radar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.dial-blip { opacity: 0.55; transition: opacity 0.3s ease; }
+.dial-blip[data-live='1'] { opacity: 1; }
+.dial-cross { stroke: rgba(140, 180, 220, 0.18); fill: none; stroke-width: 1; }
+.dial-tick { stroke: rgba(140, 180, 220, 0.28); stroke-width: 1; }
+.dial-halo { fill: none; stroke: var(--accent-3); stroke-width: 1; opacity: 0; }
+.dial-blip[data-live='1'] + .dial-halo { animation: blip-halo 2.4s ease-out infinite; }
+@keyframes blip-halo {
+  0% { opacity: 0.75; }
+  70% { opacity: 0; }
+  100% { opacity: 0; }
+}
+html[data-fx='off'] .dial-blip[data-live='1'] + .dial-halo,
+html[data-fx='off'] .dial-blip { animation: none; }
+
+/* Telemetry numerals read tabular everywhere real numbers live, because a
+   waveform and a ticker whose columns jitter are harder to read than the
+   numbers they carry. */
+.deck-value,
+.mod-score,
+.module-score,
+.map-pts,
+.segs[aria-label],
+.stat b { font-variant-numeric: tabular-nums; }

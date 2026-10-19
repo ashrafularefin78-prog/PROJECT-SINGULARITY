@@ -30,6 +30,19 @@ const svg = (tag, props = {}, children = []) => {
 
 const motionIsReduced = () => document.documentElement.dataset.motion === 'reduced';
 
+/**
+ * The page's one live bus at document level: the substrate (and anything else)
+ * can listen for module transitions and failed commands without the HUD having
+ * to know it is there. The detail payloads are facts, not decoration orders.
+ */
+const pulse = (kind, id = '') => {
+  try {
+    document.documentElement.dispatchEvent(new CustomEvent('singularity:pulse', { detail: { kind, id } }));
+  } catch {
+    /* CustomEvent is everywhere the app runs; nothing here is load-bearing */
+  }
+};
+
 // ---------------------------------------------------------------- waveform
 
 const WAVE_SAMPLES = 64;
@@ -134,6 +147,63 @@ function createDial({ modules, onSelect, onClose }) {
   let root = null;
   let index = 0;
   let restoreFocus = null;
+  let blips = [];
+
+  /**
+   * The radar: each module is a blip on the ring at the radius of the score it
+   * actually carries. Geometry values are presentation attributes (the CSP only
+   * governs style attributes), state is a data attribute styled by the sheet.
+   */
+  const radar = () => {
+    const size = 320;
+    const c = size / 2;
+    const crosses = [];
+    for (let i = 1; i <= 2; i += 1) crosses.push(svg('circle', { class: 'dial-cross', cx: c, cy: c, r: String(52 * i) }));
+    const ticks = [];
+    for (let i = 0; i < 8; i += 1) {
+      const a = (i * Math.PI) / 4 - Math.PI / 2;
+      ticks.push(
+        svg('line', {
+          class: 'dial-tick',
+          x1: (c + Math.cos(a) * 108).toFixed(1),
+          y1: (c + Math.sin(a) * 108).toFixed(1),
+          x2: (c + Math.cos(a) * 118).toFixed(1),
+          y2: (c + Math.sin(a) * 118).toFixed(1),
+        }),
+      );
+    }
+    const blipNodes = modules.map((module, i) => {
+      const angle = (i * Math.PI) / 4 - Math.PI / 2;
+      // Radius is the module's real score, so the ring is a scoreboard.
+      const points = Number.isFinite(module.points) ? Math.max(0, Math.min(100, module.points)) : 62;
+      const radius = 20 + 78 * (points / 100);
+      const halo = svg('circle', {
+        class: 'dial-halo',
+        cx: (c + Math.cos(angle) * radius).toFixed(1),
+        cy: (c + Math.sin(angle) * radius).toFixed(1),
+        r: '4',
+      });
+      const blip = svg('circle', {
+        class: 'dial-blip',
+        cx: (c + Math.cos(angle) * radius).toFixed(1),
+        cy: (c + Math.sin(angle) * radius).toFixed(1),
+        r: Number.isFinite(module.points) ? '5' : '0.1',
+        'data-live': '0',
+        'aria-hidden': 'true',
+      });
+      return [blip, halo];
+    });
+    return svg(
+      'svg',
+      {
+        class: 'dial-radar',
+        viewBox: `0 0 ${size} ${size}`,
+        preserveAspectRatio: 'xMidYMid meet',
+        'aria-hidden': 'true',
+      },
+      [...crosses, ...ticks, ...blipNodes.flat()],
+    );
+  };
 
   const slots = () =>
     root ? [...root.querySelectorAll('.dial-slot')] : [];
@@ -196,6 +266,7 @@ function createDial({ modules, onSelect, onClose }) {
       el('div', { class: 'dial-stage' }, [
         el('span', { class: 'dial-ring', 'aria-hidden': 'true' }),
         el('span', { class: 'dial-sweep', 'aria-hidden': 'true' }),
+        radar(),
         el('div', { class: 'dial-core' }, [
           el('b', { class: 'dial-name', text: modules[0].label }),
           el('i', { class: 'dial-note', text: '' }),
@@ -220,7 +291,9 @@ function createDial({ modules, onSelect, onClose }) {
       ]),
     ]);
     document.body.appendChild(root);
+    blips = [...root.querySelectorAll('.dial-blip')];
     paint();
+    pulse('dial', 'open');
     const slot = slots()[index];
     if (slot) slot.focus();
   };
@@ -229,6 +302,7 @@ function createDial({ modules, onSelect, onClose }) {
     if (!root) return;
     root.remove();
     root = null;
+    blips = [];
     if (restoreFocus && restoreFocus.isConnected) restoreFocus.focus();
     onClose();
   }
@@ -284,18 +358,38 @@ export function mountHud({ modules, onSelect, facts }) {
   const dial = createDial({ modules, onSelect, onClose: () => html.removeAttribute('data-dial') });
 
   const api = {
-    /** A warp wipe over the incoming panel: one element, one animation. */
-    warp(node) {
-      if (!node || motionIsReduced() || html.dataset.fx === 'off') return;
-      const scan = el('span', { class: 'warp-scan', 'aria-hidden': 'true' });
-      node.appendChild(scan);
-      scan.addEventListener('animationend', () => scan.remove(), { once: true });
-      setTimeout(() => scan.remove(), 1200);
+    /**
+     * A module transition, in three honest layers: the panel container enters
+     * with the spring-filled dolly (CSS reads data-enter), a scanline wipes
+     * once, and any listening renderer (the substrate) receives an impulse.
+     * Decorative - and therefore gated by the reduced-motion and FX-off states
+     * exactly like every other effect in the sheet.
+     */
+    warp(node, id = '') {
+      if (!node) return;
+      const gated = motionIsReduced() || html.dataset.fx === 'off';
+      if (!gated) {
+        node.dataset.enter = '1';
+        setTimeout(() => {
+          if (node.isConnected && node.dataset.enter === '1') delete node.dataset.enter;
+        }, 640);
+        const scan = el('span', { class: 'warp-scan', 'aria-hidden': 'true' });
+        node.appendChild(scan);
+        scan.addEventListener('animationend', () => scan.remove(), { once: true });
+        setTimeout(() => scan.remove(), 1200);
+      }
+      pulse('module', id);
     },
     /** Called once a second by the app's telemetry sampler. */
     update(reading) {
       wave.push(reading);
       ticker.update(reading.lines);
+      // The radar blips read one honest system signal: something happened this
+      // second (document ops or engine frames). No per-module attribution is
+      // invented - the whole page moved, so the whole ring says so.
+      const active = (Number.isFinite(reading.fps) && reading.fps > 0) || reading.opsDelta > 0;
+      const live = active ? '1' : '0';
+      for (const blip of blips) blip.setAttribute('data-live', live);
     },
     openDial() {
       dial.open();
@@ -304,6 +398,8 @@ export function mountHud({ modules, onSelect, facts }) {
     closeDial: () => dial.close(),
     dialOpen: () => dial.isOpen(),
     dialMove: (delta) => dial.move(delta),
+    /** Forward an impulse to the page bus (used by the command layer's errors). */
+    pulse,
   };
 
   return api;

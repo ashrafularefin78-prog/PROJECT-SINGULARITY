@@ -16,6 +16,7 @@
  */
 import { clear, el, scriptUrl, trustedTypesActive } from './security/policy.js';
 import { mountHud } from './ui/hud.js';
+import { mountSubstrate, telemetry } from './ui/substrate.js';
 import { RGA } from './crdt/rga.js';
 import { CiphertextRelay, Mesh } from './collab/mesh.js';
 import { RelayCarrier } from './collab/relay.js';
@@ -2207,6 +2208,17 @@ function startTelemetry() {
     const deck = deckReading(previousOps);
     previousOps = state.doc ? state.doc.rga.stats().ops : previousOps;
     if (state.hud) state.hud.update(deck);
+    // The substrate's uniforms ride on the same one-second sample: the accretion
+    // disk's flow is the CRDT's operations, itsHardware luminosity is the frame
+    // rate the engine measures (null honest when none runs), and the relay's
+    // outbox depth is the turbulence the disk passes through.
+    telemetry.fps = deck.fps;
+    telemetry.opsDelta = deck.opsDelta;
+    telemetry.ops = previousOps;
+    telemetry.peers = state.mesh ? state.mesh.peers().length : 1;
+    telemetry.relay = state.relayCarrier && state.relayCarrier.status ? state.relayCarrier.status().outbox || 0 : 0;
+    telemetry.heapMb = performance.memory ? performance.memory.usedJSHeapSize / 1048576 : null;
+    telemetry.dial = state.hud && state.hud.dialOpen() ? 1 : 0;
   };
   sample();
   state.telemetryTimer = setInterval(sample, 1000);
@@ -2484,7 +2496,12 @@ function runPaletteCommand(index) {
   closePalette();
   Promise.resolve()
     .then(() => command.run())
-    .catch((err) => toast(`Command failed: ${err && err.message ? err.message : err}`, 'bad'));
+    .catch((err) => {
+      // The failure is a real system event; the axis it feeds (uError) decays
+      // like a damped Poisson kick rather than a UI opinion.
+      telemetry.pulse('error');
+      toast(`Command failed: ${err && err.message ? err.message : err}`, 'bad');
+    });
 }
 
 /**
@@ -2961,9 +2978,9 @@ function renderPanel(id) {
   panel.render(container);
   renderTabs();
   document.title = `${panel.label} · Project Singularity`;
-  // A wipe over the arriving module - one element, one animation, and the
-  // first paint (M0 at boot) is left alone so the boot sweep is not doubled.
-  if (previous) state.hud?.warp(container);
+    // A wipe over the arriving module - one element, one animation, and the
+    // first paint (M0 at boot) is left alone so the boot sweep is not doubled.
+    if (previous) state.hud?.warp(container, panel.id);
 }
 
 /* Yield past a paint. A deferred module script runs before the browser's first
@@ -3059,6 +3076,16 @@ async function boot() {
   registerServiceWorker();
   startTelemetry();
 
+  // The substrate: the GPU singularity whose uniforms are this app's own
+  // telemetry. Mounted after the first paint and gated by M7's FX state; on
+  // any GPU failure it degrades to the CSS scene and logs the mode.
+  try {
+    const substrate = mountSubstrate();
+    logBoot(`substrate ${substrate ? substrate.mode() : 'css fallback'} · fx-gated · telemetry-driven`);
+  } catch (err) {
+    logBoot(`substrate unavailable · ${err && err.message ? err.message : err}`);
+  }
+
   // The deck: frame chrome, the activity waveform, the ticker and the module
   // dial. All of it is effects-gated from M7, and every reading in it comes from
   // the same sampler that feeds the header telemetry strip.
@@ -3073,6 +3100,9 @@ async function boot() {
         label: panel.label,
         short: panel.label.replace(/^M\d\s+/, ''),
         note: status ? `${status.points}/100 · ${status.status === 'ok' ? 'full' : 'partial'}` : 'all eight modules',
+        // The radar blip's radius is the module's real score, so the ring is a
+        // scoreboard rather than a decorated menu.
+        points: status ? status.points : null,
       };
     }),
     onSelect: (id) => {

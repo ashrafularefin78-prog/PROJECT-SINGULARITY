@@ -14,6 +14,8 @@ const SUITES = [
   './renderer.test.js',
   './gltf.test.js',
   './fuzz.test.js',
+  './motion.test.js',
+  './substrate.test.js',
 ];
 
 async function main() {
