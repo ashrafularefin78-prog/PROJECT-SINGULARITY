@@ -3,7 +3,60 @@
 Versions here are dates, not tags - the repository has no tagged releases yet.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-10-20 - review response: deletions, measurements, ZAP
+
+### Removed
+- The seven decorative modules the review called out are gone outright, not
+  lazy-loaded: the holographic title sheen and click ripples
+  (`src/ui/holographic.js`), the time-of-day dynamic theming
+  (`src/ui/theming.js`), the morph panel transitions
+  (`src/ui/transitions.js`), the presence avatars module
+  (`src/ui/presence-avatars.js`, which was orphaned — never imported by the
+  app at all), the sampling/"advanced telemetry" engine
+  (`src/ui/telemetry-advanced.js`), the 150k-particle dashboard canvas
+  (`src/graphics/dashboard-particles.js`), the "AI-driven accessibility"
+  module (`src/ui/a11y-ai.js`), and their test suite
+  (`tests/futuristic-ui.test.js`) plus the `.hero-canvas`/`.holo-text` CSS.
+  Every one was decorative wiring with no claim in the brief behind it.
+- `docs/FUTURE_ROADMAP.md` (neural interfaces, genetic programming, quantum
+  annealing, DNA storage) — deleted and replaced by
+  [`docs/NON_GOALS.md`](docs/NON_GOALS.md), the opposite document.
+
+### Changed
+- The cold-load payload re-measured honestly with `tools/payload.js`: **197.6
+  KiB gzip JS** (from 222.6), 25.9 KiB gzip CSS, against the brief's 170 KB
+  ceiling — still over, still marked over everywhere it publishes. The honest
+  feature work from the review cycle (hdr/environment pipeline, OPFS, E2EE
+  sealing, temporal replay, integrity manifest, a11y contract) stays; cutting
+  it would have traded real module points for a budget row.
+- The module-status scorecard notes were de-duplicated: the per-module notes
+  were restating the case studies verbatim (about 4 KiB gzip of double text);
+  they are now one-line summaries pointing at the case-study `<details>` for
+  the full facts.
+- The self-assessed score arithmetic was corrected: 680 (in-app scorecard
+  arithmetic), not 736; the reviewer's latest independent tally (741, stamped
+  Silver) is quoted with its per-module marks, and the app's tier note now
+  states both readings — the app's strict count (three "ok" rows → Bronze by
+  requirement) and the reviewer's Silver stamp.
+- The M3 (89) and M4 (92) case-study evidence scores were sync'd to the
+  scorecard (84 and 82) — the drift between panel and scorecard was exactly
+  the kind the checker catches elsewhere; these two lines predated
+  `check-docs.js`'s score map.
+
+### Added
+- An archived OWASP ZAP 2.17.0 baseline: spider plus a 1,077-request active
+  scan against the local dev server — **0 High, 0 Medium, 0 Low, 2
+  Informational** ("suspicious comments" pattern-matching source-code
+  comments, and the modern-web-app informational). The first pass the same
+  morning had flagged the dev server serving `.git/config` (Medium) and the
+  `Server: SimpleHTTP/…Python/…` banner (Low); both fixed in `tools/serve.py`
+  and `tools/serve.js` before the archived re-scan. Reports:
+  `docs/reports/zap-baseline.html`, `docs/reports/zap-alerts.json`.
+- `docs/NON_GOALS.md` (see above).
+
 ## 2026-10-19 - uncommitted working tree
+
+### Added
 
 ### Added
 - A temporal core in M1: `src/crdt/history.js` replays any prefix of the retained
@@ -37,7 +90,7 @@ Each entry is derived from the commit history; the newest comes first.
   resolution, mikkelsen tangents and UV-absent degradation.
 
 ### Changed
-- The suite grew to **275 tests across 22 suites** with the temporal core (9),
+- The suite grew to **255 tests across 21 suites** with the temporal core (9),
   `motion` (8) and `substrate` (4) suites, plus four glTF texture tests and two
   renderer texture-decode tests.
 - The accessibility artifact was re-measured against the new dashboard DOM

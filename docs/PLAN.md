@@ -32,3 +32,19 @@ declare the rest as partial rather than faking them.**
 | M4 E2EE | **Full** | WebCrypto supplies the primitives; the composition (X3DH + Double Ratchet + streaming AEAD) is engineering, not research. The signed prekey bundle is verified inside the handshake, before any key material exists. |
 | M6 offline sync | **Full** | IndexedDB + service worker + versioned migrations is well-trodden, and the scope-relative paths make the offline shell work under a subpath deployment. |
 | M2 C runtime | **Partial** → **Near-full** | clang→WASM is out of reach here, but a *real* lexer/parser/interpreter plus a worker sandbox, terminal and hard kill switch delivers most of the module's engineering value. All ISO C language constructs now supported: ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked lists), casts, do/while, malloc/calloc/realloc/free/memcpy/memset, scanf/sscanf, `#define` constants, function-like macros (`#`, `##`, `__VA_ARGS__`), `typedef`, `int m[2][3]`, function pointers and unions. Struct tags are usable as type names without a `typedef` (the one ISO C papercut removed). Bounds-checked arena fails closed - overflowing `strcpy` is an error, never silent corruption. |
+
+## 3. What was actually measured (evidence, not aspiration)
+
+The plan's performance and load rows were executed at the smallest honest scale
+and the artifacts are committed; every figure below is quoted from the report
+JSONs by `tools/check-docs.js`:
+
+| Plan row | Executed as | Evidence |
+|----------|-------------|----------|
+| Initial JS payload | **197.6 KiB** gzip JS + 25.9 KiB gzip CSS against the 170 KB ceiling — over, marked over; the review's decorative modules were deleted for −25 KiB before remeasuring | `tools/payload.js`, LOAD_CHAOS.md section 1 |
+| Concurrent users | **1,000 simulated clients** through the ciphertext relay: 50,000 envelopes, all delivered, 0 lost, p95 12.2 ms | `docs/reports/relay-load.json` |
+| Chaos survival | `SIGKILL` with 20,000 envelopes pending: all replayed from the log after a **256 ms outage** | `docs/reports/relay-chaos.json` |
+| Failover | primary killed for good, backlog re-posted from client outboxes to a standby: 0 lost, 0 duplicated, kill to first accepted post **1322 ms** | `docs/reports/relay-failover.json` |
+
+What the plan does not claim: a 10,000-session rig (none exists), a cluster
+(two relay processes on one laptop), or a bundled TURN relay.

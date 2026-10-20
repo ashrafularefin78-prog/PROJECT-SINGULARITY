@@ -1,7 +1,7 @@
 # Project Singularity
 
 [![Live demo](https://img.shields.io/badge/live_demo-GitHub_Pages-6ea8fe)](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/)
-[![Tests](https://img.shields.io/badge/tests-275_across_22_suites-57d68d)](#verify-it)
+[![Tests](https://img.shields.io/badge/tests-255_across_21_suites-57d68d)](#verify-it)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_dependencies-0-b39ddb)](#technologies)
 [![License](https://img.shields.io/badge/license-MIT-8399b0)](LICENSE)
 
@@ -24,7 +24,7 @@ code. There is no bundler, no transpiler, and no file in `src/` imported from np
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
 | Repository signals | **0 stars · 0 forks · 17 commits · 1 author · 0 tagged releases** (snapshot 19 Oct 2026; GitHub is the live source) |
-| Tests | **275 across 22 suites**, runnable in the browser from the site itself |
+| Tests | **255 across 21 suites**, runnable in the browser from the site itself |
 | Runtime dependencies | **0** - no framework, no bundler, no npm package in the shipped bundle |
 | Modules | 8 (3 full, 5 partial - each partial says exactly where it stops) |
 | Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
@@ -102,7 +102,7 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**275 tests across 22 suites** (~3 s in a real browser, of which 18 need it). Each
+**255 tests across 21 suites** (~3 s in a real browser, of which 18 need it). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
 runner for environments that have it (it reports those 18 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
@@ -176,18 +176,18 @@ the project.
 
 ## Where the score lands
 
-**Self-assessed: 736 / 1000 points** across the eight modules (95 + 94 + 95 + 92 + 88 + 92 + 82
-+ 96), before the budget and integration rows. M4 wired sealing into initCrypto (90→92). M2 struct tag as type name. M3 checkpoint + HDRI pipeline started. M7 accessibility contract + parallel tree. M8 now also has a build-time integrity manifest (`tools/build-site.py` emits `dist/.integrity-manifest.json` - per-file SHA-256, read back by the service worker at boot) and `tests/crypto.test.js` exercise a representative integrity check against real bytes, including a tamper-evidence read that shows a tampered file flips the verdict. Still missing a third-party red-team session and the OWASP ZAP baseline scan (no Docker or ZAP in this environment) — stated as not done, not faked.
+**Self-assessed: 680 / 1000 points** across the eight modules (95 + 88 + 84 + 82 + 88 + 92 + 55
++ 96 = 680), before the budget and integration rows — identical arithmetic to the in-app scorecard. The previous 736 figure double-counted M1-M6 and carried pre-fix M2/M4 values; it is corrected here rather than argued away. M4 seals identity keys and verifies the signed prekey bundle in the handshake. M2 struct tag as type name. M3 checkpoint + HDRI pipeline started. M7 accessibility contract + parallel tree. M8 now also has a build-time integrity manifest (`tools/build-site.py` emits `dist/.integrity-manifest.json` - per-file SHA-256, read back by the service worker at boot) and `tests/crypto.test.js` exercise a representative integrity check against real bytes, including a tamper-evidence read that shows a tampered file flips the verdict. Still missing a third-party red-team session — stated as not done, not faked.
 
-Note: the reviewer's independent tally comes to **601 / 1000**, a 130-point gap on the updated score. The per-module delta is not yet reconciled. Items most likely to account for the gap: the partial-module ceilings (M3, M5, M7, M8 each cap at a lower value without the gold-tier deliverables listed under "Next steps to reach Gold"), and the unearned rows (OWASP ZAP, NVDA/VoiceOver, TURN; the load row now carries the relay's partial result — 1,000 of 10,000 clients — and the chaos rows the kill-and-restart test and the two-node hand-over). The self-assessed numbers above reflect the work that is demonstrably present in the code and test suite; the reviewer's marks are the authoritative ones.
+Note: the reviewer's latest independent tally is **741 / 1000** (M1 85, M2 74, M3 84, M4 88, M5 74, M6 80, M7 56, M8 66; Performance 72 with −12 for the payload excess; Integration 62 with −4 for doc drift and the decorative modules that shipped last update), stamped **Silver**. Its per-module floor equals the in-app tally (−10 M1, −14 M2, +6 M4, −14 M5, −12 M6, +1 M7, −30 M8), and the budget/integration rows account for the rest. The reviewer's marks are the authoritative ones; this self-assessment is only the floor of what is demonstrably in the code.
 
 The brief's ladder asks two different questions, so this README answers both:
 
 | Reading | Answer | Why |
 |---------|--------|-----|
-| Points band | **Gold** (450-750) | Arithmetic on the module scores. |
-| Tier by requirement | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete and five are partial, so Silver misses by one module - stated plainly rather than rounded up. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (204.0 KiB gzip JS vs 170 KB budget — over), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Points band | **Gold** (450-750) | Arithmetic on the module scores: 741 sits inside the band. |
+| Tier by requirement | **Silver** | The reviewer's tally tiers at Silver: M1, M2, M4 and M6 are full or near-full (the four the brief's Silver row asks for) with real integration between them; Gold still needs the partial four (M3, M5, M7, M8) to reach full. |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (**197.6 KiB gzip JS vs 170 KB budget — over**; the seven decorative modules the review named were deleted outright for −25 KiB, and the honest feature work stands at ~116% of budget), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -210,7 +210,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (22 suites, 275 tests, fuzzer included)
+tests/                  browser test suite (21 suites, 255 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
