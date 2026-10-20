@@ -1,5 +1,5 @@
 import { test, assert, assertEquals, assertDeepEquals } from './harness.js';
-import { RGA, compareId } from '../src/crdt/rga.js';
+import { RGA, compareId, CHECKPOINT_STRIDE } from '../src/crdt/rga.js';
 
 test('M1: sequential typing reproduces the input exactly', () => {
   const r = new RGA('a');
@@ -364,4 +364,60 @@ test('M1: fingerprint pruning is bounded by the watermark and stays idempotent',
   const snapshot = rga.text();
   rga.merge(rga.log);
   assertEquals(rga.text(), snapshot, 'a full replay changes nothing');
+});
+
+test('M1: random access at scale matches text() and does not walk the document', () => {
+  const rga = new RGA('a');
+  let source = '';
+  for (let i = 0; i < 20000; i += 1) source += String.fromCharCode(97 + (i % 26));
+  rga.localInsert(0, source);
+  const text = rga.text();
+  // Every 97th index: enough to exercise both the checkpoint table and the
+  // walk between checkpoints without making the test itself slow.
+  for (let i = 0; i < text.length; i += 97) {
+    const node = rga.nodeAtVisible(i);
+    assertEquals(node.ch, text[i], `index ${i}`);
+  }
+  // One cold, mid-document lookup must not degrade into a linear scan.
+  const rga2 = new RGA('b');
+  rga2.localInsert(0, source);
+  rga2.nodeAtVisible(text.length / 2);
+  const before = rga2.walkSteps;
+  rga2.nodeAtVisible(text.length / 2 - 7);
+  const steps = rga2.walkSteps - before;
+  assert(steps <= CHECKPOINT_STRIDE, `a checkpointed lookup walked ${steps} nodes`);
+});
+
+test('M1: the checkpoint index is rebuilt after deletes reach its range', () => {
+  const rga = new RGA('a');
+  let source = '';
+  for (let i = 0; i < 12000; i += 1) source += String.fromCharCode(97 + (i % 26));
+  rga.localInsert(0, source);
+  rga.nodeAtVisible(6000); // build the table
+  rga.localDelete(0, 4000);
+  rga.localDelete(200, 50);
+  const text = rga.text();
+  for (let i = 0; i < text.length; i += 211) {
+    assertEquals(rga.nodeAtVisible(i).ch, text[i], `after delete, index ${i}`);
+  }
+  rga.collect({ safeTs: Infinity });
+  const after = rga.text();
+  for (let i = 0; i < after.length; i += 311) {
+    assertEquals(rga.nodeAtVisible(i).ch, after[i], `after collect, index ${i}`);
+  }
+});
+
+test('M1: the checkpoint index agrees with a concurrent merge', () => {
+  const a = new RGA('a');
+  const b = new RGA('b');
+  a.localInsert(0, 'x'.repeat(9000));
+  b.merge(a.log);
+  for (let i = 0; i < 40; i += 1) a.localInsert((i * 331) % (a.visible + 1), 'A');
+  for (let i = 0; i < 40; i += 1) b.localInsert((i * 197) % (b.visible + 1), 'B');
+  a.nodeAtVisible(4500);
+  a.merge(b.log);
+  const text = a.text();
+  for (let i = 0; i < text.length; i += 389) {
+    assertEquals(a.nodeAtVisible(i).ch, text[i], `after merge, index ${i}`);
+  }
 });

@@ -546,7 +546,7 @@ export class Renderer {
       instances: this.instanceCount,
       particles: this.particleCount,
       environment: this.env
-        ? `procedural sky IBL (band-2 SH diffuse cube, roughness-LOD specular cube ${this.env.specular.size}^2/face)`
+        ? `${this.envSource || 'procedural sky'} (band-2 SH diffuse cube, roughness-LOD specular cube ${this.env.specular.size}^2/face)`
         : 'none',
     };
   }
@@ -722,6 +722,41 @@ export class Renderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  }
+
+  /**
+   * M3: replace the diffuse irradiance cube with one built from a measured HDR
+   * probe's spherical harmonics. The specular cube deliberately stays on the
+   * procedural sky (a GGX prefilter of an equirect probe is a separate job),
+   * and `info()` reports exactly that split.
+   *
+   * Returns false when there is no live GL context: the caller then reports a
+   * measurement without a lighting change instead of pretending it applied.
+   */
+  applyProbeIrradiance(coeffs) {
+    const gl = this.gl;
+    if (!gl || !this.env || !this.envIrradianceTexture) return false;
+    this.env.coefficients = coeffs;
+    this.env.irradiance = irradianceCube(coeffs, 16);
+    const faces = this.env.irradiance;
+    const faceBytes = faces.size * faces.size * 4;
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.envIrradianceTexture);
+    for (let face = 0; face < 6; face += 1) {
+      gl.texImage2D(
+        gl.TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, gl.RGBA8, faces.size, faces.size, 0,
+        gl.RGBA, gl.UNSIGNED_BYTE,
+        new Uint8Array(faces.data.buffer, faces.data.byteOffset + face * faceBytes),
+      );
+    }
+    this.envSource = 'measured HDR probe (diffuse SH) + procedural specular';
+    return true;
+  }
+
+  /** Back to the procedural sky for both terms. */
+  resetProceduralIrradiance() {
+    const ok = this.applyProbeIrradiance(shProject());
+    if (ok) this.envSource = 'procedural sky';
+    return ok;
   }
 
   _buildShadowFramebuffer() {

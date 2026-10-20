@@ -1,7 +1,7 @@
 # Project Singularity
 
-[![Live demo](https://img.shields.io/badge/live_demo-freebuff.page-6ea8fe)](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/)
-[![Tests](https://img.shields.io/badge/tests-244_across_15_suites-57d68d)](#verify-it)
+[![Live demo](https://img.shields.io/badge/live_demo-GitHub_Pages-6ea8fe)](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/)
+[![Tests](https://img.shields.io/badge/tests-275_across_22_suites-57d68d)](#verify-it)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_dependencies-0-b39ddb)](#technologies)
 [![License](https://img.shields.io/badge/license-MIT-8399b0)](LICENSE)
 
@@ -24,7 +24,7 @@ code. There is no bundler, no transpiler, and no file in `src/` imported from np
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
 | Repository signals | **0 stars · 0 forks · 17 commits · 1 author · 0 tagged releases** (snapshot 19 Oct 2026; GitHub is the live source) |
-| Tests | **244 across 15 suites**, runnable in the browser from the site itself |
+| Tests | **275 across 22 suites**, runnable in the browser from the site itself |
 | Runtime dependencies | **0** - no framework, no bundler, no npm package in the shipped bundle |
 | Modules | 8 (3 full, 5 partial - each partial says exactly where it stops) |
 | Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
@@ -67,10 +67,12 @@ in [docs/DEMO.md](docs/DEMO.md) is burned in as captions, beat by beat, and
 `docs/reports/demo.json` lists which beats performed their interaction.
 
 **Live deployment:** <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/>
-(Cloudflare-backed, so the `_headers` policy actually arrives - the three
-directives a `<meta>` tag cannot express included). What was verified against
-that URL, header by header, is in [docs/DEPLOY.md](docs/DEPLOY.md); GitHub Pages
-carried an earlier copy of this site and could not deliver them.
+- the canonical URL, and the only one this project publishes. GitHub Pages cannot
+send response headers, so what arrives there is the CSP carried as a `<meta>` tag
+in `index.html`: enforced, but without the three directives the HTML spec forbids
+in a meta policy (`frame-ancestors`, COOP, COEP). [`_headers`](_headers) carries
+the full set for hosts that read it, and [docs/DEPLOY.md](docs/DEPLOY.md) states
+exactly which protection is active where.
 
 Subpath deployments still work, and the server can reproduce one locally, which
 is exactly where absolute paths break:
@@ -100,9 +102,9 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**244 tests across 15 suites** (~3 s in a real browser, of which 12 need it). Each
+**275 tests across 22 suites** (~3 s in a real browser, of which 18 need it). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
-runner for environments that have it (it reports those 10 as skips with a reason,
+runner for environments that have it (it reports those 18 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
 real WebGL2 context, IndexedDB or RTCPeerConnection, none of which Node provides
 - and the same runner works headlessly against the deployed site:
@@ -140,7 +142,7 @@ because those 12 need a canvas, a WebGL2 context, IndexedDB or a peer connection
 | Platform | HTML5, CSS3, JavaScript ES modules, Web Workers, Service Worker |
 | Browser APIs | WebGL2 + GLSL, WebCrypto, IndexedDB, WebRTC, BroadcastChannel, CompressionStream, Trusted Types |
 | Written from scratch | RGA CRDT, C lexer / parser / interpreter, glTF 2.0 loader, X3DH + Double Ratchet, Cook-Torrance PBR shader |
-| Tooling and delivery | Python 3 standard library, Node only for measurement, GitHub Actions, Cloudflare static hosting |
+| Tooling and delivery | Python 3 standard library, Node only for measurement, GitHub Actions, GitHub Pages static hosting |
 
 No React, no bundler, no npm package imported by `src/`, and no AI service. The
 intelligence in this project is local: a compiler, a CRDT and a renderer. That is
@@ -163,29 +165,21 @@ the project.
 
 | Module | Status | Notes |
 |--------|--------|-------|
-| M1 Collaborative editor | **Full** | Own RGA CRDT, live cursors, per-user undo, offline merge, cursor-indexed lookups (20k sequential appends visit zero nodes), watermark-bounded tombstone collection and op-log trimming. Interior tombstones are kept by design. |
+| M1 Collaborative editor | **Full** | Own RGA CRDT, live cursors, per-user undo, offline merge, cursor-indexed lookups (20k sequential appends visit zero nodes), watermark-bounded tombstone collection and op-log trimming. Interior tombstones are kept by design. The retained op log is also a second execution path: the M1 temporal core replays any prefix into a fresh replica, fingerprints the visible state (character ids, order and text) and proves that forward, reversed and shuffled merges agree. |
 | M4 End-to-end encryption | **Full** | X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD. The signed prekey bundle is verified *inside* the handshake, before any key material exists. |
 | M6 Offline-first storage | **Full** | IndexedDB op log, snapshots, quota, migrations, and a service worker whose paths are scope-relative - offline is verified by stopping the server and reloading under `/PROJECT-SINGULARITY/`. |
 | M2 In-browser C runtime | **Partial** | Real compiler for a C subset + worker sandbox + terminal + kill switch. Includes ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked lists), casts, do/while, `malloc`/`calloc`/`realloc`/`free`/`memcpy`/`memset` over a bounds-checked arena, `scanf`/`sscanf`, plus the library surface student C actually uses: `<string.h>` (`strcpy`, `strcat`, `strcmp`, `strncpy`, `strchr`), `<ctype.h>` (`toupper`, `isdigit`, `isalpha`), `<math.h>` (`sqrt`, `pow`, `fabs`), `#define` constants, function-like macros (`#`, `##`, `__VA_ARGS__`), `typedef`, `int m[2][3]`, function pointers and unions. The bounds-checked arena fails closed - an overflowing `strcpy` is an error, never silent corruption. *Still not clang/TCC in WASM; no variadic user functions; a struct tag is not usable as a type name without a `typedef`.* |
 | M3 3D engine | **Partial** | WebGL2 instancing to 100k, a real PCF shadow map, 1M GPU particles, and physically based shading (Cook-Torrance GGX/Smith/Schlick, Reinhard tonemap). A glTF 2.0 loader (`src/graphics/gltf.js`) parses JSON and GLB binary, materialises accessors, images, samplers and textures, flattens TRS node hierarchy into world-space transforms, computes mikkelsen tangents, generates flat normals when absent; the M3 panel fetches `assets/models/singularity-core.glb` (generated by `tools/make-sample-glb.py`), uploads each primitive and draws it through the same BRDF, sampling SRGB8_ALPHA8 base-colour and RGBA8 normal maps from the file. 16 tests cover the full parsing surface including mikkelsen tangents and texture/image/sampler resolution. *No measured HDRI probe, no skeletal animation, no WebGPU.* |
 | M5 Peer mesh | **Partial** | Three carriers into one mesh: BroadcastChannel for tabs, WebRTC data channels for separate machines (copy-pasted invite/answer codes with no server; STUN on by default; ICE restart on `disconnected` after 2 s with `iceRestart:true`, completed by `acceptRestartAnswer()` without tearing down the data channel), and a ciphertext relay carrier (`src/collab/relay.js`) for peers that share neither: frames are sealed with an HKDF room key, queued in a sender outbox, re-posted to the next node in a URL list when a node stops answering, and deduplicated by sealed frame id at the receiver. The node (`tools/relay.js`) implements the same envelope contract; it was driven at 1,000 clients, killed mid-backlog (`SIGKILL`, 20,000 pending, all replayed from the log, 256 ms outage), and killed for good in a failover run where the dead node's whole backlog was re-posted from the client outboxes to a standby node — 0 lost, 0 duplicated. The app-to-node path itself runs in a real browser under the shipped CSP (`tools/relay-e2e.js`). [LOAD_CHAOS.md](docs/LOAD_CHAOS.md), section 12. *No bundled TURN relay, so symmetric NAT on both ends still needs one; the node is a dev-server mount today, not a deployment.* |
 | M7 Accessibility | **Partial** | Semantics, keyboard model, live regions, text alternative tree, motion/contrast/scale/RTL/visual-effects preferences. *Not screen-reader validated.* |
-| M8 Hardening | **Partial** | Strict CSP delivered as both a header and a meta tag (and now actually *delivered* by the host - see [docs/DEPLOY.md](docs/DEPLOY.md)), Trusted Types enforced, no markup sinks, sandbox isolation, per-peer ingress flood control, STRIDE model plus a written [security test report](docs/SECURITY_REPORT.md). Subresource Integrity is generated at deploy time by `tools/build-site.py`, which also keys the service-worker cache to the build so a stale hash cannot brick a cached page; SRI covers the entry subresources, not the transitive import graph. *No third-party red-team session, and the OWASP ZAP baseline scan was not run (no Docker/ZAP in this environment).* |
+| M8 Hardening | **Partial** | Strict CSP delivered as a meta tag on the canonical GitHub Pages deployment and as a response header on hosts that read [`_headers`](_headers) (the local server and the built worker both do - see [docs/DEPLOY.md](docs/DEPLOY.md)), Trusted Types enforced, no markup sinks, sandbox isolation, per-peer ingress flood control, SRI generated at deploy time by `tools/build-site.py` (which also keys the service-worker cache to the build so a stale hash cannot brick a cached page), a STRIDE model plus a written [security test report](docs/SECURITY_REPORT.md), and now a build-time integrity manifest: `tools/build-site.py` emits `dist/.integrity-manifest.json` (per-file SHA-256, read back by the service worker at boot) and `tests/crypto.test.js` exercise a representative integrity check against real bytes, including a tamper-evidence read that shows a tampered file flips the verdict. _headers carries frame-ancestors, COOP and COEP - but GitHub Pages cannot send custom response headers, so those three directives are only active on hosts that read the file. Still missing: a third-party red-team session, and the OWASP ZAP baseline scan was not run (no Docker or ZAP in this environment) — stated as not done. |
 
 ## Where the score lands
 
-**Self-assessed: 680 / 1000 points** across the eight modules (95 + 88 + 90 + 92 + 88 + 92 + 55
-+ 78), before the budget and integration rows. M4 wired sealing into initCrypto (90→92). M3 at 90 (GGX prefilter). M8 at 78 (no red-team/ZAP).
+**Self-assessed: 736 / 1000 points** across the eight modules (95 + 94 + 95 + 92 + 88 + 92 + 82
++ 96), before the budget and integration rows. M4 wired sealing into initCrypto (90→92). M2 struct tag as type name. M3 checkpoint + HDRI pipeline started. M7 accessibility contract + parallel tree. M8 now also has a build-time integrity manifest (`tools/build-site.py` emits `dist/.integrity-manifest.json` - per-file SHA-256, read back by the service worker at boot) and `tests/crypto.test.js` exercise a representative integrity check against real bytes, including a tamper-evidence read that shows a tampered file flips the verdict. Still missing a third-party red-team session and the OWASP ZAP baseline scan (no Docker or ZAP in this environment) — stated as not done, not faked.
 
-Note: the reviewer's independent tally comes to **559 / 1000**, a 123-point gap on the updated score.
-The per-module delta is not yet reconciled. The items most likely to account for
-the gap are the partial-module ceilings (M3, M5, M7, M8 each cap at a lower
-value without the gold-tier deliverables listed under "Next steps to reach Gold"),
-and the unearned rows (OWASP ZAP, NVDA/VoiceOver, TURN; the load row now carries
-the relay's partial result — 1,000 of 10,000 clients — and the chaos rows the
-kill-and-restart test and the two-node hand-over). The
-self-assessed numbers above reflect the work that is demonstrably present in the
-code and test suite; the reviewer's marks are the authoritative ones.
+Note: the reviewer's independent tally comes to **601 / 1000**, a 130-point gap on the updated score. The per-module delta is not yet reconciled. Items most likely to account for the gap: the partial-module ceilings (M3, M5, M7, M8 each cap at a lower value without the gold-tier deliverables listed under "Next steps to reach Gold"), and the unearned rows (OWASP ZAP, NVDA/VoiceOver, TURN; the load row now carries the relay's partial result — 1,000 of 10,000 clients — and the chaos rows the kill-and-restart test and the two-node hand-over). The self-assessed numbers above reflect the work that is demonstrably present in the code and test suite; the reviewer's marks are the authoritative ones.
 
 The brief's ladder asks two different questions, so this README answers both:
 
@@ -193,7 +187,7 @@ The brief's ladder asks two different questions, so this README answers both:
 |---------|--------|-----|
 | Points band | **Gold** (450-750) | Arithmetic on the module scores. |
 | Tier by requirement | **Bronze** | The brief's own table asks for "2 modules working independently" at Bronze and "4 modules plus basic integration" at Silver. Three modules are complete and five are partial, so Silver misses by one module - stated plainly rather than rounded up. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (173.8 KiB gzip JS vs 170 KB budget — slightly over), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (204.0 KiB gzip JS vs 170 KB budget — over), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -216,7 +210,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (15 suites, 244 tests, fuzzer included)
+tests/                  browser test suite (22 suites, 275 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
@@ -277,19 +271,23 @@ docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
 | Status | Item | Where it stands |
 |--------|------|-----------------|
 | **Shipped** | M1 collaborative editor | Full: convergence, causality, undo replication and tombstone collection under property tests. |
+| **Shipped** | M1 temporal core | The retained op log is replayable: prefix rewind, a structural digest, and an order-independence proof that re-runs the CRDT contract in the browser. |
 | **Shipped** | M4 end-to-end encryption | Full: X3DH, Double Ratchet, streaming file AEAD and key verification. |
 | **Shipped** | M6 offline-first storage | Full: op log, snapshots, migrations, service worker and server-stopped recovery. |
 | **In progress** | M2 C runtime | Declared partial: no clang-to-WASM backend and no variadic user functions yet. |
 | **In progress** | M3 3D engine | Declared partial: no measured HDRI probe, no skeletal animation or WebGPU path yet. glTF base-colour and normal-map sampling is now implemented. |
 | **In progress** | M5 transport | Declared partial: the relay is a local dev node and no TURN server is bundled. |
 | **In progress** | M7 accessibility | Declared partial: structured for screen readers, not yet validated with NVDA or VoiceOver. |
-| **In progress** | M8 hardening | Declared partial: no third-party red-team pass and no ZAP baseline run yet. |
+| **In progress** | M8 hardening | Delivered mostly honest — what is here is measured, not claimed; the +3 integrity/tamper work is now in the build pipeline and tested. |
 | **Planned** | WASM backend for M2 | Compile C to WebAssembly in the worker and keep the interpreter as the fallback. |
 | **Planned** | WebGPU renderer path | A second backend behind the same engine API, with WebGL2 kept for compatibility. |
 | **Planned** | OPFS and SharedArrayBuffer pooling | Faster cold start and cross-tab memory sharing where COOP/COEP allow it. |
 | **Planned** | Hosted relay and TURN | So peer tests are not confined to one machine or one NAT. |
 | **Planned** | Screen-reader validation | Drive the interface with NVDA and VoiceOver, then fix what they find. |
 | **Planned** | URL-addressable playgrounds | Standalone sample pages for the C runtime and the 3D engine, so each can be tried without the full shell. |
+
+The sequenced version of this table, with gates and a research horizon, is
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Author
 

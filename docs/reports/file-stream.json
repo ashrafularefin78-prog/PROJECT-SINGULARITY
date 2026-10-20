@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-10-20T00:00:00.000Z",
+  "tool": "tools/bench-stream.js",
+  "command": "node tools/bench-stream.js --size=2GiB --chunk=256KiB",
+  "method": "A deterministic repeating pattern is fed to encryptStream in 64 KiB pieces; every frame is decrypted as it arrives with ChunkEncryptor.openFrame; an FNV-1a checksum of the plaintext that came back is compared with the checksum of the source. RSS is sampled every 64 frames. Nothing is written to disk and the file is never allocated.",
+  "runs": [
+    {
+      "sizeMiB": 512,
+      "chunkKiB": 256,
+      "frames": 2048,
+      "finalFrames": 1,
+      "bytesReceived": 536870912,
+      "bytesOk": true,
+      "throughputMiBps": 29.2,
+      "seconds": 17.51,
+      "baselineRssMiB": 36.5,
+      "peakRssMiB": 225.4,
+      "rssGrowthMiB": 189
+    },
+    {
+      "sizeMiB": 2048,
+      "chunkKiB": 256,
+      "frames": 8192,
+      "finalFrames": 1,
+      "bytesReceived": 2147483648,
+      "bytesOk": true,
+      "throughputMiBps": 29.1,
+      "seconds": 70.34,
+      "baselineRssMiB": 36.5,
+      "peakRssMiB": 232.1,
+      "rssGrowthMiB": 195.6
+    }
+  ],
+  "verdict": "2 GiB round-tripped with 0 byte mismatches and exactly one authenticated final frame. Peak RSS growth was 189 MiB at 512 MiB and 195.6 MiB at 2 GiB: a 4x larger file cost 6.6 MiB more, so memory is O(chunk), not O(file). Node's WebCrypto path sustains ~29 MiB/s in this environment; the CI runner is expected to differ, so the number is reported rather than asserted.",
+  "limits": "This is Node's WebCrypto, not a browser tab. The same ChunkEncryptor code runs in the app, but browser throughput and GC behaviour are not measured here. The 196 MiB figure includes base64 frame strings that V8 had not collected yet, so it is an upper bound on resident memory, not the algorithm's working set."
+}

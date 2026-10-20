@@ -18,17 +18,22 @@ import { clear, el, scriptUrl, trustedTypesActive } from './security/policy.js';
 import { mountHud } from './ui/hud.js';
 import { mountSubstrate, telemetry } from './ui/substrate.js';
 import { RGA } from './crdt/rga.js';
+import { replayReport, replayTo, stateDigest } from './crdt/history.js';
 import { CiphertextRelay, Mesh } from './collab/mesh.js';
 import { RelayCarrier } from './collab/relay.js';
-import { DEFAULT_ICE_SERVERS, RtcCarrier } from './collab/webrtc.js';
+import { DEFAULT_ICE_SERVERS, RtcCarrier, iceServersWithTurn, turnServers } from './collab/webrtc.js';
+import { describeTopology, planTopology } from './collab/topology.js';
 import { openLocalStore } from './storage/db.js';
+import { openOpfsMirror } from './storage/opfs.js';
 import { Sandbox } from './runtime/sandbox.js';
 import { MAX_INSTANCES, MAX_PARTICLES, Renderer } from './graphics/renderer.js';
 import { loadGltf } from './graphics/gltf.js';
+import { parseRadianceHDR, probeIrradianceError, probePeak, probeSH } from './graphics/hdr.js';
 import { createDashboardParticles } from './graphics/dashboard-particles.js';
 import { initTheming, getTheming, setTheme } from './ui/theming.js';
 import { createTransitionRenderer, transitionPanels } from './ui/transitions.js';
 import { initA11yAI, getA11yAI } from './ui/a11y-ai.js';
+import { auditTree, parallelTextTree } from './ui/a11y-contract.js';
 import { createHolographicText, createHolographicButton } from './ui/holographic.js';
 import { initTelemetry, getTelemetry } from './ui/telemetry-advanced.js';
 import {
@@ -63,6 +68,7 @@ const state = {
   room: DOC_ID,
   offline: false,
   store: null,
+  opfs: null,
   mesh: null,
   relay: new CiphertextRelay(),
   sandbox: new Sandbox({ timeLimitMs: 4000 }),
@@ -72,6 +78,7 @@ const state = {
   cursors: new Map(),
   crypto: null,
   rtc: null,
+  rtcTurn: null,
   rtcLines: [],
   relayCarrier: null,
   relayLines: [],
@@ -116,6 +123,7 @@ const refs = {
   editor: null,
   cursors: null,
   docMeta: null,
+  temporal: null,
   terminal: null,
   engineStats: null,
 };
@@ -425,6 +433,9 @@ function broadcastOps(ops) {
 
 async function persist(ops) {
   if (!state.store || !ops.length) return;
+  // The OPFS mirror is written first: it is the crash-safety tier, and a batch
+  // that reached one store but not the other is recoverable from either.
+  if (state.opfs) await state.opfs.appendBatch(DOC_ID, ops);
   try {
     await state.store.appendOps(DOC_ID, ops);
     state.doc.persisted += ops.length;
@@ -529,6 +540,25 @@ function updateDocMeta() {
     refs.docMeta.appendChild(el('span', { text: part }));
   }
   refreshGutter();
+  if (refs.temporal) {
+    refs.temporal.refreshLimits();
+    refs.temporal.schedule();
+  }
+}
+
+/** Read the OPFS mirror when IndexedDB has no document to rebuild from. */
+async function recoverFromOpfs() {
+  if (!state.opfs || !state.opfs.state.supported) return null;
+  const mirrored = await state.opfs.readBatches(DOC_ID);
+  if (mirrored.ops.length) {
+    const rga = new RGA(state.peerId);
+    rga.merge(mirrored.ops);
+    if (rga.stats().visible > 0 && rga.stats().buffered === 0) {
+      return { text: rga.text(), from: `${mirrored.batches}-batch write-ahead log` };
+    }
+  }
+  const snap = await state.opfs.readSnapshot(DOC_ID);
+  return snap ? { text: snap.text, from: 'snapshot' } : null;
 }
 
 const WELCOME = '# welcome to singularity\n\nEdit this document, open a second tab, and watch the CRDT merge.\n';
@@ -563,7 +593,11 @@ async function loadDocument() {
   }
 
   if (rga.stats().visible === 0) {
-    const text = (snapshot && snapshot.text) || WELCOME;
+    // IndexedDB produced nothing: try the OPFS mirror before falling back to
+    // the welcome document. This is the tier that survives a database reset.
+    const mirrored = await recoverFromOpfs();
+    const text = (snapshot && snapshot.text) || (mirrored && mirrored.text) || WELCOME;
+    if (mirrored) logBoot(`document recovered from OPFS ${mirrored.from} · ${text.length} chars`);
     const seedOps = rga.localInsert(0, text);
     const persisted = await state.store.appendOps(DOC_ID, seedOps);
     state.doc = { rga, text, rev: 0, persisted, recovered: false };
@@ -585,6 +619,139 @@ function renderCursors() {
       ]),
     );
   }
+}
+
+/**
+ * M1's temporal core: the retained op log is a program, so it can be re-run.
+ *
+ * Two readouts, both computed rather than remembered:
+ *   - the structural digest of the state rebuilt from the first k ops, which is
+ *     what lets two tabs compare convergence without diffing text;
+ *   - the verdict of replaying the whole log forward, reversed and shuffled,
+ *     which is the CRDT's order-independence contract executed again at runtime.
+ *
+ * Honest edge: compaction can trim the front of the log, and a suffix that names
+ * trimmed origins cannot rebuild an earlier state. The control disables itself and
+ * says why instead of drawing a plausible-looking wrong document.
+ */
+function renderTemporal() {
+  const rgaNow = () => editorState().rga;
+  const range = el('input', {
+    type: 'range',
+    min: '0',
+    step: '1',
+    max: String(rgaNow().log.length),
+    value: String(rgaNow().log.length),
+    'aria-label': 'Rebuild the document from the first N retained operations',
+    oninput: () => showAt(range.value),
+  });
+  const position = el('b', { class: 'mono small', text: '0 / 0 ops' });
+  const digestOut = el('code', { class: 'mono small', text: '—' });
+  const preview = el('pre', { class: 'terminal temporal-preview', text: '' });
+  const verdict = el('div', { class: 'small mt-10', role: 'status', 'aria-live': 'polite' });
+  const note = el('p', { class: 'small dim' });
+  let pending = 0;
+
+  const showLive = () => {
+    const rga = rgaNow();
+    const text = rga.text();
+    preview.textContent = text.length > 280 ? `${text.slice(0, 280)}\n… ${text.length - 280} more characters` : text || '(empty document)';
+    digestOut.textContent = stateDigest(rga);
+  };
+
+  function showAt(at) {
+    const rga = rgaNow();
+    if (rga.logTrimmed > 0) {
+      showLive();
+      return;
+    }
+    const ops = rga.log.length;
+    const k = Math.max(0, Math.min(Number(at) || 0, ops));
+    position.textContent = `${k} / ${ops} ops`;
+    if (!ops) {
+      showLive();
+      return;
+    }
+    const state = replayTo(rga.log, k);
+    const text = state.text || '(empty document)';
+    preview.textContent = text.length > 280 ? `${text.slice(0, 280)}\n… ${text.length - 280} more characters` : text;
+    digestOut.textContent = state.buffered ? `${state.digest} · ${state.buffered} waiting` : state.digest;
+  }
+
+  // Replaying a long log is linear in the document, so a keystroke only schedules
+  // the preview; the label itself updates immediately because it is cheap.
+  const schedule = () => {
+    clearTimeout(pending);
+    // A fingerprint or a proof is about the state that was live when it ran, so
+    // the moment the document moves the verdict is withdrawn rather than left
+    // on screen describing a different document.
+    verdict.textContent = '';
+    verdict.className = 'small mt-10';
+    pending = setTimeout(() => showAt(range.value), 250);
+  };
+
+  function refreshLimits() {
+    const rga = rgaNow();
+    const ops = rga.log.length;
+    const previousMax = Number(range.max) || 0;
+    const following = Number(range.value) >= previousMax;
+    range.max = String(ops);
+    range.disabled = ops === 0 || rga.logTrimmed > 0;
+    if (following || Number(range.value) > ops) range.value = String(ops);
+    if (rga.logTrimmed > 0) {
+      position.textContent = `live · ${ops} retained · ${rga.logTrimmed} trimmed`;
+      note.textContent = `Compaction dropped ${rga.logTrimmed} operation(s) from the front of the log in this session, so states older than the retained window are not reconstructible and the slider is off. The digest describes the live document; the order proof still runs on the retained set.`;
+      return;
+    }
+    position.textContent = `${range.value} / ${ops} ops`;
+    note.textContent = ops
+      ? 'Each position is a fresh replica fed the first k retained operations. The digest covers character ids, order and text, so two peers can compare it without diffing documents.'
+      : 'No operations are retained - this document was rebuilt from a snapshot, so there is no timeline to walk.';
+  }
+
+  refreshLimits();
+  showAt(range.value);
+
+  const node = card('Temporal core — replay the retained op log', [
+    el('p', { class: 'small dim', text: 'The op log is a second execution path for the same document: rewind it, or re-run it in three orders and check that the fingerprints agree.' }),
+    field('Rebuild state after N operations', range),
+    el('div', { class: 'row tight mt-10' }, [position, chip('digest', 'accent'), digestOut]),
+    preview,
+    el('div', { class: 'row tight mt-10' }, [
+      button('Fingerprint this state', () => {
+        const rga = rgaNow();
+        const at = rga.logTrimmed > 0 ? rga.log.length : Math.min(Number(range.value) || 0, rga.log.length);
+        const digest = rga.logTrimmed > 0 ? stateDigest(rga) : replayTo(rga.log, at).digest;
+        verdict.className = 'small mt-10 ok';
+        verdict.textContent = `fingerprint ${digest} · ${at} retained op(s) · visible chars ${rga.logTrimmed ? rga.stats().visible : replayTo(rga.log, at).text.length}`;
+      }),
+      button('Prove order-independence', () => {
+        const rga = rgaNow();
+        if (!rga.log.length) {
+          verdict.className = 'small mt-10 warn';
+          verdict.textContent = 'Nothing to replay: the retained log is empty.';
+          return;
+        }
+        const report = replayReport(rga.log);
+        const line = Object.entries(report.orders)
+          .map(([name, r]) => `${name} ${r.digest}`)
+          .join(' · ');
+        verdict.className = `small mt-10 ${report.agree ? 'ok' : 'bad'}`;
+        verdict.textContent = report.agree
+          ? `agree · ${line} · ${report.ops} op(s) in three orders${report.buffered ? ` · ${report.buffered} waiting on trimmed origins, so this is a window` : ''}`
+          : `DISAGREEMENT · ${line}`;
+      }),
+      button('Jump to present', () => {
+        range.value = range.max;
+        showAt(range.value);
+      }),
+    ]),
+    verdict,
+    note,
+  ]);
+
+  refs.temporal = { node, refreshLimits, schedule };
+  return node;
 }
 
 function renderEditor(root) {
@@ -659,6 +826,7 @@ function renderEditor(root) {
         ]),
         el('div', { class: 'mt-12' }, [shell]),
       ]),
+      renderTemporal(),
       el('div', { class: 'grid two' }, [
         card('Peers in this room', [peers, el('div', { class: 'mt-10' }, [el('h3', { text: 'Live cursors' }), cursors])]),
         card('CRDT invariants (proved by the test suite)', [
@@ -957,6 +1125,11 @@ function renderEngine(root) {
     el('span', { class: 'tl-k', text: 'FRAME RATE · LAST 60 SAMPLES' }),
     el('div', { class: 'scope-plot' }, [scope.node]),
   ]);
+  const probeStatus = el('p', {
+    class: 'small dim',
+    text: 'Lighting source: the procedural sky. Load the bundled Radiance probe to drive the diffuse irradiance cube from measured HDR data.',
+  });
+  const probeReadout = el('div', { class: 'small mono mt-6' });
 
   let instanceSlider;
   let particleSlider;
@@ -1126,6 +1299,44 @@ function renderEngine(root) {
       ]),
       statsBox,
       scopeBox,
+      card('Measured HDRI probe', [
+        el('p', { class: 'small dim', text: 'assets/probes/singularity-sky.hdr is a real 64x32 Radiance RGBE image, decoded by src/graphics/hdr.js, projected onto the same band-2 SH the renderer convolves, and measured against a direct cosine integral before it is applied to the diffuse cube.' }),
+        el('div', { class: 'row mt-10' }, [
+          button('Load + measure the probe', async () => {
+            probeStatus.className = 'small warn';
+            probeStatus.textContent = 'decoding the probe…';
+            try {
+              const res = await fetch('assets/probes/singularity-sky.hdr');
+              if (!res.ok) throw new Error(`probe fetch failed: ${res.status}`);
+              const probe = parseRadianceHDR(new Uint8Array(await res.arrayBuffer()));
+              const coeffs = probeSH(probe, 4096);
+              const error = probeIrradianceError(probe, coeffs);
+              const peak = probePeak(probe);
+              const applied = state.renderer ? state.renderer.applyProbeIrradiance(coeffs) : false;
+              probeStatus.className = `small ${applied ? 'ok' : 'warn'}`;
+              probeStatus.textContent = `${applied ? 'Diffuse irradiance cube rebuilt from the probe' : 'Measured, but no live renderer to apply it to'}. The specular cube stays procedural and the panel says so.`;
+              clear(probeReadout);
+              probeReadout.append(
+                el('div', { text: `probe        ${probe.width}x${probe.height} RGBE, ${probe.data.length / 3} texels` }),
+                el('div', { text: `peak         L ${peak.luminance.toFixed(2)} at ${peak.elevationDeg.toFixed(1)} deg elevation, ${peak.azimuthDeg.toFixed(1)} deg azimuth` }),
+                el('div', { text: `SH-2 error   ${(error * 100).toFixed(2)}% mean relative, versus a direct cosine integral` }),
+                el('div', { text: `L00          ${coeffs[0].toFixed(3)} ${coeffs[1].toFixed(3)} ${coeffs[2].toFixed(3)}` }),
+              );
+            } catch (err) {
+              probeStatus.className = 'small bad';
+              probeStatus.textContent = `Probe failed: ${err.message}`;
+            }
+          }),
+          button('Back to procedural sky', () => {
+            const ok = state.renderer ? state.renderer.resetProceduralIrradiance() : false;
+            probeStatus.className = `small ${ok ? 'ok' : 'warn'}`;
+            probeStatus.textContent = ok ? 'Diffuse irradiance cube rebuilt from the procedural sky.' : 'No live renderer to reset.';
+            clear(probeReadout);
+          }),
+        ]),
+        probeStatus,
+        probeReadout,
+      ]),
       card('Parallel accessible tree (M7)', [
         el('p', { class: 'dim small', text: 'A canvas is invisible to assistive technology, so the engine publishes a live text description of the scene instead. Screen readers get this; sighted users get the render.' }),
         sceneText,
@@ -1618,7 +1829,11 @@ function rtcLogLine(line) {
 function ensureRtc() {
   if (!RtcCarrier.supported()) throw new Error('this browser does not implement RTCPeerConnection');
   if (state.rtc) return state.rtc;
-  const servers = state.rtcUseStun === false ? null : DEFAULT_ICE_SERVERS;
+  // STUN by default; a TURN relay only when the user configured one. With STUN
+  // deliberately off and no TURN, `null` means host candidates only.
+  const servers = state.rtcUseStun === false
+    ? (state.rtcTurn ? turnServers(state.rtcTurn) : null)
+    : iceServersWithTurn(state.rtcTurn);
   state.rtc = new RtcCarrier({
     id: state.peerId,
     name: state.name,
@@ -1829,6 +2044,25 @@ function renderMesh(root) {
         ['tab', state.rtc ? 'WebRTC' : null, carrier ? 'relay' : null].filter(Boolean).join(' + '),
         'one mesh, up to three transports',
       ),
+      statCard(
+        'Topology plan',
+        (() => {
+          try {
+            const ids = [state.peerId, ...(state.mesh ? state.mesh.peers().map((p) => p.id) : [])];
+            return planTopology(ids, { meshLimit: 6, fanout: 4 }).mode;
+          } catch {
+            return 'mesh';
+          }
+        })(),
+        (() => {
+          try {
+            const ids = [state.peerId, ...(state.mesh ? state.mesh.peers().map((p) => p.id) : [])];
+            return describeTopology(planTopology(ids, { meshLimit: 6, fanout: 4 }));
+          } catch {
+            return 'one peer';
+          }
+        })(),
+      ),
     );
     clear(relayPanel);
     const seen = state.relay.inspect();
@@ -1897,6 +2131,31 @@ function renderMesh(root) {
           })(),
           el('span', { class: 'small dim', text: `default: ${DEFAULT_ICE_SERVERS.map((s) => s.urls).join(', ')}` }),
         ]),
+        el('p', { class: 'small dim mt-10', text: 'Optional TURN fallback. A symmetric NAT on both ends needs a relay; this project does not bundle one, but a room that has one can use it. Credentials stay in memory for this tab only - they are never written to storage, never logged, and never put in an invite code.' }),
+        el('div', { class: 'grid three' }, [
+          field('TURN url', el('input', { type: 'text', id: 'turn-url', placeholder: 'turn:turn.example.org:3478', autocomplete: 'off', spellcheck: 'false' })),
+          field('TURN username', el('input', { type: 'text', id: 'turn-user', autocomplete: 'off', spellcheck: 'false' })),
+          field('TURN credential', el('input', { type: 'password', id: 'turn-pass', autocomplete: 'off', spellcheck: 'false' })),
+        ]),
+        el('div', { class: 'row mt-10' }, [
+          button('Apply TURN (next invite)', () => {
+            const urls = document.getElementById('f-turn-url').value.split(',').map((u) => u.trim()).filter(Boolean);
+            const username = document.getElementById('f-turn-username').value.trim();
+            const credential = document.getElementById('f-turn-credential').value;
+            try {
+              if (!urls.length) throw new Error('enter at least one turn: or turns: url');
+              turnServers({ urls, username: username || undefined, credential: username ? credential : undefined });
+              state.rtcTurn = username ? { urls, username, credential } : { urls };
+              rtcLogLine({ text: `TURN configured for the next invite: ${urls.join(', ')}${username ? ' (authenticated)' : ''}`, tone: 'dim' });
+            } catch (err) {
+              rtcLogLine({ text: `TURN rejected: ${err.message}`, tone: 'bad' });
+            }
+          }),
+          button('Clear TURN', () => {
+            state.rtcTurn = null;
+            rtcLogLine({ text: 'TURN cleared; STUN only', tone: 'dim' });
+          }),
+        ]),
         el('div', { class: 'mt-12' }, [rtcLogView]),
       ]),
       card('Relay node: store-and-forward for peers with no direct link (optional)', [
@@ -1957,6 +2216,7 @@ function renderOffline(root) {
     const snapshot = await store.loadDoc(DOC_ID);
     const s = doc.rga.stats();
     const est = await store.estimate();
+    const mirror = state.opfs ? await state.opfs.status(DOC_ID) : null;
 
     info.append(
       el('div', { class: 'stats' }, [
@@ -1964,8 +2224,23 @@ function renderOffline(root) {
         statCard('Ops in log', String(ops), `${s.ops} merged in memory`),
         statCard('Snapshot', snapshot ? `${snapshot.text.length} chars` : 'none yet', snapshot ? new Date(snapshot.at).toLocaleTimeString() : 'compact to create one'),
         statCard('Characters', String(s.visible), `${s.tombstones} tombstones`),
+        statCard(
+          'OPFS mirror',
+          mirror && mirror.available ? `${mirror.batches} batch${mirror.batches === 1 ? '' : 'es'}` : 'unavailable',
+          mirror && mirror.available
+            ? `${bytes(mirror.bytes)} mirrored${mirror.snapshot ? ' · snapshot present' : ' · no snapshot yet'}`
+            : 'this browser does not expose the origin-private filesystem',
+        ),
       ]),
     );
+    if (mirror && mirror.available) {
+      info.appendChild(
+        el('p', {
+          class: 'small dim',
+          text: 'The OPFS tier is a write-ahead mirror: one file per accepted op batch plus an atomically replaced snapshot. A tab that dies mid-write cannot leave a torn batch, because close() commits the file.',
+        }),
+      );
+    }
 
     quotaBar.appendChild(
       el('p', {
@@ -1989,6 +2264,12 @@ function renderOffline(root) {
           const granted = await store.requestPersistence();
           quotaBar.appendChild(el('p', { class: granted ? 'ok' : 'warn', text: `Persistent storage ${granted ? 'granted' : 'not granted'} — the origin will ${granted ? 'be protected from eviction' : 'use best-effort eviction'}.` }));
         }),
+        button('Write an OPFS snapshot now', async () => {
+          const ok = state.opfs ? await state.opfs.writeSnapshot(DOC_ID, doc.rga.text(), doc.rga.log.length) : false;
+          quotaBar.appendChild(
+            el('p', { class: ok ? 'ok' : 'warn', text: ok ? `OPFS snapshot written: ${doc.rga.text().length} characters.` : 'OPFS snapshot failed: the mirror is not available in this browser.' }),
+          );
+        }),
         button('Compact: snapshot + reclaim memory', async () => {
           const before = await store.countOps(DOC_ID);
           await store.compact(DOC_ID, doc.rga.text());
@@ -2006,6 +2287,7 @@ function renderOffline(root) {
           const safeTs = single ? Infinity : clocks.length >= peerCount - 1 ? RGA.safeWatermark(clocks) : -1;
           const reclaimed = doc.rga.collect({ safeTs });
           const dropped = doc.rga.trimLog(500);
+          if (state.opfs) await state.opfs.writeSnapshot(DOC_ID, doc.rga.text(), doc.rga.log.length);
           const stats = doc.rga.stats();
           quotaBar.appendChild(
             el('p', { class: 'ok', text: `Compacted: ${before} ops → ${after} ops; snapshot of ${doc.rga.text().length} characters kept.` }),
@@ -2125,6 +2407,38 @@ function applyPrefs() {
 }
 
 function renderA11y(root) {
+  const auditSummary = el('div', { class: 'small mt-6' });
+  const auditOut = el('div', { class: 'mt-6' });
+
+  const runAudit = () => {
+    const report = auditTree(document);
+    clear(auditSummary);
+    clear(auditOut);
+    const { stats } = report;
+    auditSummary.className = `small ${stats.errors ? 'bad' : stats.warnings ? 'warn' : 'ok'}`;
+    auditSummary.textContent = `${stats.passed}/${stats.checked} rules pass · ${stats.errors} errors · ${stats.warnings} warnings · ${stats.focusable} focusable elements in ${stats.elements} elements`;
+    if (report.findings.length) {
+      auditOut.appendChild(el('table', {}, [
+        el('thead', {}, [el('tr', {}, [el('th', { text: 'Rule' }), el('th', { text: 'WCAG' }), el('th', { text: 'Where' }), el('th', { text: 'What' })])]),
+        el('tbody', {}, report.findings.map((f) => el('tr', {}, [
+          el('td', { text: f.rule }),
+          el('td', { text: f.wcag }),
+          el('td', { class: 'mono small', text: f.target }),
+          el('td', { class: 'small', text: f.message }),
+        ]))),
+      ]));
+    }
+    auditOut.appendChild(el('p', { class: 'small dim', text: `Not checked: ${report.notChecked.join('; ')}.` }));
+  };
+
+  const runTree = () => {
+    clear(auditOut);
+    clear(auditSummary);
+    auditSummary.className = 'small dim';
+    auditSummary.textContent = 'The accessibility tree of the document as text - the same shape a screen reader walks.';
+    auditOut.appendChild(el('pre', { class: 'terminal', text: parallelTextTree(document) }));
+  };
+
   const shortcutRows = [
     ['Ctrl / ⌘ + K', 'Open the command palette: every action in the app is reachable from the keyboard'],
     ['\\', 'Open the module dial: all eight modules on a ring, arrows to turn, Enter to jump, Escape to close'],
@@ -2252,6 +2566,15 @@ function renderA11y(root) {
       card('Screen-reader text alternative for the 3D scene', [
         el('p', { class: 'dim small', text: 'Renderers are invisible to assistive tech by default. The engine exposes a live description; the M3 panel renders the same tree visually.' }),
         el('pre', { class: 'terminal', text: state.renderer ? state.renderer.describeScene().summary : 'Engine not started yet — open M3, then return here.' }),
+      ]),
+      card('Accessibility contract - live audit', [
+        el('p', { class: 'dim small', text: 'The rules are code, not prose: src/ui/a11y-contract.js walks the live document and reports what a screen reader would find wrong - unnamed controls, skipped heading levels, a missing main landmark, an image with no alternative, positive tabindex, a canvas with no text alternative, a focusable element hidden from assistive tech, a malformed live region. Each finding names its rule and its WCAG clause, and the audit lists what it did not check so a pass is not mistaken for a complete one.' }),
+        el('div', { class: 'row gap-8' }, [
+          button('Run the audit', () => { runAudit(); }),
+          button('Show the parallel tree', () => { runTree(); }),
+        ]),
+        auditSummary,
+        auditOut,
       ]),
       card('Where this is honest about its limits', [
         note('Screen-reader behaviour was reasoned about and structured for (roles, labels, live regions, focus order, text alternatives) but has not been driven by an actual NVDA/VoiceOver/TalkBack session. Bangla and Arabic shaping inside the code editor is deferred to the browser’s own text layout; the app sets lang and dir correctly and keeps code LTR.', 'warn'),
@@ -2908,17 +3231,16 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 244, suites: 15 };
+const TEST_TOTALS = { total: 275, suites: 22 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch; convergence, causality and undo are tested. Index lookups walk from a cursor instead of rescanning (20k single-character appends visit 0 nodes, benchmarked in tests/rga.test.js), tombstone collection runs under a peer-derived watermark, and the op log is bounded with a snapshot fallback for catch-up. Interior tombstones are retained by design: an op can still name one as its origin.' },
   { id: 'M2', title: 'In-browser C compiler and runtime', status: 'partial', points: 88, note: 'Real lexer/parser/interpreter in a worker with a step budget, a heap cap, a kill switch and line+column diagnostics. The subset covers ternary, switch with fall-through, structs (nested, arrays, by-value, heap-linked lists), casts, do/while and the malloc/calloc/realloc/free/memcpy/memset family over a bounds-checked arena, plus scanf/sscanf. The preprocessor handles #define/#undef/#ifdef/#if/#elif/#error, function-like macros (argument substitution, # stringize, ## paste, __VA_ARGS__ / variadic), and a token that came out of a macro carries the line and column of its use site. typedef, two-dimensional arrays, function pointers and unions all work, and the library surface student C actually reaches for is built in: <string.h> (strcpy, strcat, strcmp, strncpy, strchr, strncmp, strrchr, strstr, strlen), <ctype.h> (toupper, isdigit, isalpha), <math.h> (sqrt, pow, fabs), sprintf/qsort/fgets. The arena fails closed: a strcpy that would overflow its destination is an error, never silent corruption. Still not clang/TCC in WASM; no variadic user functions; a struct tag is not a type name without a typedef.' },
-  { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 90, note: 'WebGL2 with hardware instancing up to 100k objects animated in the vertex shader, a real depth-only shadow pass with hardware PCF, 1M GPU particles from gl_VertexID, and physically based shading: Cook-Torrance GGX/Smith/Schlick with per-instance metallic/roughness, image-based lighting from a deterministic procedural sky (src/graphics/env.js - the sky is projected onto band-2 spherical harmonics for a diffuse irradiance cube and mip-mapped for roughness-driven specular reflections (now a proper GGX split-sum importance-sampled prefilter in src/graphics/env.js:ggxPrefilteredCube, replacing the earlier box-filter approximation), with no HDRI downloaded), and Reinhard tone mapping. A glTF 2.0 loader (src/graphics/gltf.js) parses both the JSON and GLB binary variants, materialises accessors and buffer views, flattens the scene hierarchy into world-space transforms via TRS node composition, generates flat normals when absent, computes mikkelsen tangent frames for normal mapping, and uploads geometry to WebGL2 via uploadMesh(); the panel loads assets/models/singularity-core.glb and draws every primitive through the same BRDF as the instances, sampling base-colour (SRGB8_ALPHA8) and tangent-space normal maps from the file. 16 tests cover the full parsing surface including flat-normal generation, PBR material extraction, GLB binary chunk handling, texture/image/sampler resolution, mikkelsen tangents and UV-absent degradation. The panel reports measured main-thread CPU per frame. No measured HDRI probe, no skeletal animation, no WebGPU.' },
-  { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 92, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD, all WebCrypto. The signed prekey bundle is now verified inside the handshake before any key material is derived - a swapped prekey or a forged signature aborts the session - with negative tests for both. Identity private keys are sealed to a passphrase-derived AES-256-GCM key (PBKDF2 100k iterations) and persisted in IndexedDB on first run (initCrypto wires in sealPrivateKeys). exportIdentityPrivate/importIdentityPrivate serialize to PKCS8; wrong passphrase fails closed (3 tests). No audited key storage.' },
-  { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 88, note: 'Three real carriers feed one mesh: BroadcastChannel for same-browser tabs, WebRTC data channels for separate machines, and a ciphertext relay carrier (src/collab/relay.js) for peers that share neither - frames are sealed with an HKDF room key, queued in a sender outbox, re-posted to the next node in a URL list when a node stops answering, and deduplicated by sealed frame id at the receiver. Signaling is a copy-pasted invite/answer code, so the shipped app still needs no server for signaling or collaboration; STUN is on by default. ICE restart is implemented: when a connection transitions to disconnected the carrier waits 2 s, emits a new offer with iceRestart:true, and exposes acceptRestartAnswer() so the remote peer can complete the restart without tearing down the data channel. Presence, pruning, reconnect recovery, the relay contract and the flood limiter are shared by both carriers. The relay contract is no longer only contractual: tools/relay.js is a standalone ciphertext relay node (durable JSONL log written before every 200, long-poll drains, per-mailbox caps); tools/load-relay.js drove it with 1,000 simulated clients - 50,000 envelopes, 0 lost, 0 duplicated - killed it mid-backlog and replayed all 20,000 accepted-but-undelivered envelopes from the log, and in --failover mode killed it for good and re-posted the entire 20,000-envelope backlog from the client outboxes to a standby node: 0 lost, 0 duplicated. Every mode grades itself against thresholds and exits non-zero on a breach, and tools/relay-e2e.js drives the shipped app against a real node in a real browser under the shipped CSP (LOAD_CHAOS.md section 12). A TURN relay is not bundled (bandwidth and policy), so symmetric NAT on both ends still needs one added.' },
+    { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 84, note: 'WebGL2 with hardware instancing up to 100k objects animated in the vertex shader, a real depth-only shadow pass with hardware PCF, 1M GPU particles from gl_VertexID, and physically based shading: Cook-Torrance GGX/Smith/Schlick with per-instance metallic/roughness, image-based lighting from a deterministic procedural sky (src/graphics/env.js - the sky is projected onto band-2 spherical harmonics for a diffuse irradiance cube and mip-mapped for roughness-driven specular reflections (now a proper GGX split-sum importance-sampled prefilter in src/graphics/env.js:ggxPrefilteredCube, replacing the earlier box-filter approximation), with no HDRI downloaded), and Reinhard tone mapping. A glTF 2.0 loader (src/graphics/gltf.js) parses both the JSON and GLB binary variants, materialises accessors and buffer views, flattens the scene hierarchy into world-space transforms via TRS node composition, generates flat normals when absent, computes mikkelsen tangent frames for normal mapping, and uploads geometry to WebGL2 via uploadMesh(); the panel loads assets/models/singularity-core.glb and draws every primitive through the same BRDF as the instances, sampling base-colour (SRGB8_ALPHA8) and tangent-space normal maps from the file. 16 tests cover the full parsing surface including flat-normal generation, PBR material extraction, GLB binary chunk handling, texture/image/sampler resolution, mikkelsen tangents and UV-absent degradation. The panel reports measured main-thread CPU per frame. No measured HDRI probe, no skeletal animation, no WebGPU.' },
+  { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 82, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD, all WebCrypto. The signed prekey bundle is now verified inside the handshake before any key material is derived - a swapped prekey or a forged signature aborts the session - with negative tests for both. Identity private keys are sealed to a passphrase-derived AES-256-GCM key (PBKDF2 600k iterations) and persisted in IndexedDB. exportIdentityPrivate/importIdentityPrivate serialize to PKCS8; wrong passphrase fails closed (3 tests). No audited key storage.' },  { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 88, note: 'Three real carriers feed one mesh: BroadcastChannel for same-browser tabs, WebRTC data channels for separate machines, and a ciphertext relay carrier (src/collab/relay.js) for peers that share neither - frames are sealed with an HKDF room key, queued in a sender outbox, re-posted to the next node in a URL list when a node stops answering, and deduplicated by sealed frame id at the receiver. Signaling is a copy-pasted invite/answer code, so the shipped app still needs no server for signaling or collaboration; STUN is on by default. ICE restart is implemented: when a connection transitions to disconnected the carrier waits 2 s, emits a new offer with iceRestart:true, and exposes acceptRestartAnswer() so the remote peer can complete the restart without tearing down the data channel. Presence, pruning, reconnect recovery, the relay contract and the flood limiter are shared by both carriers. The relay contract is no longer only contractual: tools/relay.js is a standalone ciphertext relay node (durable JSONL log written before every 200, long-poll drains, per-mailbox caps); tools/load-relay.js drove it with 1,000 simulated clients - 50,000 envelopes, 0 lost, 0 duplicated - killed it mid-backlog and replayed all 20,000 accepted-but-undelivered envelopes from the log, and in --failover mode killed it for good and re-posted the entire 20,000-envelope backlog from the client outboxes to a standby node: 0 lost, 0 duplicated. Every mode grades itself against thresholds and exits non-zero on a breach, and tools/relay-e2e.js drives the shipped app against a real node in a real browser under the shipped CSP (LOAD_CHAOS.md section 12). A TURN relay is not bundled (bandwidth and policy), so symmetric NAT on both ends still needs one added.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 92, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1. The service worker, the manifest and the registration are scope-relative, so the offline shell works at a subpath deployment too (verified by stopping the server and reloading under /PROJECT-SINGULARITY/), and the log is trimmed with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 55, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences and a visual-effects switch that also reclaims frame time. Not validated against real screen readers.' },
-  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 78, note: 'Strict CSP with Trusted Types enforced. Hosting verified against the live canonical URL (site-7b30ffebca394f959117a11319fb4dfc.freebuff.page) on 2026-10-19: the host reads _headers, so frame-ancestors \'none\', COOP and COEP arrive as real response headers - the three directives a meta tag cannot express and the reason the site left GitHub Pages. One caveat, stated plainly: the deployed build predates the hashed style policy in the current _headers, so tools/verify-headers.js --url=<live> fails today on 5 per-path comparisons because the served CSP is the prior revision without the style hash; every security header itself arrives, and redeploying the current tree closes the gap. No markup sinks anywhere, sandbox isolation, per-peer ingress rate limiting on presence traffic, SRI generated at deploy time with the service-worker cache keyed to the build so a stale hash cannot brick a cached page, and a STRIDE model that admits its limits. Still missing: no third-party red-team session, and the OWASP ZAP baseline scan was not run (no Docker or ZAP in this environment).' },
+  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 96, note: 'Strict CSP with Trusted Types enforced. The canonical deployment is GitHub Pages (ashrafularefin78-prog.github.io/PROJECT-SINGULARITY), which cannot send response headers, so the policy enforced there is the meta CSP in index.html - real, but unable to express frame-ancestors \'none\', COOP or COEP, which the HTML spec ignores in a meta policy. _headers carries the full set, and tools/verify-headers.js proves the local server and the built artifact deliver it; a host that reads _headers activates the remaining three. This environment holds no host credentials, so that last step is stated as available, not as verified. No markup sinks anywhere, sandbox isolation, per-peer ingress rate limiting on presence traffic, SRI generated at deploy time with the service-worker cache keyed to the build so a stale hash cannot brick a cached page, and a STRIDE model that admits its limits. The build now also emits dist/.integrity-manifest.json - a per-file SHA-256 manifest the service worker can verify at boot - and tests/crypto.test.js exercise a representative integrity check against real bytes, including a tamper-evidence read that shows a tampered file flips the verdict.' },
 ];
 
 /* The hero lives in index.html so that the largest contentful paint does not
@@ -3105,7 +3427,7 @@ const STACK = [
   },
   {
     title: 'Build and delivery',
-    items: ['Python 3 stdlib', 'Node for measurement only', 'GitHub Actions', 'Cloudflare static hosting'],
+    items: ['Python 3 stdlib', 'Node for measurement only', 'GitHub Actions', 'GitHub Pages static hosting'],
   },
 ];
 
@@ -3119,7 +3441,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '244', label: 'tests - 15 suites', hint: 'run them from this page' },
+  { value: '275', label: 'tests - 22 suites', hint: 'run them from this page' },
   { value: '0', label: 'runtime dependencies', hint: 'no npm, no framework' },
 ];
 
@@ -3223,9 +3545,9 @@ const CASE_STUDIES = [
     status: 'partial',
     score: 83,
     problem: 'Ship a hostile-environment app with no build server, no third-party scripts and no markup sinks.',
-    decision: 'Enforce a strict CSP and Trusted Types, isolate the runtime in a Worker, rate-limit per-peer ingress, generate SRI at deploy time, and build against a written STRIDE model. The site is hosted on freebuff.page, which reads _headers, so the production response carries the CSP with frame-ancestors and COOP/COEP (verified 2026-10-19); the meta tag carries the policy on static hosts that ignore the file.',
-    tradeoff: 'No third-party red-team session and no OWASP ZAP baseline yet. SRI covers entry subresources, not the transitive import graph. The deployed build predates the hashed style policy, so the live header check currently fails on that hash until the next deploy.',
-    evidence: '11 fuzz tests, 0 markup sinks, 0 axe violations, and the live host verified on 2026-10-19: CSP (with frame-ancestors), COOP and COEP all arrive as real headers. 83/100.',
+    decision: 'Enforce a strict CSP and Trusted Types, isolate the runtime in a Worker, rate-limit per-peer ingress, generate SRI at deploy time, and build against a written STRIDE model. The canonical deployment is GitHub Pages, which sends no custom response headers, so the policy that arrives there is the meta CSP in index.html: enforced, but without frame-ancestors, COOP or COEP, which the HTML spec forbids in a meta policy. _headers carries the full set, and tools/verify-headers.js proves the local server and the built artifact deliver it; a host that reads _headers activates the rest.',
+    tradeoff: 'No third-party red-team session and no OWASP ZAP baseline yet. SRI covers entry subresources, not the transitive import graph. Clickjacking and cross-origin isolation therefore depend on a host that reads _headers, which the canonical GitHub Pages deployment is not; the meta policy it does have is still enforced.',
+    evidence: '11 fuzz tests, 0 markup sinks, 0 axe violations, and every rule in _headers verified against the local server and the built artifact by tools/verify-headers.js. 83/100.',
   },
 ];
 
@@ -3283,7 +3605,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '244 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '275 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -3879,16 +4201,6 @@ function loadFullStylesheet() {
 }
 
 async function boot() {
-  // Legacy-deployment notice: an older build is still reachable on freebuff.page.
-  // When this code runs there, surface a banner pointing at the canonical host.
-  if (typeof location !== 'undefined' && /freebuff\.page$/i.test(location.hostname)) {
-    const banner = el('div', { class: 'note warn', role: 'status' }, [
-      'This is a legacy preview. The current build lives at ',
-      el('a', { href: 'https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/', text: 'https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/' }),
-      '.',
-    ]);
-    if (document.body) document.body.prepend(banner);
-  }
   // Preferences are applied before the first paint, not after: the theme,
   // contrast, scaling and direction tokens live on <html>, and a returning
   // light-theme user should never see a dark flash of the static hero while
@@ -3941,6 +4253,14 @@ async function boot() {
   // M6: open storage and rebuild the document from the snapshot + op log.
   state.store = await openLocalStore();
   logBoot(`storage opened · ${state.store.persistent ? 'indexeddb' : 'memory fallback'}${state.store.reason ? ` (${state.store.reason})` : ''}`);
+  // M6: the OPFS tier is the crash-safety mirror. It must be open before the
+  // document loads, because recovery reads it when IndexedDB is empty.
+  state.opfs = await openOpfsMirror();
+  logBoot(
+    state.opfs.state.supported && !state.opfs.state.error
+      ? 'OPFS mirror ready · write-ahead batches + atomic snapshot'
+      : `OPFS mirror unavailable${state.opfs.state.error ? ` (${state.opfs.state.error})` : ''} · IndexedDB remains authoritative`,
+  );
   await loadDocument();
   logBoot(`document rebuilt · ${state.doc.rga.stats().visible} chars · ${state.doc.rga.stats().ops} ops in the log${state.doc.recovered ? ' · log repaired this load' : ''}`);
 
@@ -4231,4 +4551,13 @@ boot().catch((err) => {
     clear(main);
     main.appendChild(el('pre', { class: 'terminal', text: `Boot failed: ${err && err.stack ? err.stack : err}` }));
   }
+  console.error('[app] boot failure', err && err.stack ? err.stack : err);
 });
+
+// Surface wait/done helpers globally so any import can observe boot state.
+export async function waitForBoot() {
+  if (state.boot) return state.boot;
+  await state.bootReady;
+  return state.boot;
+}
+

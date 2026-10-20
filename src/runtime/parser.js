@@ -166,6 +166,24 @@ class Parser {
         base = 'struct';
         if (this.at('op', '{')) {
           structDef = { ...this.parseStructFields(nameTok), kind: w === 'union' ? 'union' : 'struct' };
+          // A struct tag names a type as well as a layout. ISO C keeps the tag
+          // in a separate namespace, so `Point p;` is only legal after a
+          // typedef - which is exactly the papercut this parser removes: once
+          // the tag is defined, its name stands wherever a type is expected.
+          // The tag form `struct Point p;` keeps working, and an existing
+          // typedef of the same name wins, so nothing that was legal changes
+          // meaning. Anonymous records get a private `__anonN` name and are
+          // deliberately not exposed.
+          if (!structName.startsWith('__anon') && !this.typedefs.has(structName)) {
+            this.typedefs.set(structName, {
+              base: 'struct',
+              ptr: 0,
+              structName,
+              arraySize: null,
+              fnPtr: null,
+              line: nameTok.line,
+            });
+          }
         }
         continue;
       }

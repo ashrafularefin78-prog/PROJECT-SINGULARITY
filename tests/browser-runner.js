@@ -4,20 +4,25 @@ import { capabilities, collect, unmetNeeds } from './harness.js';
 
 const SUITES = [
   './rga.test.js',
+  './history.test.js',
   './crypto.test.js',
   './compiler.test.js',
   './lang.test.js',
   './stdlib.test.js',
   './storage.test.js',
+  './opfs.test.js',
   './mesh.test.js',
+  './topology.test.js',
   './webrtc.test.js',
   './renderer.test.js',
   './gltf.test.js',
+  './hdr.test.js',
   './env.test.js',
   './fuzz.test.js',
   './motion.test.js',
   './substrate.test.js',
   './futuristic-ui.test.js',
+  './a11y.test.js',
 ];
 
 async function main() {

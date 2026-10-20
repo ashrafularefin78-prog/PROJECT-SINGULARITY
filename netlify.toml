@@ -18,8 +18,9 @@
 #     node tools/verify-headers.js   # against the local server
 #     curl -sI https://<site>/ | grep -i 'strict-transport\|cross-origin\|content-security'
 #
-# The three directives that a <meta> tag cannot express, and which are the
-# reason for moving off GitHub Pages:
+# The three directives that a <meta> tag cannot express, and which therefore
+# only exist on a host that reads this file (the canonical GitHub Pages
+# deployment does not, and serves the meta policy instead):
 #
 #   Content-Security-Policy: frame-ancestors 'none'   clickjacking protection
 #   Cross-Origin-Opener-Policy: same-origin           cross-origin isolation

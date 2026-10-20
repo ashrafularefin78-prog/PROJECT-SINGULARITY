@@ -139,7 +139,7 @@ export function skyRadiance(d) {
  * sphere samples. Returns a Float32Array(27): nine coefficients, RGB interleaved
  * per coefficient (channel-major per band).
  */
-export function shProject(samples = 4096) {
+export function shProject(samples = 4096, radiance = skyRadiance) {
   const coeffs = new Float32Array(27);
   const weight = (4 * Math.PI) / samples;
   const golden = 2.39996323;
@@ -149,7 +149,7 @@ export function shProject(samples = 4096) {
     const r = Math.sqrt(1 - yr * yr);
     const ang = i * golden;
     const d = [Math.cos(ang) * r, yr, Math.sin(ang) * r];
-    const rad = skyRadiance(d);
+    const rad = radiance(d);
     const basis = shBasis(d[0], d[1], d[2]);
     for (let k = 0; k < 9; k += 1) {
       coeffs[k * 3] += rad[0] * basis[k] * weight;

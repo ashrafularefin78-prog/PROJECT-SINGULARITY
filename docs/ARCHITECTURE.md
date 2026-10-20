@@ -27,6 +27,7 @@ shims.
 | Module | Unit of correctness | Depends on |
 |--------|--------------------|-----------|
 | `crdt/rga.js` | the op log (commutative, idempotent) + maintenance (collect/trimLog) | nothing |
+| `crdt/history.js` | deterministic replay of the op log + a structural state digest | `rga.js` only |
 | `runtime/*` | one worker per run, budgets enforced inside | nothing |
 | `graphics/*` | pure maths + a WebGL2 renderer | nothing |
 | `crypto/e2ee.js` | WebCrypto only | nothing |

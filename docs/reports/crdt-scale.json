@@ -1,0 +1,34 @@
+{
+  "measuredAt": "2026-10-19T20:46:48.631Z",
+  "runtime": "node v24.22.0",
+  "scale": {
+    "characters": 1000000,
+    "typeMs": 3559.75,
+    "msPerOp": 0.0036,
+    "opsPerSecond": 280918,
+    "visible": 1000000,
+    "tombstones": 0,
+    "nodes": 1000000,
+    "logOps": 1000000,
+    "textMatchesInput": true,
+    "textLength": 1000000,
+    "randomAccess": {
+      "probes": 10000,
+      "ms": 112.43,
+      "checksum": 353809434
+    },
+    "logJsonBytes": 62777778,
+    "bytesPerChar": 62.78
+  },
+  "convergence": {
+    "replicas": 50,
+    "opsPerReplica": 1534,
+    "convergedText": true,
+    "convergedDigest": true,
+    "digest": "1ca4e5ac3bc7814e",
+    "visible": 1515,
+    "tombstones": 31,
+    "editMs": 3.82,
+    "mergeMs": 93.96
+  }
+}

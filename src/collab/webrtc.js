@@ -34,6 +34,35 @@ const GATHER_TIMEOUT_MS = 3000;
 /** STUN only, and only for candidate discovery. Replace/extend via options. */
 export const DEFAULT_ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 
+/**
+ * Validate a TURN configuration and return an RTCIceServer list.
+ *
+ * TURN is not bundled (it costs bandwidth and is a policy choice), but a room
+ * that has one should be able to use it. URLs must really be TURN, and a
+ * username without a credential is a configuration error rather than a silent
+ * unauthenticated allocation attempt that fails minutes later during ICE.
+ */
+export function turnServers({ urls, username, credential } = {}) {
+  const list = Array.isArray(urls) ? urls : [urls];
+  if (!list.length || !list.every((url) => typeof url === 'string' && /^turns?:/i.test(url.trim()))) {
+    throw new Error('TURN urls must start with turn: or turns:');
+  }
+  if ((username == null) !== (credential == null)) {
+    throw new Error('TURN username and credential must be provided together');
+  }
+  const entry = { urls: list.map((url) => url.trim()) };
+  if (username != null) {
+    entry.username = String(username);
+    entry.credential = String(credential);
+  }
+  return [entry];
+}
+
+/** STUN first, then the optional TURN relays. */
+export function iceServersWithTurn(turn) {
+  return turn ? [...DEFAULT_ICE_SERVERS, ...turnServers(turn)] : DEFAULT_ICE_SERVERS;
+}
+
 const toB64 = (text) => {
   const bytes = new TextEncoder().encode(text);
   let bin = '';
@@ -218,7 +247,11 @@ export class RtcCarrier {
     this.name = options.name || this.id;
     this.onEnvelope = options.onEnvelope || (() => {});
     this.onState = options.onState || (() => {});
-    this.iceServers = options.iceServers === null ? [] : options.iceServers || DEFAULT_ICE_SERVERS;
+    this.iceServers = options.iceServers === null
+      ? []
+      : options.iceServers
+        ? options.iceServers
+        : iceServersWithTurn(options.turn);
     /** @type {Map<string, Link>} */
     this.links = new Map();
     /** PCs whose data channel has not arrived yet (the answering side). */

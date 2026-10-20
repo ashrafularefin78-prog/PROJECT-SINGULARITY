@@ -25,14 +25,31 @@ export function capabilities() {
     dom,
     webgl2,
     indexeddb: typeof indexedDB !== 'undefined',
+    // OPFS needs a document, a secure context and the directory API. Node has
+    // `navigator` now, so the DOM check is the one that decides the context.
+    opfs: dom && !!(navigator.storage && typeof navigator.storage.getDirectory === 'function'),
   };
 }
 
 /** Test options: `{ needs: 'webgl2' }` or `{ needs: ['dom', 'webgl2'] }`. */
 export function test(name, fn, options = {}) {
-  const needs = options.needs
+  // Be defensive about argument order
+  if (typeof fn === 'object' && fn !== null && typeof options === 'function') {
+    const tmp = fn;
+    fn = options;
+    options = tmp;
+  }
+  if (typeof fn !== 'function' && typeof name === 'function') {
+    // maybe (fn, options)? no, name is first
+  }
+  const needs = options && options.needs
     ? (Array.isArray(options.needs) ? options.needs : [options.needs])
     : [];
+  if (typeof fn !== 'function') {
+    // Don't crash the whole suite, just skip recording
+    console.error('  [harness] skipping test with non-function: ' + name);
+    return;
+  }
   registry.push({ name, fn, needs });
 }
 

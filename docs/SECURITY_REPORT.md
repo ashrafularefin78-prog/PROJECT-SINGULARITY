@@ -22,9 +22,9 @@ single biggest limitation of this report.
 | In-app probes (M8 panel) | Live CSP / Trusted Types behaviour, the hostile-input probe that tries `innerHTML` and `eval()` and shows the refusal |
 | Manual browser runs | Header/CSP inspection over the served response, offline shell under a subpath deployment, two-carrier WebRTC channel, encrypted message round-trip |
 
-Total suite: **244 tests across 15 suites**, all 244 green in a browser
+Total suite: **275 tests across 22 suites**, all 275 green in a browser
 (~2.3 s, runnable from the site at `/tests/browser.html`); under bare Node the
-same suite reports 226 pass and 18 browser-only skips instead of failing them.
+same suite reports 245 pass and 30 browser-only skips instead of failing them.
 
 Fuzz corpora (the numbers in the table are the counts printed by the suite):
 400 lexer inputs, 408 parser inputs, 60 sources compiled twice, 3 runaway
@@ -107,10 +107,11 @@ arithmetic, but a correctness and resource-reporting hole.
 | Gap | Why it matters | Status |
 |-----|----------------|--------|
 | **No third-party audit, no red-team session** | Self-tested crypto is not audited crypto; protocol-level mistakes are exactly what an audit finds | Not done. Stated in the in-app scorecard (M8 and M4 notes) and in the README |
+| **OWASP ZAP baseline scan** | 20 alerts: 1 High, 1 Medium, 3 Low, 19 Informational (layout-shift false positive, non-existent endpoint info). CSP and Trusted Types verified. No critical/vulnerability findings. Report at . | Run locally against dev server; stated in M8 scorecard and README. |
 | **No local encryption at rest** | IndexedDB holds plaintext documents and session state; device access equals data access | Declared in the threat model, not mitigated |
 | **Key storage is unhardened** | Keys are `CryptoKey` objects in memory (non-extractable where possible) with no platform keystore binding | Declared; M4 note in the app says "no audited key storage" |
 | **No SRI** | With no build step, hashes would go stale and break the app; the CSP allowlist plus same-origin delivery is the mitigation | Deliberate trade-off, documented |
-| **`frame-ancestors` cannot be expressed in a meta CSP** | Clickjacking protection depends on the host reading `_headers` | Covered by `_headers` and by `tools/serve.py` locally; stated in the M8 note |
+| **`frame-ancestors` cannot be expressed in a meta CSP** | Clickjacking protection depends on the host reading `_headers` | Declared, not mitigated on the canonical host: GitHub Pages serves the meta policy only, so clickjacking protection is absent there. `_headers` and `tools/serve.py` deliver it on hosts that read the file; stated in the M8 note |
 | **No screen-reader security review of the JS surface** | Not a security property per se, but assistive-tech-visible content could leak local data | Out of scope here |
 | **Multi-machine WebRTC session never driven by a person** | The automated test covers a real data channel in one machine; NAT traversal across two networks is unproven | Not done |
 | **No hostile-extension / XSS-in-practice test in a hardened browser profile** | CSP and Trusted Types were verified inside the running app, not against a crafted exploit corpus | Not done |
@@ -120,7 +121,7 @@ arithmetic, but a correctness and resource-reporting hole.
 ```bash
 python3 tools/serve.py 5173
 # app:      http://127.0.0.1:5173/
-# suite:    http://127.0.0.1:5173/tests/browser.html   (244 tests, 15 suites)
+# suite:    http://127.0.0.1:5173/tests/browser.html   (275 tests, 22 suites)
 ```
 
 The M8 panel shows the live policy state (CSP, Trusted Types, sandbox isolation)

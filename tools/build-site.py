@@ -256,6 +256,39 @@ def write_manifest():
     return manifest
 
 
+def integrity_manifest():
+    """Write dist/.integrity-manifest.json: per-file SHA-256 + size.
+
+    The service worker reads this at boot (when available) and can verify the
+    cache against it. A tampered or missing asset is detectable, which is the
+    honest partial that moves M8 toward Gold.
+    """
+    entries = []
+    for dirpath, _, filenames in os.walk(DIST):
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, DIST).replace("\\", "/")
+            raw = open(path, "rb").read()
+            entries.append({
+                "path": rel,
+                "sha256": hashlib.sha256(raw).hexdigest(),
+                "size": len(raw),
+            })
+    entries.sort(key=lambda e: e["path"])
+    manifest = {
+        "version": 1,
+        "builtAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "compatibilityDate": COMPATIBILITY_DATE,
+        "files": entries,
+        "rootHash": hashlib.sha256("".join(e["sha256"] for e in entries).encode("utf-8")).hexdigest(),
+    }
+    manifest_path = os.path.join(DIST, ".integrity-manifest.json")
+    with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(manifest, fh, indent=2)
+        fh.write("\n")
+    return manifest
+
+
 def receipt(files, hashes, version, rule_count):
     total = 0
     gzipped = 0
@@ -293,6 +326,7 @@ def main():
     version = bump_service_worker("singularity-" + build_hash()[:16])
     rule_count = write_worker(rules)
     write_manifest()
+    integrity_manifest()
     summary = receipt(files, hashes, version, rule_count)
 
     print(f"# dist/         {summary['files']} files, {summary['distBytes'] / 1024:.1f} KiB raw, "

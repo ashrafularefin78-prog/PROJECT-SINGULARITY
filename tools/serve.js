@@ -110,6 +110,15 @@ const server = createServer(async (req, res) => {
       }
       return;
     }
+    // M8 (OWASP ZAP finding 40035): the repository root is served in
+    // development, so dot-files such as `.git/config` must not be readable.
+    // A hosted deployment does not publish them; the dev server should not
+    // either. Reject any dot segment and the two generated directories.
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.some((s) => s.startsWith('.') || s === 'node_modules' || s === '__pycache__')) {
+      res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found');
+      return;
+    }
     if (pathname.endsWith('/')) pathname += 'index.html';
     const target = join(ROOT, normalize(pathname).replace(/^([/\\])+/, ''));
     if (!target.startsWith(ROOT)) {

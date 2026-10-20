@@ -631,11 +631,17 @@ int main() {
   assertEquals(r.output, '307200\nB\n');
 });
 
-test('M2: referring to a struct by its name without typedef is an error', () => {
+test('M2: a struct tag becomes a type name once it is defined', () => {
+  // This used to be a negative test pinning an ISO C limitation. The parser
+  // now puts a defined tag in the type namespace as well, so the assertion
+  // flipped to the behaviour the runtime guarantees: after the definition the
+  // bare tag parses, and before it the name is still unknown.
   const r = run(`struct P { int x; };
 int main() { P p; p.x = 1; return 0; }`);
-  assert(!r.ok, "an untypedef'd struct name must not parse as a type");
-  assert(/expected/.test(r.error.message), r.error.message);
+  assert(r.ok, r.error && r.error.message);
+
+  const early = run(`int main() { P p; return 0; }\nstruct P { int x; };`);
+  assert(!early.ok, 'a tag used before its definition must not parse as a type');
 });
 
 // --------------------------------------------------------------------- enum

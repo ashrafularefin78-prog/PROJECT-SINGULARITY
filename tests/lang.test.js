@@ -380,3 +380,31 @@ test('M2: unknown struct types, members and wrong arrows are diagnosed', () => {
   assert(!wrongDotPtr.ok, "'.' on a heap pointer must be rejected too");
   assert(/use '->'/.test(wrongDotPtr.error.message), wrongDotPtr.error.message);
 });
+
+test('M2: a struct tag is usable as a type name without a typedef', () => {
+  const r = ok(`#include <stdio.h>
+struct Point { int x; int y; };
+int sum(Point a) { return a.x + a.y; }
+int main() {
+  Point p = {3, 4};
+  Point *q = &p;
+  q->y = 40;
+  Point pts[2] = {{1, 1}, {2, 2}};
+  printf("%d %d %d %d\\n", sum(p), sizeof(Point), pts[1].y, (&p)->x);
+  return 0;
+}`);
+  assertEquals(r.output, '43 8 2 3\n');
+});
+
+test('M2: a typedef of an existing tag keeps the typedef meaning', () => {
+  const r = ok(`#include <stdio.h>
+struct Pair { int a; int b; };
+typedef struct Pair Pair;
+int main() {
+  Pair p = {7, 8};
+  struct Pair q = p;
+  printf("%d %d\\n", q.a, q.b);
+  return 0;
+}`);
+  assertEquals(r.output, '7 8\n');
+});

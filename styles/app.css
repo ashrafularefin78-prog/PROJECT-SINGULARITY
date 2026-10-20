@@ -1055,6 +1055,16 @@ tr.unmeasured td { opacity: 0.82; }
 .terminal .meta { color: var(--dim); }
 .terminal::selection { background: rgba(87, 214, 141, 0.3); }
 
+/* M1 temporal core: the replay preview is a readout, not a shell, so it is
+   shorter than the compiler terminal and never scrolls the page. */
+.temporal-preview {
+  min-height: 92px;
+  max-height: 180px;
+  margin-top: 10px;
+  color: var(--text);
+  background: var(--panel-2);
+}
+
 /* ------------------------------------------------------------------ canvas */
 
 .canvas-wrap {

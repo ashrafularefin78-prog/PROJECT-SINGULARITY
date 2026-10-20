@@ -16,6 +16,7 @@
     "measure:soak": "node tools/perf.js soak",
     "audit:a11y": "node tools/a11y.js",
     "measure:durability": "node tools/durability.js",
+    "measure:stream": "node tools/bench-stream.js",
     "relay": "node tools/relay.js",
     "load:relay": "node tools/load-relay.js",
     "check:relay": "node tools/load-relay.js --self-check",

@@ -6,6 +6,13 @@ Each entry is derived from the commit history; the newest comes first.
 ## 2026-10-19 - uncommitted working tree
 
 ### Added
+- A temporal core in M1: `src/crdt/history.js` replays any prefix of the retained
+  op log into a fresh replica, fingerprints the visible state (character ids,
+  order and text), and re-runs the whole log forward, reversed and shuffled to
+  prove the CRDT's order-independence at runtime. The M1 panel exposes a
+  rewind slider, the digest and the proof verdict, and turns itself off with a
+  stated reason once compaction has trimmed the front of the log. Nine tests in
+  `tests/history.test.js`.
 - A light theme: the full `html[data-theme='light']` token set and component
   overrides, a theme preference in M7 and the command palette, and a
   `?theme=light|dark` URL override that applies per visit without writing to
@@ -30,8 +37,8 @@ Each entry is derived from the commit history; the newest comes first.
   resolution, mikkelsen tangents and UV-absent degradation.
 
 ### Changed
-- The suite grew to **244 tests across 15 suites** with the new `motion`
-  (8) and `substrate` (4) suites, plus four glTF texture tests and two
+- The suite grew to **275 tests across 22 suites** with the temporal core (9),
+  `motion` (8) and `substrate` (4) suites, plus four glTF texture tests and two
   renderer texture-decode tests.
 - The accessibility artifact was re-measured against the new dashboard DOM
   (axe-core: 0 violations, 412 passing rule results, unchanged).

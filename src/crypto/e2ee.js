@@ -668,6 +668,72 @@ export class ChunkEncryptor {
   }
 }
 
+/**
+ * Stream a file through the chunk AEAD without ever holding it whole.
+ *
+ * `source` is any sync or async iterable of Uint8Array pieces; the generator
+ * coalesces them into `chunkSize` blocks and yields one frame per block. Exactly
+ * one block is held back, because the `final` flag is authenticated inside the
+ * AAD and therefore has to be known before the frame is sealed. Memory is
+ * O(chunkSize) regardless of file size - that is what makes the 2 GB row real
+ * rather than asserted.
+ */
+export async function* encryptStream(secret, source, chunkSize = CHUNK_SIZE) {
+  if (!Number.isInteger(chunkSize) || chunkSize <= 0) throw new Error('chunkSize must be a positive integer');
+  const enc = await ChunkEncryptor.fromSecret(secret);
+  const block = new Uint8Array(chunkSize);
+  let used = 0;
+  // Raw bytes of the previous full block. Sealing is deferred until we know
+  // whether another block follows, because `final` is inside the AAD and a
+  // frame sealed with the wrong flag can never be repaired without reusing its
+  // nonce. Deferring the *plaintext*, not the frame, keeps every counter used
+  // exactly once.
+  let pending = null;
+
+  const takeBlock = () => {
+    const bytes = block.subarray(0, used).slice();
+    used = 0;
+    return bytes;
+  };
+
+  const iterable = typeof source?.[Symbol.asyncIterator] === 'function' || typeof source?.[Symbol.iterator] === 'function'
+    ? source
+    : [source];
+  for await (const piece of iterable) {
+    if (!(piece instanceof Uint8Array)) throw new TypeError('encryptStream source must yield Uint8Array pieces');
+    let offset = 0;
+    while (offset < piece.length) {
+      const room = chunkSize - used;
+      const take = Math.min(room, piece.length - offset);
+      block.set(piece.subarray(offset, offset + take), used);
+      used += take;
+      offset += take;
+      if (used === chunkSize) {
+        if (pending) yield await enc.pushChunk(pending, { final: false });
+        pending = takeBlock();
+      }
+    }
+  }
+
+  if (pending) {
+    if (used > 0) {
+      yield await enc.pushChunk(pending, { final: false });
+      yield await enc.pushChunk(takeBlock(), { final: true });
+      return;
+    }
+    yield await enc.pushChunk(pending, { final: true });
+    return;
+  }
+  // No full block was ever produced: empty input or a single partial block.
+  yield await enc.pushChunk(takeBlock(), { final: true });
+}
+
+/** Decrypt a frame stream lazily, yielding plaintext pieces in frame order. */
+export async function* decryptStream(secret, frames) {
+  const dec = await ChunkEncryptor.openFromSecret(secret);
+  for await (const frame of frames) yield await dec.openFrame(frame);
+}
+
 /** Convenience helper for tests/demos; production code streams frame by frame. */
 export async function encryptFile(secret, bytes, chunkSize = CHUNK_SIZE) {
   const enc = await ChunkEncryptor.fromSecret(secret);
@@ -757,6 +823,10 @@ export async function importIdentityPrivate(bytes, name = 'anon') {
     const spkPubKey = await subtle().importKey('jwk', spkPubJwk, dhAlg, true, []);
     const spkPrivKey = await subtle().importKey('pkcs8', spkPrivBytes, dhAlg, false, ['deriveBits']);
     id.spkPair = { privateKey: spkPrivKey, publicKey: spkPubKey };
+  }
+  if (id.spkPair) {
+    const spkPub = await exportDhPublic(id.spkPair);
+    id.spkSig = await sign(id.signPair, concat(TEXT.encode('Singularity|SPK|v1'), spkPub));
   }
 
   return id;

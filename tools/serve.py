@@ -99,8 +99,31 @@ def load_header_rules(path=None):
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # M8: do not advertise the interpreter. The default banner is
+    # "SimpleHTTP/0.6 Python/3.14.8", which is a scanner finding for no benefit.
+    server_version = "singularity-dev"
+    sys_version = ""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT, **kwargs)
+
+    def is_sensitive(self, path):
+        """True for dot-files/dot-directories and a short deny list.
+
+        The repository root is served for development, so `.git/config`,
+        `.env` and `.tools/` would otherwise be readable over HTTP. A hosted
+        deployment does not publish them, but a local scan (and anyone running
+        this server on a LAN) should not see them either. This is a real
+        finding from the OWASP ZAP baseline run: the first pass returned 200
+        for `/.git/config`.
+        """
+        served = urllib.parse.unquote(urllib.parse.urlsplit(path).path)
+        if PREFIX and served.startswith(PREFIX):
+            served = served[len(PREFIX):] or "/"
+        parts = [p for p in served.split("/") if p]
+        if any(p.startswith(".") for p in parts):
+            return True
+        return any(p in ("node_modules", "__pycache__") for p in parts)
 
     def translate_path(self, path):
         """Serve the project root under PREFIX, and redirect the bare prefix."""
@@ -119,6 +142,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.proxy_relay("GET"):
+            return
+        if self.is_sensitive(self.path):
+            self.send_error(404, "not found")
             return
         if PREFIX and urllib.parse.urlsplit(self.path).path == PREFIX:
             self.send_response(301)
