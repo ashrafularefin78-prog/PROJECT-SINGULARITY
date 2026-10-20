@@ -21,8 +21,9 @@ const SUITES = [
   './fuzz.test.js',
   './motion.test.js',
   './substrate.test.js',
-  './futuristic-ui.test.js',
+  './hud.test.js',
   './a11y.test.js',
+  './sw.test.js',
 ];
 
 async function main() {

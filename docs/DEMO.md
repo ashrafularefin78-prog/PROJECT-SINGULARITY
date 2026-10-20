@@ -51,13 +51,15 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    recording was captured when the ring read 668; the ring animates to the
    current total).
 6. Point at the tier ladder: the reviewer's tally tiers at **Silver** (four
-   modules full or near-full), while the points band arithmetic (741) sits in the
-   Gold range. Say out loud that the leading column is the brief's points
-   band and the ladder grades the *requirements*, which is why the two disagree.
-7. Point at the budget table: payload **over** (197.6 KiB gzip of JavaScript plus
-   25.9 KiB of CSS, against a 170 KB ceiling), the hour-long memory soak **met**
-   (the heap at minute 60 is smaller than at minute 10), frame rate **met**, and
-   everything that was not measured labelled *not measured*.
+   modules full or near-full), while the points arithmetic (762) now sits past
+   the old Gold ceiling. Say out loud that the leading column is the brief's
+   points band and the ladder grades the *requirements*, which is why the two
+   readings disagree.
+7. Point at the budget table: payload **met** (108.4 KiB gzip of cold-load
+   JavaScript plus 25.9 KiB of CSS, against a 170 KB ceiling; the 90.6 KiB gzip
+   deferred graph loads with the panel that needs it), the hour-long memory soak
+   **met** (the heap at minute 60 is smaller than at minute 10), frame rate
+   **met**, and everything that was not measured labelled *not measured*.
 
 ## 1. M1 Editor — the CRDT (1.5 min)
 
@@ -143,7 +145,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run: **255 tests, 21 suites, all
+Open **/tests/browser.html** and let the suite run: **258 tests, 22 suites, all
 green, no skips**, including the fuzzer. Then name the gaps: no red-team session, no
 audited crypto, no TURN, no measured HDRI probe/IBL, no clang→WASM, no screen-reader pass, and
 no distributed load or chaos rig.

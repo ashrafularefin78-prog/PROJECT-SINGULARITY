@@ -21,7 +21,7 @@
  * All user data lives in IndexedDB and is never touched here, so a cache
  * eviction can never cost anyone a character.
  */
-const VERSION = 'singularity-v7';
+const VERSION = 'singularity-v8';
 
 /** Resolve a shell path against this worker's directory, so subpaths work. */
 const here = (path) => new URL(path, self.location.href).href;
@@ -33,23 +33,34 @@ const SHELL = [
   './manifest.webmanifest',
   './assets/icon.svg',
   './assets/models/singularity-core.glb',
+  './assets/probes/singularity-sky.hdr',
   './src/app.js',
   './src/boot-note.js',
   './src/security/policy.js',
   './src/ui/hud.js',
+  './src/ui/motion.js',
+  './src/ui/substrate.js',
+  './src/ui/a11y-contract.js',
   './src/crdt/rga.js',
+  './src/crdt/history.js',
   './src/collab/mesh.js',
+  './src/collab/topology.js',
   './src/collab/webrtc.js',
+  './src/collab/relay.js',
   './src/storage/db.js',
+  './src/storage/opfs.js',
   './src/crypto/e2ee.js',
   './src/runtime/sandbox.js',
   './src/runtime/worker.js',
   './src/runtime/interpreter.js',
   './src/runtime/parser.js',
   './src/runtime/lexer.js',
+  './src/runtime/preprocess.js',
   './src/graphics/renderer.js',
   './src/graphics/math.js',
   './src/graphics/gltf.js',
+  './src/graphics/hdr.js',
+  './src/graphics/env.js',
 ].map(here);
 
 const SHELL_INDEX = here('./index.html');

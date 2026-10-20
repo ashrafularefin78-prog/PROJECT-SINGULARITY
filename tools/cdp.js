@@ -173,7 +173,7 @@ export class Browser {
     env = {},
   } = {}) {
     const exe = findBrowser();
-    const profile = mkdtempSync(join(tmpdir(), 'singularity-cdp-'));
+    const profile = mkdtempSync(join(process.cwd(), 'singularity-cdp-'));
     const args = [
       '--remote-debugging-port=0',
       // Chrome 111+ refuses WebSocket handshakes to the debug port unless the
@@ -182,6 +182,14 @@ export class Browser {
       `--user-data-dir=${profile}`,
       '--no-first-run',
       '--no-default-browser-check',
+      // This host runs the browser under a restricted token: the renderer
+      // sandbox cannot create its process ("Failed to create IAppCapability:
+      // Access is denied"), so every page target gets pid 0 and Page.enable
+      // never answers. Disabling the browser's own sandbox is a test-harness
+      // concession, not an app one - this launches a throwaway profile against
+      // localhost, and the page under test still ships its own CSP and Trusted
+      // Types. Without the flag, every browser-driven tool times out here.
+      '--no-sandbox',
       '--disable-extensions',
       '--disable-background-networking',
       '--disable-component-update',

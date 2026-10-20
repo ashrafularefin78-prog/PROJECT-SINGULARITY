@@ -83,7 +83,14 @@
     } catch (err) {
       /* paint entries are not supported: the timers below still boot the app */
     }
-    setTimeout(boot, 1200);
+    // The timer is a fallback for browsers without paint entries, not a race
+    // against the first paint. At 1200 ms a cold, 4x-throttled phone had not
+    // painted yet (style recalc alone landed near that mark), so the fallback
+    // started the 108 KiB module graph *before* the frame that FCP reports and
+    // pushed the measured paint to 1.54 s. A browser that truly has no paint
+    // entries pays a longer blank shell, but every engine shipped since 2019
+    // reports them; a late fallback cannot hurt the painted path.
+    setTimeout(boot, 2500);
     return;
   }
 

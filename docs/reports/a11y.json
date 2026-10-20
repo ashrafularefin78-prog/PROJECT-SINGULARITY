@@ -1,7 +1,7 @@
 {
-  "measuredAt": "2026-10-19T07:04:04.234Z",
+  "measuredAt": "2026-10-20T20:01:52.391Z",
   "url": "http://127.0.0.1:5198/",
-  "browser": "Edg/156.0.4314.30",
+  "browser": "Edg/156.0.4314.36",
   "note": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
   "tabs": [
     "M0 Dashboard",
@@ -36,7 +36,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 445,
+            "count": 454,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -62,10 +62,10 @@
         "passCount": 52
       },
       "axTree": {
-        "totalNodes": 1975,
-        "liveNodes": 1523,
-        "ignoredNodes": 452,
-        "interactiveCount": 32,
+        "totalNodes": 2095,
+        "liveNodes": 1638,
+        "ignoredNodes": 457,
+        "interactiveCount": 34,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -75,6 +75,10 @@
           },
           {
             "name": "Engineering case study - decisions, trade-offs and evidence",
+            "level": 2
+          },
+          {
+            "name": "Contributing & changelog",
             "level": 2
           },
           {
@@ -174,6 +178,7 @@
           "region",
           "region",
           "region",
+          "region",
           "region"
         ],
         "liveRegions": [
@@ -211,7 +216,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 89,
+            "count": 100,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -237,10 +242,10 @@
         "passCount": 45
       },
       "axTree": {
-        "totalNodes": 364,
-        "liveNodes": 242,
-        "ignoredNodes": 122,
-        "interactiveCount": 18,
+        "totalNodes": 409,
+        "liveNodes": 282,
+        "ignoredNodes": 127,
+        "interactiveCount": 22,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -250,6 +255,10 @@
           },
           {
             "name": "Document",
+            "level": 2
+          },
+          {
+            "name": "Temporal core — replay the retained op log",
             "level": 2
           },
           {
@@ -273,12 +282,18 @@
           "contentinfo",
           "region",
           "region",
+          "region",
           "region"
         ],
         "liveRegions": [
           {
             "role": "status",
             "name": "System status",
+            "politeness": "polite"
+          },
+          {
+            "role": "status",
+            "name": "",
             "politeness": "polite"
           }
         ]
@@ -395,7 +410,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 95,
+            "count": 100,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -421,10 +436,10 @@
         "passCount": 45
       },
       "axTree": {
-        "totalNodes": 379,
-        "liveNodes": 265,
-        "ignoredNodes": 114,
-        "interactiveCount": 17,
+        "totalNodes": 407,
+        "liveNodes": 290,
+        "ignoredNodes": 117,
+        "interactiveCount": 19,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -434,6 +449,10 @@
           },
           {
             "name": "Scene",
+            "level": 2
+          },
+          {
+            "name": "Measured HDRI probe",
             "level": 2
           },
           {
@@ -447,6 +466,7 @@
           "navigation",
           "main",
           "contentinfo",
+          "region",
           "region",
           "region"
         ],
@@ -480,7 +500,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 90,
+            "count": 94,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -506,10 +526,10 @@
         "passCount": 45
       },
       "axTree": {
-        "totalNodes": 385,
-        "liveNodes": 269,
-        "ignoredNodes": 116,
-        "interactiveCount": 16,
+        "totalNodes": 406,
+        "liveNodes": 286,
+        "ignoredNodes": 120,
+        "interactiveCount": 17,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -519,6 +539,10 @@
           },
           {
             "name": "Session",
+            "level": 2
+          },
+          {
+            "name": "Identity at rest (key sealing)",
             "level": 2
           },
           {
@@ -540,6 +564,7 @@
           "navigation",
           "main",
           "contentinfo",
+          "region",
           "region",
           "region",
           "region",
@@ -575,7 +600,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 118,
+            "count": 130,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -601,10 +626,10 @@
         "passCount": 46
       },
       "axTree": {
-        "totalNodes": 493,
-        "liveNodes": 355,
-        "ignoredNodes": 138,
-        "interactiveCount": 25,
+        "totalNodes": 537,
+        "liveNodes": 390,
+        "ignoredNodes": 147,
+        "interactiveCount": 30,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -690,7 +715,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 89,
+            "count": 94,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -716,10 +741,10 @@
         "passCount": 42
       },
       "axTree": {
-        "totalNodes": 389,
-        "liveNodes": 274,
-        "ignoredNodes": 115,
-        "interactiveCount": 14,
+        "totalNodes": 405,
+        "liveNodes": 289,
+        "ignoredNodes": 116,
+        "interactiveCount": 15,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -780,7 +805,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 98,
+            "count": 102,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -806,10 +831,10 @@
         "passCount": 47
       },
       "axTree": {
-        "totalNodes": 401,
-        "liveNodes": 296,
-        "ignoredNodes": 105,
-        "interactiveCount": 39,
+        "totalNodes": 420,
+        "liveNodes": 311,
+        "ignoredNodes": 109,
+        "interactiveCount": 41,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -830,6 +855,10 @@
             "level": 2
           },
           {
+            "name": "Accessibility contract - live audit",
+            "level": 2
+          },
+          {
             "name": "Where this is honest about its limits",
             "level": 2
           }
@@ -840,6 +869,7 @@
           "navigation",
           "main",
           "contentinfo",
+          "region",
           "region",
           "region",
           "region",
@@ -1008,8 +1038,8 @@
   "axTree": [
     {
       "module": "M0 Dashboard",
-      "liveNodes": 1523,
-      "interactiveCount": 32,
+      "liveNodes": 1638,
+      "interactiveCount": 34,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1020,6 +1050,10 @@
         },
         {
           "name": "Engineering case study - decisions, trade-offs and evidence",
+          "level": 2
+        },
+        {
+          "name": "Contributing & changelog",
           "level": 2
         },
         {
@@ -1102,8 +1136,8 @@
     },
     {
       "module": "1. M1 Editor",
-      "liveNodes": 242,
-      "interactiveCount": 18,
+      "liveNodes": 282,
+      "interactiveCount": 22,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1114,6 +1148,10 @@
         },
         {
           "name": "Document",
+          "level": 2
+        },
+        {
+          "name": "Temporal core — replay the retained op log",
           "level": 2
         },
         {
@@ -1154,8 +1192,8 @@
     },
     {
       "module": "3. M3 3D Engine",
-      "liveNodes": 265,
-      "interactiveCount": 17,
+      "liveNodes": 290,
+      "interactiveCount": 19,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1169,6 +1207,10 @@
           "level": 2
         },
         {
+          "name": "Measured HDRI probe",
+          "level": 2
+        },
+        {
           "name": "Parallel accessible tree (M7)",
           "level": 2
         }
@@ -1176,8 +1218,8 @@
     },
     {
       "module": "4. M4 E2EE",
-      "liveNodes": 269,
-      "interactiveCount": 16,
+      "liveNodes": 286,
+      "interactiveCount": 17,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1188,6 +1230,10 @@
         },
         {
           "name": "Session",
+          "level": 2
+        },
+        {
+          "name": "Identity at rest (key sealing)",
           "level": 2
         },
         {
@@ -1206,8 +1252,8 @@
     },
     {
       "module": "5. M5 Mesh",
-      "liveNodes": 355,
-      "interactiveCount": 25,
+      "liveNodes": 390,
+      "interactiveCount": 30,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1244,8 +1290,8 @@
     },
     {
       "module": "6. M6 Offline",
-      "liveNodes": 274,
-      "interactiveCount": 14,
+      "liveNodes": 289,
+      "interactiveCount": 15,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1270,8 +1316,8 @@
     },
     {
       "module": "7. M7 Access",
-      "liveNodes": 296,
-      "interactiveCount": 39,
+      "liveNodes": 311,
+      "interactiveCount": 41,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1290,6 +1336,10 @@
         },
         {
           "name": "Screen-reader text alternative for the 3D scene",
+          "level": 2
+        },
+        {
+          "name": "Accessibility contract - live audit",
           "level": 2
         },
         {

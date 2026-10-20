@@ -50,9 +50,23 @@ export function parseColor(text) {
   }
   const fn = /^rgba?\(([^)]+)\)$/.exec(value);
   if (!fn) return null;
-  const parts = fn[1].split(/[,/\s]+/).filter(Boolean).map(Number);
-  if (parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return null;
-  return { r: parts[0], g: parts[1], b: parts[2], a: parts.length > 3 ? parts[3] : 1 };
+  // CSS Color 4 allows `rgb(12 34 56 / 25%)` alongside the comma form, and
+  // alpha may be a percentage. Splitting on commas, slashes and whitespace
+  // handles both; the alpha token is parsed after stripping a trailing `%`.
+  const parts = fn[1].split(/[,/\s]+/).filter(Boolean);
+  if (parts.length < 3) return null;
+  const rgb = parts.slice(0, 3).map(Number);
+  if (rgb.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return null;
+  let a = 1;
+  if (parts.length > 3) {
+    const raw = parts[3];
+    const percent = raw.endsWith('%');
+    const parsed = Number(percent ? raw.slice(0, -1) : raw);
+    if (!Number.isFinite(parsed)) return null;
+    a = percent ? parsed / 100 : parsed;
+  }
+  if (a < 0 || a > 1) return null;
+  return { r: rgb[0], g: rgb[1], b: rgb[2], a };
 }
 
 /** WCAG relative luminance of an opaque colour. */
@@ -100,6 +114,19 @@ const INTERACTIVE_ROLES = new Set([
   'button', 'link', 'checkbox', 'radio', 'switch', 'tab', 'menuitem',
   'menuitemcheckbox', 'menuitemradio', 'option', 'slider', 'spinbutton',
   'textbox', 'combobox', 'searchbox', 'treeitem',
+]);
+
+/**
+ * Roles whose accessible name is allowed to come from their contents (the
+ * ARIA "name from content" rule). Everything else - a main landmark, a list, a
+ * paragraph - has no name unless the author provides one, and rendering its
+ * whole subtree text as its name would both misdescribe the tree and leak
+ * text from aria-hidden descendants.
+ */
+const NAME_FROM_CONTENT = new Set([
+  'button', 'link', 'heading', 'cell', 'gridcell', 'columnheader', 'rowheader',
+  'option', 'tab', 'treeitem', 'menuitem', 'menuitemcheckbox', 'menuitemradio',
+  'checkbox', 'radio', 'switch', 'tooltip',
 ]);
 
 const FOCUSABLE = [
@@ -263,10 +290,13 @@ export function auditTree(root) {
   const mains = [...scope.querySelectorAll('main, [role="main"]')];
   if (mains.length !== 1) add('landmark-main', mains[0] || null, `found ${mains.length} main landmarks, expected 1`);
 
-  // Heading order
+  // Heading order. A document is read as if an h1 came before its first
+  // heading, so a page that opens at h4 is a jump (axe's sibling rule
+  // `page-has-heading-one` covers the missing h1 separately; this one is about
+  // the sequence after it). `previous = 1` encodes that convention.
   const headings = [...scope.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]')]
     .filter((h) => exposedToAt(h));
-  let previous = 0;
+  let previous = 1;
   for (const heading of headings) {
     const ariaLevel = Number(heading.getAttribute('aria-level'));
     const level = Number.isFinite(ariaLevel) && ariaLevel > 0
@@ -377,7 +407,10 @@ export function parallelTextTree(root, options = {}) {
     if (depth > maxDepth) { truncated = true; return; }
     if (!exposedToAt(node)) return;
     const role = implicitRole(node);
-    const name = accessibleName(node).slice(0, 60);
+    const authored = node.hasAttribute('aria-label') || node.hasAttribute('aria-labelledby')
+      || node.hasAttribute('title') || (node.tagName === 'IMG' && node.hasAttribute('alt'))
+      || (node.labels && node.labels.length > 0);
+    const name = (authored || NAME_FROM_CONTENT.has(role)) ? accessibleName(node).slice(0, 60) : '';
     const state = [];
     if (node.disabled) state.push('disabled');
     if (node.getAttribute('aria-expanded')) state.push(`expanded=${node.getAttribute('aria-expanded')}`);

@@ -13,24 +13,21 @@
 dist/
 dist-site/
 deploy.site.json
-
 # Measurement scratch output that is large and regenerable.
 *.heapsnapshot
-
 # Local tool state: wrangler's workerd cache and Python bytecode from the
 # helper scripts. Neither is part of the app or the deploy.
 .wrangler/
 __pycache__/
 *.pyc
-
 # Editor and OS noise.
 .DS_Store
 Thumbs.db
 *.swp
-
 # Editor / AI-tool state that must never be part of the app or the deploy:
 # Kiro's settings tree and the local deploy helper's project marker. Both are
 # machine-local tool configuration, not project files - see tools/build-site.py,
 # which already skips them when assembling dist/.
 .kiro/
 .freebuff/
+singularity-cdp-*/

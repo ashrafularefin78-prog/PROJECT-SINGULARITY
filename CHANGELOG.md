@@ -3,6 +3,71 @@
 Versions here are dates, not tags - the repository has no tagged releases yet.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-10-21 - cold load under budget: panels fetch their own graph
+
+### Changed
+- **M2, M3, M4 and the WebRTC/relay half of M5 now import their module graph on
+  first panel open** with a literal `import()`, instead of shipping every heavy
+  subsystem in the cold load. The cold-load payload is **108.4 KiB gzip JS**
+  (from 197.6), 25.9 KiB gzip CSS, 442.1 KiB raw; the deferred graph is
+  **90.6 KiB gzip JS** over 14 modules and is reported separately by
+  `tools/payload.js` rather than folded into the budget number. The brief's
+  170 KB ceiling is now met on a first visit (about 64% of it), and the deferred
+  modules are still named, walked and disclosed.
+- `tools/payload.js` now classifies edges: static imports are cold load,
+  dynamic imports and the spawned worker are deferred. It normalises Windows
+  path separators in the graph walk (the old walk could count one file twice)
+  and emits `deferredJsGzip`, `deferredFiles` and `initialFiles` alongside the
+  cold totals.
+- `renderPanel` is async with a monotonic token: a slow module import can no
+  longer paint over the panel the user switched to, and the title/hash/tab
+  chrome waits for the panel that actually rendered. Leaving M3 still stops the
+  render loop before the next panel loads.
+- Case-study scores are now read from `MODULE_STATUS` (`moduleMeta(...).points`)
+  instead of copied: the two cards had drifted (M3 89 vs 84, M4 92 vs 82,
+  M8 83 vs 96) and can no longer disagree.
+- `sw.js` v8 precaches the modules that were missing from the shell after the
+  module work (history, topology, relay, OPFS, substrate, motion, a11y contract,
+  HDR, environment, preprocessor) and the HDR probe asset. A new
+  `tests/sw.test.js` walks the real import graph and fails if the shell and the
+  graph diverge again - online and offline.
+
+### Fixed
+- Unlocking a sealed identity threw `ReferenceError: openPrivateKeys` because
+  the symbol was used but never imported; it is now destructured in the unlock
+  path (the bug was invisible until the module graph was moved behind
+  `import()`).
+- The browser test harness now launches its throwaway browser with
+  `--no-sandbox`: this host runs it under a restricted token where the renderer
+  sandbox cannot start, so every page target answered `Page.enable` with a
+  timeout. With the flag the suite runs in 6.6 s, and its profile directory is
+  created in the workspace instead of `%TEMP%` (which rejected `mkdtemp`).
+- `tests/browser-runner.js` no longer loads the deleted
+  `futuristic-ui.test.js`, and now runs `hud.test.js` and `sw.test.js`.
+- The a11y contract parses CSS Color 4 `rgb(12 34 56 / 25%)` alpha, treats a
+  document's first heading as following an implied h1 (so a page opening at h4
+  is reported), and no longer leaks `aria-hidden` text into the parallel tree:
+  names come from content only for roles where ARIA allows it.
+- Removed four stale imports of modules deleted in the previous review
+  (`theming`, `transitions`, `holographic`, `telemetry-advanced`) that the
+  rewrite of the import block had reintroduced.
+
+### Added
+- A ZAP 2.17.0 quick scan of the deployed GitHub Pages origin
+  (`docs/reports/zap-deployed.html`), complementing the archived local
+  baseline. The local run remains the one with the 1,077-request active scan;
+  neither substitutes for a third-party red-team session, which is still
+  stated as not done.
+
+### Housekeeping
+- The four `singularity-cdp-*` browser-profile directories (524 files, ~8 MB)
+  are out of the index and ignored; they were test residue, never project
+  content.
+- README quotes the reviewer's latest tally (**762 / 1000**, Silver) with its
+  per-module marks, and the payload/Load report, chart, plan and demo all quote
+  the same re-measured numbers.
+
+
 ## 2026-10-20 - review response: deletions, measurements, ZAP
 
 ### Removed
@@ -90,7 +155,7 @@ Each entry is derived from the commit history; the newest comes first.
   resolution, mikkelsen tangents and UV-absent degradation.
 
 ### Changed
-- The suite grew to **255 tests across 21 suites** with the temporal core (9),
+- The suite grew to **258 tests across 22 suites** with the temporal core (9),
   `motion` (8) and `substrate` (4) suites, plus four glTF texture tests and two
   renderer texture-decode tests.
 - The accessibility artifact was re-measured against the new dashboard DOM

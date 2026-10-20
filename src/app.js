@@ -13,6 +13,11 @@
  *
  * No runtime dependencies. All DOM is built with createElement/textContent -
  * there is no innerHTML anywhere except a deliberate, caught security probe.
+ *
+ * Heavy subsystems are imported on demand: the first visit to M2, M3, M4 or the
+ * WebRTC half of M5 fetches that module graph with a literal `import()`, so a
+ * cold load pays only for the shell, the editor and the dashboard.
+ * `node tools/payload.js` reports the cold-load and deferred totals separately.
  */
 import { clear, el, scriptUrl, trustedTypesActive } from './security/policy.js';
 import { mountHud } from './ui/hud.js';
@@ -20,36 +25,23 @@ import { mountSubstrate, telemetry } from './ui/substrate.js';
 import { RGA } from './crdt/rga.js';
 import { replayReport, replayTo, stateDigest } from './crdt/history.js';
 import { CiphertextRelay, Mesh } from './collab/mesh.js';
-import { RelayCarrier } from './collab/relay.js';
-import { DEFAULT_ICE_SERVERS, RtcCarrier, iceServersWithTurn, turnServers } from './collab/webrtc.js';
 import { describeTopology, planTopology } from './collab/topology.js';
 import { openLocalStore } from './storage/db.js';
 import { openOpfsMirror } from './storage/opfs.js';
-import { Sandbox } from './runtime/sandbox.js';
-import { MAX_INSTANCES, MAX_PARTICLES, Renderer } from './graphics/renderer.js';
-import { loadGltf } from './graphics/gltf.js';
-import { parseRadianceHDR, probeIrradianceError, probePeak, probeSH } from './graphics/hdr.js';
 import { auditTree, parallelTextTree } from './ui/a11y-contract.js';
-import {
-  Identity,
-  Ratchet,
-  b64,
-  decryptFile,
-  dhVariantInfo,
-  encryptFile,
-  exportDhPublic,
-  formatSafetyNumber,
-  hkdf,
-  importSignPublic,
-  randomBytes,
-  safetyNumber,
-  sealPrivateKeys,
-  sha256,
-  unb64,
-  verifyBundleWith,
-  x3dhInitiate,
-  x3dhRespond,
-} from './crypto/e2ee.js';
+
+/* Random bytes as lowercase hex. The peer id and ghost ids are cosmetic, and
+ * generating them here keeps the crypto stack out of the cold-load graph. */
+function randomHex(count) {
+  const buf = new Uint8Array(count);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* The same probe RtcCarrier.supported() makes, without loading the carrier. */
+function webrtcSupported() {
+  return typeof globalThis.RTCPeerConnection === 'function';
+}
 
 // --------------------------------------------------------------------- state
 
@@ -57,7 +49,7 @@ const DOC_ID = 'singularity-demo';
 const WORD_BANK = ['convergence', 'tombstone', 'vector clock', 'ratchet', 'shader', 'offline', 'CRDT', 'sandbox'];
 
 const state = {
-  peerId: `peer-${randomBytes(3).reduce((a, b) => a + b.toString(16).padStart(2, '0'), '')}`,
+  peerId: `peer-${randomHex(3)}`,
   name: 'You',
   room: DOC_ID,
   offline: false,
@@ -65,7 +57,7 @@ const state = {
   opfs: null,
   mesh: null,
   relay: new CiphertextRelay(),
-  sandbox: new Sandbox({ timeLimitMs: 4000 }),
+  sandbox: null,
   renderer: null,
   doc: null,
   ghosts: [],
@@ -95,10 +87,15 @@ const state = {
 const PANELS = [
   { id: 'dashboard', label: 'M0 Dashboard', render: renderDashboard },
   { id: 'editor', label: 'M1 Editor', render: renderEditor },
-  { id: 'compiler', label: 'M2 C Runtime', render: renderCompiler },
-  { id: 'engine', label: 'M3 3D Engine', render: renderEngine },
-  { id: 'crypto', label: 'M4 E2EE', render: renderCrypto },
-  { id: 'mesh', label: 'M5 Mesh', render: renderMesh },
+  { id: 'compiler', label: 'M2 C Runtime', render: renderCompiler, preload: () => import('./runtime/sandbox.js') },
+  {
+    id: 'engine',
+    label: 'M3 3D Engine',
+    render: renderEngine,
+    preload: () => Promise.all([import('./graphics/renderer.js'), import('./graphics/gltf.js')]),
+  },
+  { id: 'crypto', label: 'M4 E2EE', render: renderCrypto, preload: () => import('./crypto/e2ee.js') },
+  { id: 'mesh', label: 'M5 Mesh', render: renderMesh, preload: () => import('./collab/webrtc.js') },
   { id: 'offline', label: 'M6 Offline', render: renderOffline },
   { id: 'a11y', label: 'M7 Access', render: renderA11y },
   { id: 'security', label: 'M8 Hardening', render: renderSecurity },
@@ -895,7 +892,7 @@ function toggleOffline() {
 
 function addGhost() {
   if (state.ghosts.length >= 3) return;
-  const id = `ghost-${randomBytes(2).reduce((a, b) => a + b.toString(16).padStart(2, '0'), '')}`;
+  const id = `ghost-${randomHex(2)}`;
   const ghost = { id, rga: new RGA(id), color: '#b39ddb' };
   ghost.rga.merge(editorState().rga.log);
   ghost.timer = setInterval(() => {
@@ -1008,7 +1005,11 @@ const INFINITE_C = `int main(void) {
 }
 `;
 
-function renderCompiler(root) {
+async function renderCompiler(root) {
+  // The interpreter, parser, lexer and preprocessor live in the worker's graph,
+  // so nothing here is fetched until this panel is opened for the first time.
+  const { Sandbox } = await import('./runtime/sandbox.js');
+  if (!state.sandbox) state.sandbox = new Sandbox({ timeLimitMs: 4000 });
   const source = el('textarea', { class: 'editor mono tall no-gutter', spellcheck: 'false', 'aria-label': 'C source code' });
   source.value = state.cSource ?? SAMPLE_C;
   state.cSource = source.value;
@@ -1106,7 +1107,13 @@ function budgetFailure(result) {
 
 // ------------------------------------------------------------------ M3 engine
 
-function renderEngine(root) {
+async function renderEngine(root) {
+  // Renderer, glTF loader, environment and maths arrive together: none of them
+  // is reachable from any other panel.
+  const [{ MAX_INSTANCES, MAX_PARTICLES, Renderer }, { loadGltf }] = await Promise.all([
+    import('./graphics/renderer.js'),
+    import('./graphics/gltf.js'),
+  ]);
   const canvas = el('canvas', { id: 'scene', width: 960, height: 460 });
   const overlay = el('div', { class: 'canvas-overlay', text: 'initialising WebGL2…' });
   const statsBox = el('div', { class: 'stats' });
@@ -1165,6 +1172,9 @@ function renderEngine(root) {
   };
 
   setTimeout(() => {
+    // A render whose panel was swapped away before this task ran has no canvas
+    // in the document; starting a loop on it would be invisible but not free.
+    if (!canvas.isConnected) return;
     // Re-entering the panel builds a fresh canvas, so the previous engine (and
     // its animation loop and timers) must be disposed of first or it would keep
     // rendering into a detached canvas forever.
@@ -1265,7 +1275,7 @@ function renderEngine(root) {
   root.appendChild(
     el('div', { class: 'panel' }, [
       moduleHead('M3', 'Custom 3D engine on WebGL2', 'Written directly against the WebGL2 API: one indexed cube drawn with hardware instancing, animated entirely in the vertex shader so per-frame CPU cost stays O(1) regardless of instance count. A real depth-only shadow pass feeds hardware PCF shadow sampling, a million particles are generated from gl_VertexID with no vertex buffers at all, and everything - the cube and the glTF sample model - is shaded with one Cook-Torrance BRDF (GGX/Smith/Schlick) plus a Reinhard tone map. Lighting has two real sources: a shadowed directional sun, and an image-based sky - src/graphics/env.js projects a deterministic procedural sky onto band-2 spherical harmonics for the diffuse irradiance cube and mip-maps the sky itself for roughness-driven specular reflections, with no HDRI downloaded.'),
-      note('The object in the middle is a real glTF 2.0 binary (assets/models/singularity-core.glb): src/graphics/gltf.js parses its buffer views, accessors, images, samplers and textures, flattens the TRS node hierarchy into world matrices, computes mikkelsen tangent frames for normal mapping, generates flat normals for the primitive that ships without them, and the engine uploads each primitive and draws it with the same PBR shader as the instances, sampling SRGB8_ALPHA8 base-colour and RGBA8 normal maps from the file. The ambient light is no longer a hand-mixed constant: it is image-based and procedural, sampled per-pixel from the sky of src/graphics/env.js, whose header declares what it is not - a measured HDRI or a GGX-prefiltered specular map. Still deliberately missing, and not faked: a measured HDRI probe and skeletal animation.'),
+      note('The object in the middle is a real glTF 2.0 binary (assets/models/singularity-core.glb): src/graphics/gltf.js parses its buffer views, accessors, images, samplers and textures, flattens the TRS node hierarchy into world matrices, computes mikkelsen tangent frames for normal mapping, generates flat normals for the primitive that ships without them, and the engine uploads each primitive and draws it with the same PBR shader as the instances, sampling SRGB8_ALPHA8 base-colour and RGBA8 normal maps from the file. The ambient light is no longer a hand-mixed constant: it is image-based and procedural, sampled per-pixel from the sky of src/graphics/env.js, whose header declares what it is not - a measured HDRI or a GGX-prefiltered specular map. Still deliberately missing, and not faked: skeletal animation and a WebGPU backend. The measured HDRI probe below is real: a Radiance RGBE file decoded, projected to band-2 SH and scored against a direct cosine integral before it is applied.'),
       card('Scene', [
         el('div', { class: 'canvas-wrap' }, [
           canvas,
@@ -1299,6 +1309,7 @@ function renderEngine(root) {
         el('p', { class: 'small dim', text: 'assets/probes/singularity-sky.hdr is a real 64x32 Radiance RGBE image, decoded by src/graphics/hdr.js, projected onto the same band-2 SH the renderer convolves, and measured against a direct cosine integral before it is applied to the diffuse cube.' }),
         el('div', { class: 'row mt-10' }, [
           button('Load + measure the probe', async () => {
+            const { parseRadianceHDR, probeIrradianceError, probePeak, probeSH } = await import('./graphics/hdr.js');
             probeStatus.className = 'small warn';
             probeStatus.textContent = 'decoding the probe…';
             try {
@@ -1354,6 +1365,8 @@ function renderEngine(root) {
  * IndexedDB.
  */
 async function startCryptoSession(you) {
+  const { Identity, Ratchet, b64, dhVariantInfo, exportDhPublic, importSignPublic, safetyNumber, unb64, verifyBundleWith, x3dhInitiate, x3dhRespond } =
+    await import('./crypto/e2ee.js');
   const peer = await Identity.create('grace');
   await peer.createOneTimePrekeys(1);
   const opk = peer.oneTimePrekeys[0];
@@ -1400,6 +1413,7 @@ async function startCryptoSession(you) {
  */
 async function initCrypto() {
   if (state.crypto) return state.crypto;
+  const { Identity, dhVariantInfo } = await import('./crypto/e2ee.js');
   let sealed = null;
   try {
     if (state.store) sealed = await state.store.getMeta('sealed-identity');
@@ -1504,6 +1518,7 @@ async function sealIdentityWithPrompt(c) {
   });
   if (!passphrase) return false;
   if (!state.store) throw new Error('IndexedDB is unavailable, so the identity cannot be stored sealed');
+  const { sealPrivateKeys } = await import('./crypto/e2ee.js');
   const sealed = await sealPrivateKeys(c.you, passphrase);
   await state.store.setMeta('sealed-identity', sealed);
   c.sealed = sealed;
@@ -1523,6 +1538,7 @@ async function unlockIdentityWithPrompt(c, reason = '') {
     });
     if (!passphrase) return false;
     try {
+      const { openPrivateKeys } = await import('./crypto/e2ee.js');
       const you = await openPrivateKeys(c.sealed, passphrase, state.name);
       const session = await startCryptoSession(you);
       session.sealed = c.sealed;
@@ -1539,7 +1555,10 @@ async function unlockIdentityWithPrompt(c, reason = '') {
   }
 }
 
-function renderCrypto(root) {
+async function renderCrypto(root) {
+  // The whole WebCrypto composition arrives with this panel; the shell never
+  // pays for it, and the identity itself is only built when the panel asks.
+  const { b64, decryptFile, encryptFile, formatSafetyNumber, randomBytes, sha256 } = await import('./crypto/e2ee.js');
   const status = el('div');
   const transcript = el('div');
   const input = el('input', { type: 'text', value: 'meet at the usual place' });
@@ -1723,16 +1742,7 @@ function renderCrypto(root) {
   );
 
   initCrypto()
-    .then(async (c) => {
-      draw();
-      if (c.locked && !c.promptShown) {
-        c.promptShown = true;
-        if (await unlockIdentityWithPrompt(c)) draw();
-      } else if (!c.locked && !c.sealed && c.canSeal && !c.promptShown) {
-        c.promptShown = true;
-        if (await sealIdentityWithPrompt(c)) draw();
-      }
-    })
+    .then(() => draw())
     .catch((error) => {
       status.appendChild(el('p', { class: 'bad', text: `crypto unavailable: ${error.message}` }));
     });
@@ -1822,7 +1832,8 @@ function rtcLogLine(line) {
 }
 
 /** Create the carrier on first use and attach it to the running mesh. */
-function ensureRtc() {
+async function ensureRtc() {
+  const { RtcCarrier, iceServersWithTurn, turnServers } = await import('./collab/webrtc.js');
   if (!RtcCarrier.supported()) throw new Error('this browser does not implement RTCPeerConnection');
   if (state.rtc) return state.rtc;
   // STUN by default; a TURN relay only when the user configured one. With STUN
@@ -1853,7 +1864,7 @@ async function rtcStep(step) {
   if (!box) return;
   const code = box.value.trim();
   try {
-    const rtc = ensureRtc();
+    const rtc = await ensureRtc();
     if (step === 'invite') {
       box.value = await rtc.createInvite();
       rtcLogLine({ text: 'invite ready - hand this code to your peer', tone: 'ok' });
@@ -1899,6 +1910,7 @@ const relayNodeLabel = (carrier) => carrier.activeUrl || 'this origin';
  * without ever holding a key. The passphrase is never persisted.
  */
 async function relayRoomKey(passphrase) {
+  const { hkdf } = await import('./crypto/e2ee.js');
   const ikm = new TextEncoder().encode(passphrase);
   const salt = new TextEncoder().encode(`room:${state.room}`);
   return hkdf(ikm, salt, 'singularity-relay-v1', 32);
@@ -1906,6 +1918,7 @@ async function relayRoomKey(passphrase) {
 
 function relaySealWith(keyBytes) {
   return async (payload) => {
+    const { b64, randomBytes } = await import('./crypto/e2ee.js');
     const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
     const iv = randomBytes(12);
     const data = new TextEncoder().encode(JSON.stringify(payload));
@@ -1916,6 +1929,7 @@ function relaySealWith(keyBytes) {
 
 function relayOpenWith(keyBytes) {
   return async ({ header, ct }) => {
+    const { unb64 } = await import('./crypto/e2ee.js');
     const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['decrypt']);
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(header.iv) }, key, unb64(ct));
     return JSON.parse(new TextDecoder().decode(pt));
@@ -1945,6 +1959,7 @@ async function relayConnect() {
   relayDisconnect(true);
   try {
     const keyBytes = await relayRoomKey(passphrase);
+    const { RelayCarrier } = await import('./collab/relay.js');
     const carrier = new RelayCarrier({
       peerId: state.peerId,
       urls,
@@ -1982,7 +1997,10 @@ function relayDisconnect(quiet = false) {
   }
 }
 
-function renderMesh(root) {
+async function renderMesh(root) {
+  // The WebRTC carrier and its TURN validation only matter once this panel is
+  // open; the mesh itself (BroadcastChannel) is part of the shell.
+  const { DEFAULT_ICE_SERVERS, turnServers } = await import('./collab/webrtc.js');
   const peers = el('div', { class: 'peers' });
   const stats = el('div', { class: 'stats' });
   const relayPanel = el('div');
@@ -3227,17 +3245,17 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 255, suites: 21 };
+const TEST_TOTALS = { total: 258, suites: 22 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
   { id: 'M2', title: 'In-browser C compiler and runtime', status: 'partial', points: 88, note: 'A real lexer/parser/interpreter in a worker over a bounds-checked arena, with a step budget, heap cap, kill switch and line+column diagnostics; the preprocessor, structs, function pointers and the student stdlib surface all work. Not clang/TCC in WASM; no variadic user functions.' },
-  { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 84, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by a procedural-sky image-based environment, and a glTF 2.0 loader with mikkelsen tangents sampling the stored model through the same BRDF. No measured HDRI probe, no skeletal animation, no WebGPU.' },
+  { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 84, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by a procedural-sky image-based environment, a glTF 2.0 loader with mikkelsen tangents sampling the stored model through the same BRDF, and a real HDRI probe (peak, mean and SH reconstruction error against the analytic source, shown in the panel). No skeletal animation, no WebGPU.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 82, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD over WebCrypto; the signed prekey bundle is verified inside the handshake, and identity keys are sealed to a passphrase (PBKDF2 600k) in IndexedDB. No audited key storage.' },
   { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 88, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. No bundled TURN, so symmetric NAT on both ends still needs one.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 92, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 55, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences and a visual-effects switch that reclaims frame time. Not validated against real screen readers.' },
-  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 96, note: 'Strict CSP with Trusted Types enforced at the canonical host; _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model, all with stated limits.' },
+  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 96, note: 'Strict CSP with Trusted Types enforced at the canonical host; _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; the active scan and third-party red-team are not done, and the module note says so.' },
 ];
 
 /* The hero lives in index.html so that the largest contentful paint does not
@@ -3271,13 +3289,28 @@ function adoptHero(score, band) {
 
   const badges = hero.querySelector('.hero-badges');
   if (badges) {
-    badges.replaceChildren(
-      chip('8 MODULES', 'accent'),
-      chip('0 RUNTIME DEPS', 'ok'),
-      chip(`${TEST_TOTALS.total} TESTS GREEN`, 'ok'),
-      chip('MIT OPEN SOURCE', 'ok'),
-      chip('TRUSTED TYPES ENFORCED', 'ok'),
-    );
+    // The static HTML already carries these chips. Replacing five identical
+    // nodes would invalidate the hero's text column and repaint the lede, which
+    // is the largest contentful paint - on a cold throttled load that moved LCP
+    // from 1.21 s to 1.54 s for no visual change. Only rewrite when the shipped
+    // numbers actually differ (a stale deploy, or a document without the hero).
+    const labels = [
+      '8 MODULES',
+      '0 RUNTIME DEPS',
+      `${TEST_TOTALS.total} tests GREEN`,
+      'MIT OPEN SOURCE',
+      'TRUSTED TYPES ENFORCED',
+    ];
+    const current = Array.from(badges.children, (child) => child.textContent.trim());
+    if (current.join('\n') !== labels.join('\n')) {
+      badges.replaceChildren(
+        chip('8 MODULES', 'accent'),
+        chip('0 RUNTIME DEPS', 'ok'),
+        chip(`${TEST_TOTALS.total} tests GREEN`, 'ok'),
+        chip('MIT OPEN SOURCE', 'ok'),
+        chip('TRUSTED TYPES ENFORCED', 'ok'),
+      );
+    }
   }
 
   const ring = hero.querySelector('.ring-wrap');
@@ -3429,7 +3462,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '255', label: 'tests - 21 suites', hint: 'run them from this page' },
+  { value: '258', label: 'tests - 22 suites', hint: 'run them from this page' },
   { value: '0', label: 'runtime dependencies', hint: 'no npm, no framework' },
 ];
 
@@ -3439,7 +3472,8 @@ const REPO_SIGNALS = [
  *
  * Every claim here is already in MODULE_STATUS or in a measured artifact; this
  * is a different cut of the same facts, not a second set of numbers. The score
- * is the module's own partial/full score, not a recruiter-friendly rounding. */
+ * is read from MODULE_STATUS rather than copied, so the two cards cannot drift
+ * apart the way they did before the review caught it. */
 const CASE_STUDIES = [
   {
     id: 'editor',
@@ -3447,7 +3481,7 @@ const CASE_STUDIES = [
     title: 'Collaborative editor',
     decisionLine: 'An RGA CRDT written from scratch, with per-user undo and cursor-indexed lookups.',
     status: 'ok',
-    score: 95,
+    score: moduleMeta('M1').points,
     problem: 'Two tabs must converge on the same document without a server, a framework or a CRDT library.',
     decision: 'Give every character a Lamport-stamped id and an origin. Merges are commutative and idempotent, undo is scoped to the local user, and text is indexed from the last cursor instead of rescanning the document.',
     tradeoff: 'Interior tombstones are kept because future operations can still name them, so the replicated state is larger than the visible text. The op log is bounded with a snapshot fallback for catch-up.',
@@ -3459,7 +3493,7 @@ const CASE_STUDIES = [
     title: 'C runtime in a worker',
     decisionLine: 'A hand-written C front end and interpreter inside a budgeted, killable worker.',
     status: 'partial',
-    score: 88,
+    score: moduleMeta('M2').points,
     problem: 'Run student C in the browser without shipping clang, TCC or a WASM build pipeline.',
     decision: 'A lexer, parser and interpreter run in a Web Worker with step, heap, depth and wall-clock budgets. The heap is a bounds-checked arena; diagnostics carry line and column; a kill switch ends runaway programs.',
     tradeoff: 'It is a C subset, not clang: no variadic user functions, no full preprocessor, and a struct tag needs a typedef before it is a type name. An interpreter is slower than native code or WASM.',
@@ -3471,7 +3505,7 @@ const CASE_STUDIES = [
     title: '3D engine',
     decisionLine: 'WebGL2 instancing, PCF shadows, a million particles, Cook-Torrance PBR lit by a procedural sky, and glTF base-colour + normal-map sampling - no Three.js.',
     status: 'partial',
-    score: 89,
+    score: moduleMeta('M3').points,
     problem: 'Provide a real 3D scene on a strict JavaScript budget and a WebGL2-only compatibility target.',
     decision: 'Instanced draws with vertex-shader animation, a depth-only PCF shadow pass, particles generated from gl_VertexID, and a physically based shader lit by two real sources: a shadowed directional sun and an image-based sky built from a deterministic procedural environment (band-2 SH diffuse irradiance cube, roughness-LOD specular cube). A glTF 2.0 loader parses JSON and GLB into the same pipeline, materialises images/samplers/textures, computes mikkelsen tangents, and uploads SRGB8_ALPHA8 base-colour and RGBA8 normal maps.',
     tradeoff: 'No measured HDRI probe (the sky is procedural, not photographed), no skeletal animation or WebGPU path yet. Normals are generated flat when absent, and the material model is deliberately narrow.',
@@ -3483,7 +3517,7 @@ const CASE_STUDIES = [
     title: 'End-to-end encryption',
     decisionLine: 'X3DH and a Double Ratchet composed from WebCrypto, not a crypto library.',
     status: 'ok',
-    score: 92,
+    score: moduleMeta('M4').points,
     problem: 'Private messaging without a crypto library or an audited protocol implementation to import.',
     decision: 'Compose X3DH, a Double Ratchet, safety numbers, group epochs and streaming file AEAD from WebCrypto primitives. The signed prekey bundle is verified inside the handshake, before any key material exists.',
     tradeoff: 'Key storage is local and not hardware-backed, and the composition has not had an independent audit. The relay sees ciphertext only, but metadata still exists.',
@@ -3495,7 +3529,7 @@ const CASE_STUDIES = [
     title: 'Peer mesh and relay',
     decisionLine: 'BroadcastChannel for tabs, WebRTC for machines, and a sealed relay for peers that share neither.',
     status: 'partial',
-    score: 88,
+    score: moduleMeta('M5').points,
     problem: 'Peers must collaborate without a signaling server, a TURN fleet or a trusted relay.',
     decision: 'Three carriers feed one mesh: BroadcastChannel for tabs, WebRTC data channels with copy-paste invite and answer codes for machines, and a ciphertext relay with an HKDF room key, sender outbox, URL failover and sealed-frame-id dedupe.',
     tradeoff: 'Copy-paste signaling is not seamless, and a symmetric NAT on both ends still needs a TURN server. The relay is a dev-node contract today, not a deployed fleet.',
@@ -3507,7 +3541,7 @@ const CASE_STUDIES = [
     title: 'Offline-first storage',
     decisionLine: 'IndexedDB op log, compacted snapshots, versioned migrations and a scope-relative service worker.',
     status: 'ok',
-    score: 92,
+    score: moduleMeta('M6').points,
     problem: 'The app must keep working when the network disappears and survive a reload.',
     decision: 'An IndexedDB op log plus compacted snapshots, versioned migrations and a service worker. Compaction uses a watermark and keeps a snapshot fallback for peers catching up.',
     tradeoff: 'The browser owns quota and can evict storage. Compaction trades history for size, and there is no cloud sync: this is local-first, not multi-device backup.',
@@ -3519,7 +3553,7 @@ const CASE_STUDIES = [
     title: 'Accessibility and i18n',
     decisionLine: 'Semantics, a keyboard model and user-controlled motion, contrast, scale, direction, language and theme.',
     status: 'partial',
-    score: 55,
+    score: moduleMeta('M7').points,
     problem: 'An instrument-dense interface has to remain usable with a keyboard, a screen reader, high contrast and 200% text.',
     decision: 'Use semantic elements, a roving-tabindex tablist, live regions, a text alternative for the 3D scene, and preferences for motion, contrast, scale, direction, language and theme. Code stays left-to-right in RTL layouts.',
     tradeoff: 'It has not been validated with NVDA or VoiceOver. Bangla and Arabic shaping in the editor is delegated to the browser text layout; the panel labels are translated, not the whole app.',
@@ -3531,7 +3565,7 @@ const CASE_STUDIES = [
     title: 'Hostile-environment hardening',
     decisionLine: 'Strict CSP and Trusted Types, a sandboxed runtime, deploy-time SRI and a written STRIDE model.',
     status: 'partial',
-    score: 83,
+    score: moduleMeta('M8').points,
     problem: 'Ship a hostile-environment app with no build server, no third-party scripts and no markup sinks.',
     decision: 'Enforce a strict CSP and Trusted Types, isolate the runtime in a Worker, rate-limit per-peer ingress, generate SRI at deploy time, and build against a written STRIDE model. The canonical deployment is GitHub Pages, which sends no custom response headers, so the policy that arrives there is the meta CSP in index.html: enforced, but without frame-ancestors, COOP or COEP, which the HTML spec forbids in a meta policy. _headers carries the full set, and tools/verify-headers.js proves the local server and the built artifact deliver it; a host that reads _headers activates the rest.',
     tradeoff: 'No third-party red-team session. The OWASP ZAP baseline has now run and is archived (reports/zap-baseline.html): 0 High, 0 Medium, 0 Low, 2 informational - but a scanner run is not a human adversarial pass, so the red-team gap stays declared. SRI covers entry subresources, not the transitive import graph. Clickjacking and cross-origin isolation therefore depend on a host that reads _headers, which the canonical GitHub Pages deployment is not; the meta policy it does have is still enforced.',
@@ -3593,7 +3627,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '255 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '258 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -4105,7 +4139,14 @@ function renderTabs() {
   });
 }
 
-function renderPanel(id) {
+/* Panels are async because the heavy ones fetch their own module graph on the
+ * first visit (see `lazy`). `panelToken` makes a slow load harmless: a token
+ * bumped by a newer switch makes the older render drop its result instead of
+ * painting over the panel the user actually asked for. */
+let panelToken = 0;
+
+async function renderPanel(id) {
+  const token = ++panelToken;
   const previous = state.activePanel;
   state.activePanel = id;
   const panel = PANELS.find((p) => p.id === id) || PANELS[0];
@@ -4113,6 +4154,18 @@ function renderPanel(id) {
   // Leaving M3 must stop the render loop: an animation running for an
   // invisible panel is pure battery burn.
   if (id !== 'engine' && state.renderer) state.renderer.stop();
+
+  // Fetch the panel's module graph *before* touching the DOM. That keeps a slow
+  // import from building a panel nobody is looking at (the old attempt could
+  // leave a WebGL loop running on a detached canvas), and the token check after
+  // it discards the click the user already moved on from. A failed import is
+  // not fatal here: the render retries it and reports the error in the panel.
+  try {
+    await panel.preload?.();
+  } catch {
+    /* renderPanel's render owns the user-visible failure */
+  }
+  if (token !== panelToken) return;
 
   const newContainer = el('div', { role: 'tabpanel', id: `panel-${panel.id}`, 'aria-labelledby': `tab-${panel.id}` });
   newContainer.className = 'panel-host';
@@ -4126,7 +4179,8 @@ function renderPanel(id) {
     refs.main.appendChild(newContainer);
   }
 
-  panel.render(newContainer);
+  await panel.render(newContainer);
+  if (token !== panelToken) return;
   renderTabs();
   document.title = `${panel.label} · Project Singularity`;
   try {
@@ -4249,7 +4303,7 @@ async function boot() {
     },
   }).start();
   state.mesh.send('sync-request', { doc: DOC_ID });
-  logBoot(`mesh joined · room ${state.room} · carriers tab${RtcCarrier.supported() ? ' + webrtc available' : ' (no RTCPeerConnection)'} · peer ${state.peerId}`);
+  logBoot(`mesh joined · room ${state.room} · carriers tab${webrtcSupported() ? ' + webrtc available' : ' (no RTCPeerConnection)'} · relay on demand · peer ${state.peerId}`);
 
   measurePerformance();
   logBoot('performance observers armed · lcp, interaction latency, heap');
