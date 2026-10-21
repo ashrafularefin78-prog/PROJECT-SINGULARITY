@@ -29,6 +29,7 @@ import { describeTopology, planTopology } from './collab/topology.js';
 import { openLocalStore } from './storage/db.js';
 import { openOpfsMirror } from './storage/opfs.js';
 import { auditTree, parallelTextTree } from './ui/a11y-contract.js';
+import { mountConstellation } from './ui/constellation.js';
 
 /* Random bytes as lowercase hex. The peer id and ghost ids are cosmetic, and
  * generating them here keeps the crypto stack out of the cold-load graph. */
@@ -3245,7 +3246,7 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 258, suites: 22 };
+const TEST_TOTALS = { total: 267, suites: 23 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
@@ -3462,7 +3463,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '258', label: 'tests - 22 suites', hint: 'run them from this page' },
+  { value: '267', label: 'tests - 23 suites', hint: 'run them from this page' },
   { value: '0', label: 'runtime dependencies', hint: 'no npm, no framework' },
 ];
 
@@ -3627,7 +3628,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '258 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '267 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -3820,6 +3821,91 @@ function aboutSection() {
   return el('div', { class: 'about-grid' }, [left, right]);
 }
 
+/* ---------------------------------------- live system constellation (M0) */
+
+/**
+ * One frame of truth for the constellation: the readings the telemetry strip
+ * already samples, plus which panel is open. Nothing is invented here - a
+ * browser without `performance.memory` hands it null and the picture omits the
+ * heap rather than drawing a confident zero.
+ */
+let constellationOps = 0;
+
+function constellationReadings() {
+  const ops = state.doc ? state.doc.rga.stats().ops : 0;
+  const delta = Math.max(0, ops - constellationOps);
+  constellationOps = ops;
+  const stats = state.renderer ? state.renderer.stats() : null;
+  return {
+    activePanel: state.activePanel,
+    modules: MODULE_STATUS,
+    peers: state.mesh ? state.mesh.peers().length : 0,
+    opsDelta: delta,
+    // A background tab suspends requestAnimationFrame, so a renderer that has
+    // not drawn a frame has not been measured. That is null, not zero.
+    fps: stats && stats.frames > 0 ? stats.fps : null,
+    heapMiB: performance.memory ? performance.memory.usedJSHeapSize / 1048576 : null,
+  };
+}
+
+let constellationCtl = null;
+let constellationTimer = 0;
+
+function stopConstellation() {
+  if (constellationTimer) clearInterval(constellationTimer);
+  constellationTimer = 0;
+  if (constellationCtl) constellationCtl.destroy();
+  constellationCtl = null;
+}
+
+function startConstellation(canvas) {
+  stopConstellation();
+  constellationOps = state.doc ? state.doc.rga.stats().ops : 0;
+  // Only 'full' means the user has not asked for reduced motion; 'reduced' and
+  // 'off' both draw a single frame per change and schedule no loop at all.
+  constellationCtl = mountConstellation(canvas, { reducedMotion: resolveFx() !== 'full' });
+  if (!constellationCtl) return;
+  constellationCtl.update(constellationReadings());
+  constellationCtl.start();
+  constellationTimer = setInterval(() => {
+    // The panel was swapped away without a teardown (a re-render, a hash jump):
+    // a detached canvas is not worth a timer or a frame.
+    if (!canvas.isConnected) {
+      stopConstellation();
+      return;
+    }
+    constellationCtl?.update(constellationReadings());
+  }, 1000);
+}
+
+function constellationCard() {
+  const canvas = el('canvas', {
+    class: 'constellation-canvas',
+    role: 'img',
+    // Replaced by the live description on the first update. This is the name a
+    // browser that never paints a frame still gives assistive technology.
+    'aria-label': 'Live system constellation: loading',
+  });
+  // Intrinsic size only: CSS owns the presented size, and the DPR scale is set
+  // by the mount. Nothing here is an inline style (the CSP forbids them).
+  canvas.width = 960;
+  canvas.height = 400;
+  const node = card('Live system constellation', [
+    el('div', { class: 'constellation-shell' }, [canvas]),
+    el('div', { class: 'constellation-legend' }, [
+      ['active', 'panel open'],
+      ['ok', 'module full'],
+      ['partial', 'module partial'],
+      ['peer', 'mesh peer'],
+    ].map(([state, label]) => el('span', { class: 'constellation-key', dataset: { state }, text: label }))),
+    el('p', {
+      class: 'small dim mt-10',
+      text: 'Eight satellites, one per module, coloured by the scorecard\u2019s own verdict and drawn as active while its panel is open. Peers orbit on the outer ring. The core breathes with document throughput, and the loop stops when the tab is hidden \u2014 a diagram that burns a core in the background would be the opposite of what this panel claims.',
+    }),
+  ]);
+  return { node, canvas };
+}
+
 function renderDashboard(root) {
   const measured = el('div');
   // A row is only marked met when this environment actually measured it against
@@ -3898,6 +3984,10 @@ function renderDashboard(root) {
   const achieved = [...TIERS].reverse().find((t) => tierRequirementMet(t, full))?.name || 'Unranked';
   const shortOf = TIERS.find((t) => !tierRequirementMet(t, full));
 
+  // Built here, mounted after the panel is in the document: a detached canvas
+  // has no box to measure, and the constellation sizes itself from its box.
+  const constellationView = constellationCard();
+
   root.appendChild(
     el('div', { class: 'panel' }, [
       adoptHero(score, band),
@@ -3907,6 +3997,7 @@ function renderDashboard(root) {
         statCard('Runtime dependencies', '0', 'no bundler, no npm packages, no node_modules'),
         statCard('Modules working', `${full} full · ${MODULE_STATUS.length - full} partial`, 'nothing claimed that is not there'),
       ]),
+      constellationView.node,
       card('What this is, why it exists, who it is for', [briefBlock()]),
       caseStudyCard(),
       card('Contributing & changelog', [
@@ -3981,6 +4072,8 @@ function renderDashboard(root) {
       card('About the developer', [aboutSection()]),
     ]),
   );
+
+  startConstellation(constellationView.canvas);
 
   const verdictWord = { met: 'met', unmet: 'missed', partial: 'partial', unmeasured: 'not measured' };
   const draw = () => {
@@ -4152,8 +4245,10 @@ async function renderPanel(id) {
   const panel = PANELS.find((p) => p.id === id) || PANELS[0];
   
   // Leaving M3 must stop the render loop: an animation running for an
-  // invisible panel is pure battery burn.
+  // invisible panel is pure battery burn. The constellation's loop is the same
+  // bargain, so it stops with its panel.
   if (id !== 'engine' && state.renderer) state.renderer.stop();
+  if (id !== 'dashboard') stopConstellation();
 
   // Fetch the panel's module graph *before* touching the DOM. That keeps a slow
   // import from building a panel nobody is looking at (the old attempt could

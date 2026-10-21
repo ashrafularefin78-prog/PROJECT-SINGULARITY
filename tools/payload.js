@@ -27,7 +27,7 @@
  * initial even though the bootstrap uses `import()` - it is the page's own
  * application, not an optional panel.
  */
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
@@ -46,10 +46,17 @@ function load(relative) {
     info.set(relative, null); // a missing file is reported by the test suite
     return null;
   }
+  // Measured on the line endings git actually stores, not on whatever this
+  // checkout happens to have. `statSync().size` counts CRLF on a Windows
+  // working tree and LF on the Linux runner, so the same commit published two
+  // different budgets and `tools/check-docs.js` reported drift that only
+  // existed on one platform. The blobs - and what a host like GitHub Pages
+  // serves - are LF, so LF is both the deterministic number and the true one.
+  const shipped = source.replace(/\r\n/g, '\n');
   const entry = {
     file: relative.replace(/\\/g, '/'),
-    rawBytes: statSync(path).size,
-    gzipBytes: gzipSync(source, { level: 9 }).length,
+    rawBytes: Buffer.byteLength(shipped, 'utf8'),
+    gzipBytes: gzipSync(Buffer.from(shipped, 'utf8'), { level: 9 }).length,
   };
   info.set(relative, { source, entry });
   return info.get(relative);

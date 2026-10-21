@@ -27,10 +27,10 @@ throwaway scripts.
 
 Two environments are reported on purpose:
 
-* **bare Node** (`npm test`) runs 234 of the 258 tests and skips the 12 that need
+* **bare Node** (`npm test`) runs 242 of the 267 tests and skips the 12 that need
   a canvas or IndexedDB, so the exit code means "no regressions" rather than
   "this machine has no GPU".
-* **headless Edge** (`npm run test:browser`) runs all 258, including the WebGL2
+* **headless Edge** (`npm run test:browser`) runs all 267, including the WebGL2
   renderer and the IndexedDB store, in 2.3–3.2 s depending on what else the machine
   is doing (the spread is reported rather than averaged away).
 
@@ -67,7 +67,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **109.3 KiB gzip JS** (445.5 KiB raw over 14 cold-load files plus the stylesheet) + 25.9 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.7 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
+| Initial JS payload | ≤ 170 KB gzip | **114.9 KiB gzip JS** (454.6 KiB raw over 15 cold-load files plus the stylesheet) + 26.2 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.2 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **774 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 96 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -93,13 +93,13 @@ module cannot hide by being imported late.
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk, cold load (this report's measurement) | **109.3 KiB gzip JS over 14 files plus `styles/app.css`**, 25.9 KiB gzip CSS, 445.5 KiB raw total |
-| Import-graph walk, deferred graph | **90.7 KiB gzip JS over 14 modules** - the C runtime (interpreter, parser, lexer, preprocessor, sandbox and worker), the WebGL2 engine (renderer, glTF, HDR, environment, maths), the E2EE stack and the WebRTC/relay carriers |
+| Import-graph walk, cold load (this report's measurement) | **114.9 KiB gzip JS over 15 files plus `styles/app.css`**, 26.2 KiB gzip CSS, 454.6 KiB raw total |
+| Import-graph walk, deferred graph | **90.2 KiB gzip JS over 14 modules** - the C runtime (interpreter, parser, lexer, preprocessor, sandbox and worker), the WebGL2 engine (renderer, glTF, HDR, environment, maths), the E2EE stack and the WebRTC/relay carriers |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts every shipped script live and is visible on the M0 dashboard |
 
-The largest cold-load file is `src/app.js` (66.2 KiB gzip of 212.4 KiB raw);
+The largest cold-load file is `src/app.js` (67.1 KiB gzip of 211.9 KiB raw);
 inside the deferred graph the largest are `src/runtime/interpreter.js`
-(21.7 KiB gzip of 85.7 KiB raw) - which grew during the M2 work that added `<string.h>`,
+(21.6 KiB gzip of 83.5 KiB raw) - which grew during the M2 work that added `<string.h>`,
 `<ctype.h>`, `<math.h>`, the preprocessor, typedefs, two-dimensional arrays,
 function pointers and unions - and `src/runtime/preprocess.js` (4.5 KiB gzip)
 from the same work. (Those figures are claims in `tools/check-docs.js`; the
@@ -677,9 +677,9 @@ the GitHub Pages layout is reproduced locally.
 
 | Command | Environment | Result |
 |---------|-------------|--------|
-| `npm test` | bare Node 24, no browser | 234 passed, 0 failed, 24 skipped (the 24 need a canvas or IndexedDB) |
-| `npm run test:browser` | Edge 154/155 via CDP, real WebGL2 + IndexedDB | **258 passed, 0 failed, 0 skipped** — 2.3 s on an idle machine, 3.2 s under load |
-| `npm run test:browser --url=<deployment>` | the same suite against the site, or against the workerd deploy artifact | **258 passed, 0 failed, 0 skipped** |
+| `npm test` | bare Node 24, no browser | 242 passed, 0 failed, 25 skipped (the 25 need a canvas or IndexedDB) |
+| `npm run test:browser` | Edge 154/155 via CDP, real WebGL2 + IndexedDB | **267 passed, 0 failed, 0 skipped** — 2.3 s on an idle machine, 3.2 s under load |
+| `npm run test:browser --url=<deployment>` | the same suite against the site, or against the workerd deploy artifact | **267 passed, 0 failed, 0 skipped** |
 
 `npm test` used to report those 10 as failures because the machine has no GPU.
 Capability-aware skips replaced the red herrings, so a failing build now means a
@@ -734,8 +734,8 @@ Reproduce any row:
 
 ```sh
 python3 tools/serve.py 5173     # or: node tools/serve.js
-npm test                        # 258 collected: 234 pass + 24 skip, no browser needed
-npm run test:browser            # all 258, in a real browser
+npm test                        # 267 collected: 242 pass + 25 skip, no browser needed
+npm run test:browser            # all 267, in a real browser
 node tools/payload.js           # import-graph payload size
 node tools/perf.js lcp          # throttled LCP -> docs/reports/lcp.json
 node tools/perf.js soak         # memory soak -> docs/reports/soak.json

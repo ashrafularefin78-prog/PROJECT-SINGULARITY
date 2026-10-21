@@ -22,6 +22,7 @@ const SUITES = [
   './motion.test.js',
   './substrate.test.js',
   './hud.test.js',
+  './constellation.test.js',
   './a11y.test.js',
   './sw.test.js',
 ];

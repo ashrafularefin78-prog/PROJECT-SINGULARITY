@@ -1,7 +1,7 @@
 # Project Singularity
 
 [![Live demo](https://img.shields.io/badge/live_demo-GitHub_Pages-6ea8fe)](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/)
-[![Tests](https://img.shields.io/badge/tests-258_across_22_suites-57d68d)](#verify-it)
+[![Tests](https://img.shields.io/badge/tests-267_across_23_suites-57d68d)](#verify-it)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_dependencies-0-b39ddb)](#technologies)
 [![License](https://img.shields.io/badge/license-MIT-8399b0)](LICENSE)
 
@@ -24,7 +24,7 @@ code. There is no bundler, no transpiler, and no file in `src/` imported from np
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
 | Repository signals | **0 stars · 0 forks · 17 commits · 1 author · 0 tagged releases** (snapshot 19 Oct 2026; GitHub is the live source) |
-| Tests | **258 across 22 suites**, runnable in the browser from the site itself |
+| Tests | **267 across 23 suites**, runnable in the browser from the site itself |
 | Runtime dependencies | **0** - no framework, no bundler, no npm package in the shipped bundle |
 | Modules | 8 (3 full, 5 partial - each partial says exactly where it stops) |
 | Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
@@ -102,7 +102,7 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**258 tests across 22 suites** (~3 s in a real browser, of which 18 need it). Each
+**267 tests across 23 suites** (~3 s in a real browser, of which 18 need it). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
 runner for environments that have it (it reports those 18 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
@@ -193,7 +193,7 @@ The brief's ladder asks two different questions, so this README answers both:
 |---------|--------|-----|
 | Points band | **Past the Gold ceiling** (450-750) | Arithmetic on the reviewer's marks: 762 sits 12 points above the old Gold band. The points column is not the grade; the requirement ladder below is, and it still reads Silver. |
 | Tier by requirement | **Silver** | The reviewer's tally tiers at Silver: M1, M2, M4 and M6 are full or near-full (the four the brief's Silver row asks for) with real integration between them; Gold still needs the partial four (M3, M5, M7, M8) to reach full. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (**109.3 KiB gzip JS cold load vs 170 KB budget — met**; M2, M3, M4 and the WebRTC half of M5 now fetch their module graph on first open, and the **90.7 KiB gzip** deferred graph is reported separately rather than counted as cold; the seven decorative modules the review named were also deleted outright for −25 KiB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (**114.9 KiB gzip JS cold load vs 170 KB budget — met**; M2, M3, M4 and the WebRTC half of M5 now fetch their module graph on first open, and the **90.2 KiB gzip** deferred graph is reported separately rather than counted as cold; the seven decorative modules the review named were also deleted outright for −25 KiB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -216,7 +216,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (22 suites, 258 tests, fuzzer included)
+tests/                  browser test suite (23 suites, 267 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON

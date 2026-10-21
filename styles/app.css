@@ -1078,6 +1078,62 @@ canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -
   pointer-events: none;
 }
 
+/* ------------------------------------------------- system constellation */
+/* The live picture of the tab itself (src/ui/constellation.js). It shares the
+   chamfered shell of the engine canvas so the two read as one instrument, but
+   it is not interactive: there is nothing here to click, so it never takes
+   focus and never competes with the 3D scene's keyboard model. */
+
+.constellation-shell {
+  position: relative;
+  border: 1px solid var(--line-2);
+  overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background:
+    radial-gradient(circle at 50% 46%, rgba(110, 168, 254, 0.12), transparent 64%),
+    #04070b;
+  box-shadow: inset 0 0 70px -26px rgba(110, 168, 254, 0.4);
+}
+
+.constellation-canvas {
+  display: block;
+  width: 100%;
+  height: clamp(240px, 38vh, 400px);
+}
+
+.constellation-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.constellation-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 600 calc(11px * var(--scale)) / 1 var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.constellation-key::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--key, var(--accent));
+  box-shadow: 0 0 10px -1px var(--key, var(--accent));
+}
+
+/* The hexes match STATES in src/ui/constellation.js: the legend and the canvas
+   are two renderings of one definition, so they cannot drift apart. */
+.constellation-key[data-state='active'] { --key: #7ff3ff; }
+.constellation-key[data-state='ok'] { --key: #3ddc97; }
+.constellation-key[data-state='partial'] { --key: #f0b429; }
+.constellation-key[data-state='peer'] { --key: #8b7bff; }
+
 /* ------------------------------------------------------------------- lists */
 
 .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; }
