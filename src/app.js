@@ -3907,7 +3907,7 @@ function constellationCard() {
 }
 
 function renderDashboard(root) {
-  const measured = el('div');
+  const measured = el('div', { class: 'measured-budget' });
   // A row is only marked met when this environment actually measured it against
   // the brief's number. Everything else says so instead of being rounded up.
   // The readings are taken inside the builder, not captured once, so each

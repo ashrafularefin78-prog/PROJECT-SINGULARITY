@@ -67,11 +67,11 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **115.3 KiB gzip JS** (456.2 KiB raw over 15 cold-load files plus the stylesheet) + 26.2 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.2 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
+| Initial JS payload | ≤ 170 KB gzip | **115.3 KiB gzip JS** (456.7 KiB raw over 15 cold-load files plus the stylesheet) + 26.4 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.2 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **774 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 96 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
-| Lighthouse | ≥ 95 in all four categories | desktop **99 / 100 / 100 / 100**, mobile **100 / 100 / 96 / 100** (Performance / Accessibility / Best practices / SEO), re-recorded after the visual redesign | **met in both form factors** — see section 2b |
+| Lighthouse | ≥ 95 in all four categories | desktop **95 / 100 / 100 / 100**, mobile **95 / 100 / 100 / 100** (Performance / Accessibility / Best practices / SEO), re-recorded after the visual redesign | **met in both form factors** — see section 2b |
 | Cumulative layout shift | (implicit: under 0.1) | **0.002** on the mobile viewport and **0.005** desktop (`tools/cls.js`); Lighthouse agrees at 0.003 / 0.005 | **met**, with one unreproduced outlier from an earlier build reported rather than hidden (section 2b) |
 | Memory after 1 hour | ≤ 400 MB, no leaks | a **60-minute soak**, one sample per minute through all nine modules: JS heap after GC **1.10 → 1.53 MiB** (peak 1.56 MiB at minute 52), and the minute-60 heap snapshot holds **fewer nodes (70,231 vs 77,490) and less memory (5.99 vs 6.71 MiB)** than the minute-10 one | **met on the conditions run** — desktop browser, JS heap after a forced GC, not RSS or GPU memory |
 | Concurrent users | 10,000 @ p95 < 200 ms | a **ciphertext relay** driven by **1,000 simulated clients**: 50,000 envelopes, all acknowledged and delivered in 15.7 s, 0 lost, 0 duplicated, delivery **p95 12.2 ms**; no 10,000-browser-session rig | **partial** — 1,000 of 10,000 clients, one machine (section 12) |
@@ -93,11 +93,11 @@ module cannot hide by being imported late.
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk, cold load (this report's measurement) | **115.3 KiB gzip JS over 15 files plus `styles/app.css`**, 26.2 KiB gzip CSS, 456.2 KiB raw total |
+| Import-graph walk, cold load (this report's measurement) | **115.3 KiB gzip JS over 15 files plus `styles/app.css`**, 26.4 KiB gzip CSS, 456.7 KiB raw total |
 | Import-graph walk, deferred graph | **90.2 KiB gzip JS over 14 modules** - the C runtime (interpreter, parser, lexer, preprocessor, sandbox and worker), the WebGL2 engine (renderer, glTF, HDR, environment, maths), the E2EE stack and the WebRTC/relay carriers |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts every shipped script live and is visible on the M0 dashboard |
 
-The largest cold-load file is `src/app.js` (67.2 KiB gzip of 212.1 KiB raw);
+The largest cold-load file is `src/app.js` (67.2 KiB gzip of 212.2 KiB raw);
 inside the deferred graph the largest are `src/runtime/interpreter.js`
 (21.6 KiB gzip of 83.5 KiB raw) - which grew during the M2 work that added `<string.h>`,
 `<ctype.h>`, `<math.h>`, the preprocessor, typedefs, two-dimensional arrays,

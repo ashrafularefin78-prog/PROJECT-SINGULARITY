@@ -150,6 +150,7 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
   align-items: center;
   padding: 14px 22px;
   border-bottom: 1px solid var(--line);
+  min-height: 127px;
   background: linear-gradient(180deg, rgba(12, 19, 28, 0.92), rgba(5, 7, 11, 0.75));
   backdrop-filter: blur(14px);
 }
@@ -1105,7 +1106,14 @@ canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -
 .constellation-canvas {
   display: block;
   width: 100%;
-  height: clamp(240px, 38vh, 400px);
+  /* Reserve the box up front so the canvas cannot shift its ancestors after
+     the dashboard mounts it: the intrinsic canvas is 960x400 (2.4:1) and the
+     shell derives its height from that ratio instead of from the viewport. */
+  aspect-ratio: 960 / 400;
+  height: auto;
+  min-height: 240px;
+  max-height: 400px;
+  contain: layout paint;
 }
 
 .constellation-legend {
@@ -2594,4 +2602,16 @@ html[data-theme='light'] .repo-stat {
   .case-summary { grid-template-columns: 40px minmax(0, 1fr) auto 16px; gap: 9px; }
   .case-status { display: none; }
   .case-grid { grid-template-columns: 1fr; gap: 10px; }
+}
+
+.changelog-preview {
+  min-height: 240px;
+  max-height: 320px;
+  overflow: auto;
+  contain: layout paint;
+}
+
+.measured-budget {
+  min-height: 520px;
+  contain: layout paint;
 }

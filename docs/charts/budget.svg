@@ -31,9 +31,9 @@
   <rect class="track" x="20" y="120" width="748" height="9" />
   <rect class="met" x="20" y="120" width="386" height="9" />
 
-  <!-- Lighthouse mobile: 100 vs 95 (met) -->
+  <!-- Lighthouse mobile: 95 vs 95 (met) -->
   <text class="label" x="20" y="146">Lighthouse, mobile Performance</text>
-  <text class="value" x="768" y="146" text-anchor="end">100 of 95 - met</text>
+  <text class="value" x="768" y="146" text-anchor="end">95 of 95 - met</text>
   <rect class="track" x="20" y="152" width="748" height="9" />
   <rect class="met" x="20" y="152" width="748" height="9" />
 
@@ -43,9 +43,9 @@
   <rect class="track" x="20" y="184" width="748" height="9" />
   <rect class="met" x="20" y="184" width="748" height="9" />
 
-  <!-- Lighthouse desktop: 99 / 100 / 100 / 100 vs 95 (met) -->
+  <!-- Lighthouse desktop: 95 / 100 / 100 / 100 vs 95 (met) -->
   <text class="label" x="20" y="210">Lighthouse, desktop (all four categories)</text>
-  <text class="value" x="768" y="210" text-anchor="end">99 / 100 / 100 / 100 of 95 - met</text>
+  <text class="value" x="768" y="210" text-anchor="end">95 / 100 / 100 / 100 of 95 - met</text>
   <rect class="track" x="20" y="216" width="748" height="9" />
   <rect class="met" x="20" y="216" width="748" height="9" />
 
