@@ -1,6 +1,6 @@
 # Changelog
 
-Versions here are dates, not tags - the repository has no tagged releases yet.
+Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
 ## 2026-10-21 - M0 gains a live system constellation
