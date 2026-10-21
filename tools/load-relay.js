@@ -859,7 +859,8 @@ function printLoadSummary(summary, lastReject = null) {
     clean = false;
     fail('delivered', `${r.delivered}/${r.acked}, lost ${r.lost}, duplicated ${r.duplicates}, unknown ${r.unknown}, misrouted ${r.misrouted}, undecryptable ${r.undecryptable}`);
   }
-  ok('send-to-delivery latency', `p50 ${r.latencyMs[50]} ms, p95 ${r.latencyMs[95]} ms, p99 ${r.latencyMs[99]} ms, max ${r.maxLatencyMs} ms`);
+  if (r.latencyMs[95] <= 200) ok('send-to-delivery latency', `p50 ${r.latencyMs[50]} ms, p95 ${r.latencyMs[95]} ms, p99 ${r.latencyMs[99]} ms, max ${r.maxLatencyMs} ms`);
+  else { clean = false; fail('send-to-delivery latency', `p50 ${r.latencyMs[50]} ms, p95 ${r.latencyMs[95]} ms, p99 ${r.latencyMs[99]} ms, max ${r.maxLatencyMs} ms (p95 exceeds 200 ms)`); }
   ok('post round trip', `p50 ${r.postRttMs[50]} ms, p95 ${r.postRttMs[95]} ms`);
   ok('relay process', `rss ${summary.relay.rssMiB} MiB (peak ${summary.relay.peakRssMiB} MiB), heap ${summary.relay.heapUsedMiB} MiB, cpu ${summary.relay.cpuUserMsDelta} ms user, ${summary.relay.sampleCount} samples`);
   ok('server counters', `posts ${summary.relay.postsSeenByServer}, deliveries ${summary.relay.deliveriesSeenByServer}, pending ${summary.relay.pendingAtEnd}`);
