@@ -30,4 +30,15 @@ Thumbs.db
 # which already skips them when assembling dist/.
 .kiro/
 .freebuff/
+# Throwaway browser profiles from the measurement tools (tools/cdp.js) and the
+# ad-hoc `--user-data-dir=./cdp-probe-XXXX` probes. These are complete Chrome
+# profiles - Cookies, Login Data, History, crash dumps, session logs - and must
+# never be published. tools/cdp.js now creates them under the system temp
+# directory; the patterns stay as a backstop for a probe run by hand.
+cdp-probe-*/
 singularity-cdp-*/
+
+# Raw output from the measurement tools: browser/test run logs and stderr
+# captures. Regenerable scratch, never project content.
+*.log
+*.err

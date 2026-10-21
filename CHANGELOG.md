@@ -3,6 +3,43 @@
 Versions here are dates, not tags - the repository has no tagged releases yet.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-10-21 - the throwaway browser profiles leave the repository
+
+### Security
+- The three `cdp-probe-*` directories (791 tracked files, ~38 MB on disk) were
+  browser user-data-dirs, not project content: a full Edge profile each, with
+  `Login Data`, `Network/Cookies`, `History`, `Web Data`, crash dumps and
+  session logs. They are out of the index, ignored, and purged from every
+  commit by `git filter-repo` rather than merely deleted in a later commit.
+- They held **no account material**: `Local State` has an empty `account_info`
+  (no browser sync account), and each profile's `Cookies`, `logins`,
+  `History.urls` and `autofill` tables are empty. The profiles never
+  authenticated, so no Microsoft or Google session existed to revoke. That was
+  verified before the purge, not assumed from the directory names.
+- `tools/cdp.js` now creates its throwaway profile under `os.tmpdir()` instead
+  of `process.cwd()`. Creating it in the working tree is what let a `git add -A`
+  publish a live browser profile; the cause is fixed, not just the symptom.
+- `.gitignore` covers `cdp-probe-*/`, `singularity-cdp-*/`, `*.log` and `*.err`
+  as a backstop for a probe launched by hand.
+
+### Fixed
+- `tools/test-count.js --write` built its multi-line replacement with `\n`, so
+  on a CRLF checkout the rewritten block never matched the bytes already there
+  and `--check` reported drift that did not exist on the Linux CI runner. It
+  now uses the file's own line ending, and the same assertion holds on both.
+- Re-measured the payload and brought every document to the new numbers at
+  once: **109.3 KiB gzip JS** cold load (445.5 KiB raw), **90.7 KiB gzip**
+  deferred over 14 modules, `src/app.js` at 66.2 KiB gzip of 212.4 KiB raw, and
+  the accessibility artifact's browser recorded as Edge **156.0.4314.36**. The
+  report, README, DEMO, PLAN and `docs/charts/budget.svg` (bar width included)
+  now agree, and `node tools/check-docs.js` passes all 41 published numbers.
+
+### Housekeeping
+- Untracked the 32 root-level measurement logs (`*-run.log`, `perf-lcp*.log`,
+  `type-probe*.log`, `zap-deployed.log` and their `.err` pairs). They are
+  regenerable scratch and were never referenced by the documents.
+
+
 ## 2026-10-21 - cold load under budget: panels fetch their own graph
 
 ### Changed

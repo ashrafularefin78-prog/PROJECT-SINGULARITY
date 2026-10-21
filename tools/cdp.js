@@ -173,7 +173,11 @@ export class Browser {
     env = {},
   } = {}) {
     const exe = findBrowser();
-    const profile = mkdtempSync(join(process.cwd(), 'singularity-cdp-'));
+    // The profile is a throwaway browser user-data-dir, so it belongs in the
+    // system temp directory and never in the working tree: a profile created
+    // here is a full Chrome profile (cookies, history, Login Data, crash dumps)
+    // and a `git add -A` from that tree would publish it. See .gitignore.
+    const profile = mkdtempSync(join(tmpdir(), 'singularity-cdp-'));
     const args = [
       '--remote-debugging-port=0',
       // Chrome 111+ refuses WebSocket handshakes to the debug port unless the

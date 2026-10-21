@@ -70,6 +70,11 @@ function transform(name, text) {
   const s = String(suites);
   const p = String(pass);
   const k = String(skip);
+  // A multi-line replacement must use the file's own line ending. Writing `\n`
+  // into a CRLF checkout rewrites the block differently from the bytes that are
+  // already there, so `--check` reports drift on Windows that does not exist on
+  // the Linux CI runner - a false failure that hides a real one.
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
   switch (name) {
     case 'index':
       return text
@@ -81,11 +86,13 @@ function transform(name, text) {
       return text
         .replace(
           /\/\/ The suite's own totals[\s\S]*?const TEST_TOTALS = \{ total: \d+, suites: \d+ \};/,
-          `// The suite's own totals are generated from the runner, not maintained by\n` +
-            `// hand: tools/test-count.js --write rewrites this line and every other\n` +
-            `// published count from node tests/run.js --json, and tools/check-docs.js\n` +
-            `// fails the build when a claim drifts from it.\n` +
+          [
+            `// The suite's own totals are generated from the runner, not maintained by`,
+            `// hand: tools/test-count.js --write rewrites this line and every other`,
+            `// published count from node tests/run.js --json, and tools/check-docs.js`,
+            `// fails the build when a claim drifts from it.`,
             `const TEST_TOTALS = { total: ${n}, suites: ${s} };`,
+          ].join(eol),
         )
         .replace(
           /\{ value: '\d+', label: 'tests[\s\S]*?hint: 'run them from this page' \}/,

@@ -18,7 +18,7 @@ throwaway scripts.
 
 | Item | Value |
 |------|-------|
-| Browser | Microsoft Edge 154.0.4258.62 (Chromium), driven headlessly over the DevTools Protocol. The machine auto-updated **twice** while the work was in flight: the soak and the first Lighthouse runs were recorded on 154, the first accessibility re-run on 155.0.4283.45, and the re-runs that follow the visual redesign — Lighthouse (same CLI, 12.8.2), layout shift, throttled LCP and accessibility — on **156.0.4314.30**. Every number below is reported with the version its own artifact records |
+| Browser | Microsoft Edge 154.0.4258.62 (Chromium), driven headlessly over the DevTools Protocol. The machine auto-updated **twice** while the work was in flight: the soak and the first Lighthouse runs were recorded on 154, the first accessibility re-run on 155.0.4283.45, and the re-runs that follow the visual redesign — Lighthouse (same CLI, 12.8.2), layout shift, throttled LCP and accessibility — on **156.0.4314.36**. Every number below is reported with the version its own artifact records |
 | Driver | `tools/cdp.js` — a ~350-line CDP client built on Node's own `fetch`/`WebSocket` globals, no npm packages |
 | Server | `python3 tools/serve.py 5173` / `node tools/serve.js` on 127.0.0.1, serving the **real `_headers` policy** (strict CSP, COOP/COEP, Trusted Types) |
 | Instrumentation | `PerformanceObserver` installed before first paint (LCP, FCP, layout shift, long tasks), `Performance.getMetrics`, `Runtime.getHeapUsage` after an explicit GC, `HeapProfiler.takeHeapSnapshot`, the browser accessibility tree, axe-core |
@@ -67,7 +67,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **108.4 KiB gzip JS** (442.1 KiB raw over 14 cold-load files plus the stylesheet) + 25.9 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.6 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
+| Initial JS payload | ≤ 170 KB gzip | **109.3 KiB gzip JS** (445.5 KiB raw over 14 cold-load files plus the stylesheet) + 25.9 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.7 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **774 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 96 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -93,11 +93,11 @@ module cannot hide by being imported late.
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk, cold load (this report's measurement) | **108.4 KiB gzip JS over 14 files plus `styles/app.css`**, 25.9 KiB gzip CSS, 442.1 KiB raw total |
-| Import-graph walk, deferred graph | **90.6 KiB gzip JS over 14 modules** - the C runtime (interpreter, parser, lexer, preprocessor, sandbox and worker), the WebGL2 engine (renderer, glTF, HDR, environment, maths), the E2EE stack and the WebRTC/relay carriers |
+| Import-graph walk, cold load (this report's measurement) | **109.3 KiB gzip JS over 14 files plus `styles/app.css`**, 25.9 KiB gzip CSS, 445.5 KiB raw total |
+| Import-graph walk, deferred graph | **90.7 KiB gzip JS over 14 modules** - the C runtime (interpreter, parser, lexer, preprocessor, sandbox and worker), the WebGL2 engine (renderer, glTF, HDR, environment, maths), the E2EE stack and the WebRTC/relay carriers |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts every shipped script live and is visible on the M0 dashboard |
 
-The largest cold-load file is `src/app.js` (65.7 KiB gzip of 211.0 KiB raw);
+The largest cold-load file is `src/app.js` (66.2 KiB gzip of 212.4 KiB raw);
 inside the deferred graph the largest are `src/runtime/interpreter.js`
 (21.7 KiB gzip of 85.7 KiB raw) - which grew during the M2 work that added `<string.h>`,
 `<ctype.h>`, `<math.h>`, the preprocessor, typedefs, two-dimensional arrays,
