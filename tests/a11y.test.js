@@ -89,6 +89,7 @@ test('M7 contract: every rule fires on a page that breaks it', () => {
   const doc = document.implementation.createHTMLDocument('broken');
   doc.documentElement.removeAttribute('lang');
   const main = doc.createElement('main');
+  main.id = 'main';
   doc.body.append(main);
   const anonymous = doc.createElement('button');
   main.append(anonymous);
