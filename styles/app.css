@@ -19,6 +19,9 @@
   --accent: #6ea8fe;
   --accent-2: #b39ddb;
   --accent-3: #4dd0e1;
+  --accent-oklch: oklch(0.72 0.12 250);
+  --accent-2-oklch: oklch(0.74 0.10 300);
+  --accent-3-oklch: oklch(0.80 0.10 200);
   --ok: #57d68d;
   --warn: #f7b955;
   --bad: #ff6b81;
@@ -1065,6 +1068,10 @@ tr.unmeasured td { opacity: 0.82; }
 }
 canvas#scene { display: block; width: 100%; height: 470px; }
 canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.canvas-overlay.m3-telemetry-hud {
+  background: color-mix(in oklch, rgba(4, 7, 11, 0.72), var(--accent-oklch) 8%);
+  backdrop-filter: blur(10px);
+}
 .canvas-overlay {
   position: absolute; inset-inline-start: 14px; inset-block-start: 14px;
   font: 700 calc(11px * var(--scale)) / 1.7 var(--mono);

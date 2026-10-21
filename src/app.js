@@ -1116,7 +1116,7 @@ async function renderEngine(root) {
     import('./graphics/gltf.js'),
   ]);
   const canvas = el('canvas', { id: 'scene', width: 960, height: 460 });
-  const overlay = el('div', { class: 'canvas-overlay', text: 'initialising WebGL2…' });
+  const overlay = el('div', { class: 'canvas-overlay m3-telemetry-hud', text: 'initialising WebGL2…' });
   const statsBox = el('div', { class: 'stats' });
   refs.engineStats = statsBox;
   const sceneText = el('div');

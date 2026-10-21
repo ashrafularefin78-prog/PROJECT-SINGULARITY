@@ -3,3 +3,7 @@ export * from './history.d.ts';
 export * from './db.d.ts';
 export * from './e2ee.d.ts';
 export * from './opfs.d.ts';
+export * from './collab.d.ts';
+export * from './runtime.d.ts';
+export * from './graphics.d.ts';
+export * from './security.d.ts';

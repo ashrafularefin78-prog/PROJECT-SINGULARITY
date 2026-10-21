@@ -1,0 +1,43 @@
+/** Type definitions for the graphics modules. */
+export declare const TAU: number;
+export declare function mat4(): any;
+export declare function identity(out?: any): any;
+export declare function multiply(out: any, a: any, b: any): any;
+export declare function perspective(out: any, fovyRadians: number, aspect: number, near: number, far: number): any;
+export declare function ortho(out: any, left: number, right: number, bottom: number, top: number, near: number, far: number): any;
+export declare function lookAt(out: any, eye: any, center: any, up: any): any;
+export declare function vec3(x?: number, y?: number, z?: number): any;
+export declare function cross3(a: any, b: any): any;
+export declare function dot3(a: any, b: any): number;
+export declare function normalize3(a: any): any;
+export declare function sub3(a: any, b: any): any;
+export declare function scale3(a: any, s: number): any;
+export declare function transformPoint(m: any, p: any): any;
+export declare function mulberry32(seed: number): any;
+export declare function shBasis(x: number, y: number, z: number): any;
+export declare function skyRadiance(d: any): any;
+export declare function shProject(samples?: number, radiance?: any): any;
+export declare function irradiance(coeffs: any, n: any): any;
+export declare function radianceCube(fn: any, size?: number): any;
+export declare function irradianceCube(coeffs: any, size?: number): any;
+export declare function envCube(size?: number): any;
+export declare function ggxPrefilteredCube(size?: number, roughness?: number, samples?: number): any;
+export declare function noiseTexture(size?: number, seed?: number): any;
+export declare function computeTangents(positions: any, normals: any, uvs: any, indices: any): any;
+export declare function loadGltf(source: any, isGlb?: boolean): Promise<any>;
+export declare function uploadMesh(gl: any, mesh: any, attribLocs: any): any;
+export declare function parseRadianceHDR(input: any): any;
+export declare function probeRadiance(probe: any, dir: any): any;
+export declare function probeSH(probe: any, samples?: number): any;
+export declare function probePeak(probe: any): number;
+export declare function probeIrradianceError(probe: any, coeffs: any, normals?: number, samples?: number): number;
+export declare const DEFAULT_INSTANCES: number;
+export declare const MAX_INSTANCES: number;
+export declare const DEFAULT_PARTICLES: number;
+export declare const MAX_PARTICLES: number;
+export declare class Renderer {
+  constructor(...args: any[]);
+  [key: string]: any;
+  stats(): any;
+}
+export declare function identityMath(...args: any[]): any;
