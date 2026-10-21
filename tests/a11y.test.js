@@ -114,13 +114,18 @@ test('M7 contract: every rule fires on a page that breaks it', () => {
   main.append(hidden);
   const form = doc.createElement('form');
   form.append(Object.assign(doc.createElement('button'), { textContent: 'submit' }));
+  const duplicate = doc.createElement('div');
+  duplicate.id = 'main';
+  main.append(duplicate);
+  const iframe = doc.createElement('iframe');
+  main.append(iframe);
   main.append(form);
 
   const rules = new Set(auditTree(doc).findings.map((f) => f.rule));
   for (const expected of [
     'landmark-main', 'heading-order', 'control-name', 'img-alt',
     'canvas-alternative', 'tabindex', 'hidden-focusable', 'live-region',
-    'document-lang', 'button-type',
+    'document-lang', 'button-type', 'duplicate-id', 'iframe-title',
   ]) {
     // landmark-main is satisfied here (one main), so it must NOT be reported.
     if (expected === 'landmark-main') continue;

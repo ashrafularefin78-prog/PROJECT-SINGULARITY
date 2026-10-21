@@ -28,7 +28,7 @@ Each entry is derived from the commit history; the newest comes first.
   the panel is swapped away, and schedules nothing at all under reduced motion
   (one frame per change instead). Like the M3 renderer, an invisible panel is
   not worth a frame.
-- Cold load is **114.9 KiB gzip JS**, 26.2 KiB gzip CSS, 454.6 KiB raw over 15
+- Cold load is **115.3 KiB gzip JS**, 26.2 KiB gzip CSS, 455.9 KiB raw over 15
   files; the deferred graph is **90.2 KiB** over 14 modules and is still
   reported separately. The brief's 170 KB ceiling is still met at about 68% of
   it, and the new module's own share is disclosed: 5.0 KiB gzip of 13.6 KiB raw.

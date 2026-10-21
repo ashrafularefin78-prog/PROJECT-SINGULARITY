@@ -240,6 +240,8 @@ const RULES = [
   { id: 'live-region', level: 'error', wcag: '4.1.3', description: 'Live regions use a valid politeness value' },
   { id: 'document-lang', level: 'warn', wcag: '3.1.1', description: 'The document declares its language' },
   { id: 'button-type', level: 'warn', wcag: '1.3.1', description: 'Buttons inside a form declare their type' },
+  { id: 'duplicate-id', level: 'error', wcag: '4.1.1', description: 'No two elements share an id (duplicate ids break label and aria references)' },
+  { id: 'iframe-title', level: 'error', wcag: '4.1.2', description: 'Every iframe has an accessible name (title or aria-label)' },
 ];
 
 const NOT_CHECKED = [
@@ -351,6 +353,23 @@ export function auditTree(root) {
     if (!['polite', 'assertive', 'off'].includes(value)) {
       add('live-region', node, `aria-live="${value}" is not a valid politeness value`);
     }
+  }
+
+  // Duplicate ids. Two nodes sharing an id silently makes aria-labelledby and
+  // HTML label references point at the first one only.
+  const seenIds = new Map();
+  for (const node of scope.querySelectorAll('[id]')) {
+    const id = node.getAttribute('id');
+    if (!id) continue;
+    if (seenIds.has(id)) add('duplicate-id', node, `id="${id}" is used more than once`);
+    else seenIds.set(id, node);
+  }
+
+  // iframes require an accessible name so a screen-reader user knows why it is there.
+  for (const iframe of scope.querySelectorAll('iframe')) {
+    if (!exposedToAt(iframe)) continue;
+    const name = iframe.getAttribute('title') || iframe.getAttribute('aria-label') || iframe.getAttribute('aria-labelledby');
+    if (!name) add('iframe-title', iframe, 'iframe has no title or aria-label');
   }
 
   // Document language

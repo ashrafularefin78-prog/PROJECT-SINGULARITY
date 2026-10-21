@@ -67,7 +67,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **114.9 KiB gzip JS** (454.6 KiB raw over 15 cold-load files plus the stylesheet) + 26.2 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.2 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
+| Initial JS payload | ≤ 170 KB gzip | **115.3 KiB gzip JS** (455.9 KiB raw over 15 cold-load files plus the stylesheet) + 26.2 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.2 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **774 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 96 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -93,11 +93,11 @@ module cannot hide by being imported late.
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk, cold load (this report's measurement) | **114.9 KiB gzip JS over 15 files plus `styles/app.css`**, 26.2 KiB gzip CSS, 454.6 KiB raw total |
+| Import-graph walk, cold load (this report's measurement) | **115.3 KiB gzip JS over 15 files plus `styles/app.css`**, 26.2 KiB gzip CSS, 455.9 KiB raw total |
 | Import-graph walk, deferred graph | **90.2 KiB gzip JS over 14 modules** - the C runtime (interpreter, parser, lexer, preprocessor, sandbox and worker), the WebGL2 engine (renderer, glTF, HDR, environment, maths), the E2EE stack and the WebRTC/relay carriers |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts every shipped script live and is visible on the M0 dashboard |
 
-The largest cold-load file is `src/app.js` (67.1 KiB gzip of 211.9 KiB raw);
+The largest cold-load file is `src/app.js` (67.2 KiB gzip of 212.1 KiB raw);
 inside the deferred graph the largest are `src/runtime/interpreter.js`
 (21.6 KiB gzip of 83.5 KiB raw) - which grew during the M2 work that added `<string.h>`,
 `<ctype.h>`, `<math.h>`, the preprocessor, typedefs, two-dimensional arrays,

@@ -47,7 +47,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 4. Press the backslash key: the **module dial** opens with all eight modules on a
    ring, each labelled with the score it is actually carrying. Arrow keys turn
    it, digits jump straight to a module, Enter opens it, Escape closes.
-5. Point at the score ring: **680 / 1000**, points band **Gold** (the bundled
+5. Point at the score ring: **708 / 1000**, points band **Gold** (the bundled
    recording was captured when the ring read 668; the ring animates to the
    current total).
 6. Point at the tier ladder: the reviewer's tally tiers at **Silver** (four
@@ -55,7 +55,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    the old Gold ceiling. Say out loud that the leading column is the brief's
    points band and the ladder grades the *requirements*, which is why the two
    readings disagree.
-7. Point at the budget table: payload **met** (114.9 KiB gzip of cold-load
+7. Point at the budget table: payload **met** (115.3 KiB gzip of cold-load
    JavaScript plus 26.2 KiB of CSS, against a 170 KB ceiling; the 90.2 KiB gzip
    deferred graph loads with the panel that needs it), the hour-long memory soak
    **met** (the heap at minute 60 is smaller than at minute 10), frame rate
