@@ -51,6 +51,14 @@ full-size PNG; the recorded demo is below.
   <br /><sub>The same shell at phone width: tabs scroll, telemetry wraps, nothing is hidden.</sub>
 </p>
 
+## One-click deploy
+
+Deploy the static site to a host that reads the `_headers` policy in one click:
+
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY)
+[![Deploy to Cloudflare Pages](https://img.shields.io/badge/Cloudflare_Pages-Deploy-F38020?logo=cloudflare&logoColor=white)](https://dash.cloudflare.com/?to=/:account/pages/new/provider/github/ashrafularefin78-prog/PROJECT-SINGULARITY)
+
 ## Installation and run
 
 Anything that can serve static files works. Python is enough (Node is *not*
@@ -290,7 +298,7 @@ docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
 | **Planned** | OPFS and SharedArrayBuffer pooling | Faster cold start and cross-tab memory sharing where COOP/COEP allow it. |
 | **Planned** | Hosted relay and TURN | So peer tests are not confined to one machine or one NAT. |
 | **Planned** | Screen-reader validation | Drive the interface with NVDA and VoiceOver, then fix what they find. |
-| **Planned** | URL-addressable playgrounds | Standalone sample pages for the C runtime and the 3D engine, so each can be tried without the full shell. |
+| **Shipped** | URL-addressable playgrounds | Standalone sample pages for the C runtime and the M3 engine, so each can be tried without the full shell: [C runtime](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/playground/c.html), [M3 engine](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/playground/m3.html). |
 
 The sequenced version of this table, with gates and a research horizon, is
 [docs/ROADMAP.md](docs/ROADMAP.md).
