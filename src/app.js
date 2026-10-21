@@ -3558,7 +3558,7 @@ const CASE_STUDIES = [
     problem: 'An instrument-dense interface has to remain usable with a keyboard, a screen reader, high contrast and 200% text.',
     decision: 'Use semantic elements, a roving-tabindex tablist, live regions, a text alternative for the 3D scene, and preferences for motion, contrast, scale, direction, language and theme. Code stays left-to-right in RTL layouts.',
     tradeoff: 'It has not been validated with NVDA or VoiceOver. Bangla and Arabic shaping in the editor is delegated to the browser text layout; the panel labels are translated, not the whole app.',
-    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. 55/100 - the honest ceiling until a real screen-reader pass.',
+    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. Structural score 83/100; evidence-backed score 55/100 - the honest ceiling until a real screen-reader pass.',
   },
   {
     id: 'security',

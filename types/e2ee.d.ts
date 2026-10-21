@@ -28,6 +28,8 @@ export declare function formatSafetyNumber(digits: string): string;
 export declare function rotateGroupEpoch(prevSecret: any, contributions: any[]): Promise<any>;
 export declare function createGroupEpoch(contributions: any[]): Promise<any>;
 export declare function encryptFile(secret: any, bytes: ArrayLike<number>, chunkSize?: number): Promise<any[]>;
+export declare function encryptStream(secret: any, source: any, chunkSize?: number): AsyncIterable<any>;
+export declare function decryptStream(secret: any, frames: any): AsyncIterable<Uint8Array>;
 export declare function decryptFile(secret: any, frames: any[]): Promise<Uint8Array>;
 export declare function exportIdentityPrivate(identity: any): Promise<Uint8Array>;
 export declare function importIdentityPrivate(bytes: ArrayLike<number>, name?: string): Promise<any>;

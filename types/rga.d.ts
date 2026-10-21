@@ -8,6 +8,8 @@ export interface RgaOp {
   ts?: number;
 }
 
+export const CHECKPOINT_STRIDE: number;
+
 export function compareId(a: RgaId, b: RgaId): number;
 export function idKey(id: RgaId): string;
 

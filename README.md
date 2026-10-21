@@ -23,7 +23,7 @@ code. There is no bundler, no transpiler, and no file in `src/` imported from np
 | Live deployment | <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/> (canonical - one URL, updated by every push to `main`) |
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
-| Repository signals | **0 stars · 0 forks · 17 commits · 1 author · 0 tagged releases** (snapshot 19 Oct 2026; GitHub is the live source) |
+| Repository signals | **0 stars · 0 forks · 40 commits · 1 author · 2 tagged releases (v0.1.0, v1.0.0)** (snapshot 21 Oct 2026; GitHub is the live source) |
 | Tests | **267 across 23 suites**, runnable in the browser from the site itself |
 | Runtime dependencies | **0** - no framework, no bundler, no npm package in the shipped bundle |
 | Modules | 8 (3 full, 5 partial - each partial says exactly where it stops) |
