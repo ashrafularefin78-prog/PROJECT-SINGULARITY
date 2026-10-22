@@ -91,11 +91,38 @@ header GitHub Pages does send is host-level and outside this repository.
 2. Cloudflare dashboard → Workers & Pages → Create → Pages → Connect to Git.
 3. Pick the repository, then:
    - **Framework preset**: None
-   - **Build command**: *(leave empty)*
-   - **Build output directory**: `/`
-4. Deploy. `_headers` is applied automatically to every response.
+   - **Build command**: `python3 tools/build-site.py`
+   - **Build output directory**: `dist`
+4. Deploy. Pages applies `dist/_headers` to every response, and the artifact also
+   carries the SRI attributes and `.integrity-manifest.json` that only the build
+   path produces.
 
-Command line alternative:
+That is the stronger of the two Pages uploads, and the one that makes the M8
+claims true on the live origin: the three directives a meta tag cannot express
+(`frame-ancestors`, COOP, COEP) arrive as real headers, `tools/verify-headers.js
+--url=` can prove it, and the entry subresources are signed. HSTS is the one
+exception — it is a host-level header that Cloudflare ignores inside `_headers`,
+so add it at the edge if you want it. The alternative — empty build command, output directory `/` —
+publishes the repository as it stands: `_headers` still applies, but no SRI and
+no integrity manifest, because those exist only on the built path. Netlify's
+`netlify.toml` still publishes the tree as-is, so point it at `dist/` too if the
+two hosts should carry the same artifact.
+
+The build is the same one CI runs on Ubuntu before it uploads anything, so it is
+not Windows-only: `python3 tools/build-site.py` writes `dist/`, `dist-site/`
+(worker) and `deploy.site.json` (Workers manifest) from the sources.
+
+Pages' limits are 20,000 files and 25 MiB per file. This tree is inside both at
+190 tracked files, 17.5 MiB total and 8.76 MiB for the largest
+(`docs/demo/demo.mp4`).
+Re-measure before a new recording replaces the demo video:
+
+```sh
+git ls-files | wc -l                                   # file count
+git ls-files -z | xargs -0 wc -c | sort -rn | head -2   # largest file, then total
+```
+
+Command line alternative (uploads the repository root, so no SRI):
 
 ```sh
 npx wrangler pages deploy . --project-name project-singularity
