@@ -67,7 +67,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **116.6 KiB gzip JS** (460.7 KiB raw over 15 cold-load files plus the stylesheet) + 26.4 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.2 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
+| Initial JS payload | ≤ 170 KB gzip | **116.6 KiB gzip JS** (461.3 KiB raw over 15 cold-load files plus the stylesheet) + 26.6 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.2 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **774 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 96 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -93,7 +93,7 @@ module cannot hide by being imported late.
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk, cold load (this report's measurement) | **116.6 KiB gzip JS over 15 files plus `styles/app.css`**, 26.4 KiB gzip CSS, 460.7 KiB raw total |
+| Import-graph walk, cold load (this report's measurement) | **116.6 KiB gzip JS over 15 files plus `styles/app.css`**, 26.6 KiB gzip CSS, 461.3 KiB raw total |
 | Import-graph walk, deferred graph | **90.2 KiB gzip JS over 14 modules** - the C runtime (interpreter, parser, lexer, preprocessor, sandbox and worker), the WebGL2 engine (renderer, glTF, HDR, environment, maths), the E2EE stack and the WebRTC/relay carriers |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts every shipped script live and is visible on the M0 dashboard |
 
