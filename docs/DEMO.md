@@ -47,7 +47,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 4. Press the backslash key: the **module dial** opens with all eight modules on a
    ring, each labelled with the score it is actually carrying. Arrow keys turn
    it, digits jump straight to a module, Enter opens it, Escape closes.
-5. Point at the score ring: **697 / 1000**, points band **Gold** (the bundled
+5. Point at the score ring: **673 / 1000**, points band **Gold** (the bundled
    recording was captured when the ring read 668; the ring animates to the
    current total).
 6. Point at the tier ladder: the reviewer's tally tiers at **Silver** (four

@@ -56,6 +56,8 @@ const targets = {
   demo: 'docs/DEMO.md',
   load: 'docs/LOAD_CHAOS.md',
   security: 'docs/SECURITY_REPORT.md',
+  deploy: 'docs/DEPLOY.md',
+  pr: '.github/PULL_REQUEST_TEMPLATE.md',
 };
 
 const replaceAll = (text, pattern, replacement) => text.replace(pattern, replacement);
@@ -108,11 +110,17 @@ function transform(name, text) {
         .replace(/\b\d+ pass with \d+ browser-only skips\b/g, `${p} pass with ${k} browser-only skips`)
         .replace(/\bAll \d+ tests green\b/g, `All ${n} tests green`)
         .replace(/\(\d+ suites, \d+ tests,/g, `(${s} suites, ${n} tests,`)
-        .replace(/\b\d+ tests, \d+ suites\b/g, `${n} tests, ${s} suites`);
+        .replace(/\b\d+ tests, \d+ suites\b/g, `${n} tests, ${s} suites`)
+        .replace(/\b\d+ suites hold \d+ tests\b/g, `${s} suites hold ${n} tests`)
+        .replace(/\bIn the browser \d+ pass and one\b/g, `In the browser ${n - 1} pass and one`)
+        .replace(/\*\*\d+ pass \+ \d+(\s+)browser-only skips\*\*/g, `**${p} pass + ${k}$1browser-only skips**`);
     case 'changelog':
       return text.replace(/\b\d+ tests across \d+ suites\b/g, `${n} tests across ${s} suites`);
     case 'contributing':
-      return text.replace(/\bAll \d+ tests green\b/g, `All ${n} tests green`);
+      return text
+        .replace(/\bAll \d+ tests green\b/g, `All ${n} tests green`)
+        .replace(/\b\d+ tests that do not need a browser\b/g, `${p} tests that do not need a browser`)
+        .replace(/\bthe \d+ browser-only ones skip\b/g, `the ${k} browser-only ones skip`);
     case 'plan':
       return text
         .replace(/\b\d+ automated tests across \d+ suites\b/g, `${n} automated tests across ${s} suites`)
@@ -127,16 +135,25 @@ function transform(name, text) {
         .replace(/\bruns \d+ of the \d+ tests\b/g, `runs ${p} of the ${n} tests`)
         .replace(/\bruns all \d+\b/g, `runs all ${n}`)
         .replace(/\b\d+ pass \+ \d+ skip\b/g, `${p} pass + ${k} skip`)
+        .replace(/\bskips the \d+ that need\b/g, `skips the ${k} that need`)
         .replace(/\b\d+ collected: \d+ pass \+ \d+ skip\b/g, `${n} collected: ${p} pass + ${k} skip`)
         .replace(/\b\d+ passed, 0 failed, 0 skipped\b/g, `${n} passed, 0 failed, 0 skipped`)
         .replace(/\b\d+ passed, 0 failed, \d+ skipped \(the \d+ need/g, `${p} passed, 0 failed, ${k} skipped (the ${k} need`)
         .replace(/# all \d+, in a real browser/g, `# all ${n}, in a real browser`);
+    case 'deploy':
+      return text
+        .replace(/(The suite has since grown to\s*\*\*)\d+(\*\*)/g, `$1${n}$2`)
+        .replace(/\b\d+ pass \+ \d+ browser-only skips under bare Node\b/g, `${p} pass + ${k} browser-only skips under bare Node`)
+        .replace(/\ball \d+ pass in(\s+)a real browser\b/g, (_, gap) => `all ${n} pass in${gap}a real browser`);
     case 'security':
       return text
         .replace(/\b\d+ tests across \d+ suites\b/g, `${n} tests across ${s} suites`)
         .replace(/\ball \d+ green\b/g, `all ${n} green`)
-        .replace(/\b\d+ pass and \d+ browser-only skips\b/g, `${p} pass and ${k} browser-only skips`)
-        .replace(/\(\d+ tests, \d+ suites\)/g, `(${n} tests, ${s} suites)`);
+        .replace(/\b\d+ pass and \d+(\s+)browser-only skips\b/g, `${p} pass and ${k}$1browser-only skips`)
+        .replace(/\(\d+ tests, \d+ suites\)/g, `(${n} tests, ${s} suites)`)
+        .replace(/\bexecutes \d+ and(\s+)skips one Node-only import probe\b/g, `executes ${n - 1} and$1skips one Node-only import probe`);
+    case 'pr':
+      return text.replace(/\ball \d+ tests green in a real browser\b/g, `all ${n} tests green in a real browser`);
     default:
       return text;
   }
@@ -169,12 +186,19 @@ for (const [name, rel] of Object.entries(targets)) {
     failures += 1;
     report.push(`FAIL ${rel}: contains a test-count claim that does not match the runner (${total} tests, ${suites} suites)`);
   }
-  for (const pattern of suspicious) {
-    for (const match of before.matchAll(pattern)) {
-      const numbers = match.slice(1).filter(Boolean).map(Number);
-      if (numbers.some((value) => !allowed.has(value))) {
-        failures += 1;
-        report.push(`FAIL ${rel}: suspicious test count "${match[0]}" (runner: ${total} total, ${pass} pass, ${skip} skip, ${suites} suites)`);
+  // A recorded past run is evidence, not a claim about the current suite: the
+  // worker-served run in DEPLOY.md reports what that run saw and must keep its
+  // own numbers. Every other line is scanned for a count the runner does not
+  // produce.
+  for (const line of before.split(/\r?\n/)) {
+    if (/Last worker-served run/.test(line)) continue;
+    for (const pattern of suspicious) {
+      for (const match of line.matchAll(pattern)) {
+        const numbers = match.slice(1).filter(Boolean).map(Number);
+        if (numbers.some((value) => !allowed.has(value))) {
+          failures += 1;
+          report.push(`FAIL ${rel}: suspicious test count "${match[0]}" (runner: ${total} total, ${pass} pass, ${skip} skip, ${suites} suites)`);
+        }
       }
     }
   }

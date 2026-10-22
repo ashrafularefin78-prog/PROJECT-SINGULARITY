@@ -45,7 +45,7 @@ Run all of these before opening a pull request; CI runs the same set:
 
 | Gate | Command | What it proves |
 |------|---------|----------------|
-| Fast suite | `node tests/run.js` | No regressions in the 203 tests that do not need a browser (the 12 browser-only ones skip with a reason). |
+| Fast suite | `node tests/run.js` | No regressions in the 242 tests that do not need a browser (the 25 browser-only ones skip with a reason). |
 | Full suite | `node tools/browser-run.js` | All 267 tests green in a real browser, including WebGL2, IndexedDB and the peer connection. Point it at a deployment with `--url=` to test that deployment. |
 | Docs gate | `node tools/check-docs.js` | Every number the README and reports publish is still the number the artifacts produce. If your change moves a measurement, re-run the measuring tool and update the doc from its output - never hand-edit a published number. |
 | Critical CSS | `python3 tools/critical-css.py` | Required after any edit to `styles/app.css`; it regenerates the inlined first-viewport block and its CSP hash. `--check` verifies the sync. |
@@ -63,6 +63,10 @@ Run all of these before opening a pull request; CI runs the same set:
   the caveat in the same patch.
 - Screenshots in `assets/screenshots/` are captured from the running app with
   `tools/cls.js`, not drawn by hand.
+- Write commit subjects that state what changed and what it proves, in the
+  imperative: `Cut cold-load JS to 197.6 KiB by splitting the module graph`,
+  not `Update files` or `Latest update`. `git log --oneline` is part of the
+  evidence trail here, so a title that could describe any commit is a defect.
 
 ## Reporting issues
 

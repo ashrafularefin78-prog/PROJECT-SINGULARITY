@@ -27,7 +27,7 @@ throwaway scripts.
 
 Two environments are reported on purpose:
 
-* **bare Node** (`npm test`) runs 242 of the 267 tests and skips the 12 that need
+* **bare Node** (`npm test`) runs 242 of the 267 tests and skips the 25 that need
   a canvas or IndexedDB, so the exit code means "no regressions" rather than
   "this machine has no GPU".
 * **headless Edge** (`npm run test:browser`) runs all 267, including the WebGL2

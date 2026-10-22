@@ -129,6 +129,26 @@ clickjacking and cross-origin isolation matter.
 tree. That is the intended behaviour: the check is against the file in the
 checkout, not against whatever was uploaded last.
 
+### The deployed-origin scan
+
+`.github/workflows/deployed-host-scan.yml` is the scan that can only run
+against a real host. It takes the URL, compares the live response headers with
+`_headers` (so it fails first if the deployment is stale), then runs a ZAP
+baseline and gates on `tools/zap-verdict.js`: any High, Medium or Low alert
+fails the run, informational alerts are listed and tolerated.
+
+Trigger it from **Actions → deployed-host-scan → Run workflow**, or set the
+repository variable `DEPLOY_URL` and every push that touches the policy re-scans
+that origin. The HTML, JSON and Markdown reports upload as an artifact on every
+outcome, including a failed gate; the clean run that is being cited belongs in
+`docs/reports/` alongside the existing scans.
+
+**This run has not happened yet.** There is no header-capable deployment of this
+tree today, so the ZAP evidence remains the local active scan and the passive
+scan of the GitHub Pages origin, both archived in `docs/reports/`. The workflow
+exists so that the missing evidence is one dispatch away and cannot be
+back-filled by hand.
+
 ### The deploy artifact, not just the host
 
 The upload is built and checked locally first, in the same runtime Cloudflare
@@ -145,7 +165,7 @@ node tools/browser-run.js --url=http://127.0.0.1:8788/tests/browser.html
 Last worker-served run: **152 passed, 0 failed, 0 skipped**
 (`[dom=true webgl2=true indexeddb=true]`), with the strict CSP arriving from the
 generated worker rather than from a dev server. The suite has since grown to
-**245** (227 pass + 18 browser-only skips under bare Node), and all 245 pass in
+**267** (242 pass + 25 browser-only skips under bare Node), and all 267 pass in
 a real browser against the dev server; the worker-served run above has not been
 repeated here since, because `.tools/wrangler` is not installed in this
 checkout (CI's deploy job runs the same command against the built artifact

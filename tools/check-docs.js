@@ -53,6 +53,8 @@ const files = {
   chart: read('docs/charts/budget.svg'),
   a11y: read('docs/A11Y_VALIDATION.md'),
   nvda: read('docs/reports/nvda-session.md'),
+  redteam: read('docs/reports/red-team-session.md'),
+  source: read('src/app.js'),
 };
 
 const app = payload.files.find((f) => f.file === 'src/app.js');
@@ -105,6 +107,20 @@ claim('docs/reports/nvda-session.json summary', `${nvda.summary.steps}/${nvda.su
 claim('src/app.js MODULE_STATUS points', `${scoreTotal} / 1000`, ['readme']);
 claim('src/app.js MODULE_STATUS points', `Evidence-backed score: ${modulePoints[6]}/100`, ['a11y']);
 claim('src/app.js MODULE_STATUS points', `score is ${modulePoints[6]}/100`, ['nvda']);
+// M8's score is quoted in the red-team report too, and every scored roadmap
+// entry the app draws must quote the same points the scorecard carries. M8
+// once read 96 in the scorecard, the roadmap and a case study at the same
+// time; parsing the entries catches the next drift even if the prose around
+// them is rewritten.
+claim('src/app.js MODULE_STATUS points', `does not raise M8's ${modulePoints[7]}/100`, ['redteam']);
+for (const entry of read('src/app.js').matchAll(/what: 'M(\d) - [^']*?\((\d+)\/100\)'/g)) {
+  const id = Number(entry[1]);
+  claims.push({
+    from: `src/app.js ROADMAP M${id} vs MODULE_STATUS`,
+    value: entry[0].replace(/\(\d+\/100\)/, `(${modulePoints[id - 1]}/100)`),
+    where: ['source'],
+  });
+}
 
 // The relay artifacts. `relay-load` is a fleet-wide reconciliation of (from,
 // seq) keys across four generator processes against one relay process;
@@ -164,10 +180,31 @@ try {
   testCounts.text = `${error.stdout || ''}${error.stderr || ''}`.trim();
 }
 
+// The deployed-scan verdict is what the security workflow reads, so its own
+// self-test runs here: the exit codes are the gate, and a parser that silently
+// found nothing would turn every scan into a pass. It stays out of the browser
+// suite on purpose - that suite is authoritative and this test spawns a process.
+let zapVerdict = { ok: true, text: '' };
+try {
+  zapVerdict.text = execFileSync(process.execPath, [join(root, 'tools/zap-verdict.js'), '--self-test'], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+} catch (error) {
+  zapVerdict.ok = false;
+  zapVerdict.text = `${error.stdout || ''}${error.stderr || ''}`.trim();
+}
+
 // The soak's headline is a shape, not a number: the run must have completed and
 // the last snapshot must not be bigger than the first. A checker that only
 // matches strings would pass on a report that says the opposite.
 const shapes = [
+  {
+    from: 'tools/zap-verdict.js --self-test',
+    ok: zapVerdict.ok,
+    why: 'the deployed-scan verdict passes its own self-test (clean, Low, Medium and missing-report exit codes)',
+  },
   {
     from: 'tools/test-count.js --check',
     ok: testCounts.ok,

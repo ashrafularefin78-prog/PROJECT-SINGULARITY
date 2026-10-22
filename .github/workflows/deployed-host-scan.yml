@@ -1,0 +1,95 @@
+# Scan the deployed origin, not the checkout.
+#
+# CI already proves two things locally (tests.yml, deploy job): the built worker
+# delivers every rule in `_headers`, and the dev server does too. Neither is
+# evidence about a real host. GitHub Pages strips custom headers, so the
+# canonical deployment runs the meta policy only; a host that reads `_headers`
+# (Cloudflare Pages, Netlify, or the generated worker in dist-site/) is the only
+# place frame-ancestors, COOP and COEP actually arrive.
+#
+# This workflow is that second case, run where Java and Docker exist:
+#
+#   * manual: Actions -> deployed-host-scan -> Run workflow, paste the URL.
+#   * automatic: set a repository variable DEPLOY_URL, and every push that
+#     touches the policy re-scans the origin.
+#
+# Two gates, in order. The header job fails if the live policy differs from the
+# `_headers` in this checkout, so a scan can never be attached to a stale
+# deployment. The ZAP job then scans, and `tools/zap-verdict.js` fails on any
+# Low, Medium or High alert; informational alerts are recorded and tolerated,
+# matching the bar README and docs/SECURITY_REPORT.md publish.
+#
+# The report is uploaded on every outcome, including a failed gate — a scan that
+# found something is exactly the scan whose artifact is worth keeping.
+
+name: deployed-host-scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'HTTPS origin that serves _headers (for example https://site.example/)'
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - '_headers'
+      - 'tools/verify-headers.js'
+      - 'tools/zap-verdict.js'
+      - '.github/workflows/deployed-host-scan.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  headers:
+    name: the deployed origin delivers _headers
+    if: ${{ inputs.url != '' || vars.DEPLOY_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: compare the live response headers with _headers
+        env:
+          TARGET: ${{ inputs.url || vars.DEPLOY_URL }}
+        run: node tools/verify-headers.js --url="$TARGET"
+
+  zap-baseline:
+    name: ZAP baseline against the deployed origin
+    needs: headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # fail_action stays false so the artifact is always produced; the verdict
+      # step below is the gate, because the action's own flag fails on
+      # informational alerts too.
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: ${{ inputs.url || vars.DEPLOY_URL }}
+          allow_issue_writing: false
+          artifact_name: zap-baseline-deployed
+          cmd_options: '-a'
+
+      - name: fail on any Low, Medium or High alert
+        run: |
+          report=$(find . -name report_json.json -not -path './node_modules/*' | head -n 1)
+          node tools/zap-verdict.js "$report"
+
+      - name: keep the report with the run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-deployed-report
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+          if-no-files-found: warn

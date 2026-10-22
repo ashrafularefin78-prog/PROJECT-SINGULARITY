@@ -41,16 +41,19 @@ Each entry is derived from the commit history; the newest comes first.
 
 ### Changed
 - M7's evidence-backed score moves **55 -> 72** (the structural maximum remains
-  83); the in-app total moves **680 -> 697**. The README's old 708 used the
-  structural maximum as if it were evidence-backed and is corrected to 697,
-  with the remaining VoiceOver/TalkBack and deeper-flow gaps named.
+  83), and **M8 drops 96 -> 72**: no header-capable deployment, third-party
+  red-team pass, active scan of a deployed origin or real-device TURN run backs
+  the 96, so the score now sits where the evidence does. The in-app total moves
+  **680 -> 673**; the reviewer's independent tally marks M7 and M8 at the same
+  72. The README's old 708 used the structural maximum as if it were
+  evidence-backed and is corrected to 673, with the remaining gaps named.
 - Cold load is **116.6 KiB gzip JS / 460.7 KiB raw** after the security and
   sample fixes; README, LOAD_CHAOS, DEMO, PLAN and the budget chart are updated
-  together, and `tools/check-docs.js` still matches all 46 published numbers.
+  together, and `tools/check-docs.js` still matches all 52 published numbers.
 - The browser runner now includes `tests/stream.test.js`; the browser suite is
   **266 pass + 1 Node-only skip**, and the README's stale 221-test table and
   "18 need a browser" count are corrected to the real 23-suite, 267-test set.
-- The internal adversarial pass does **not** raise M8's 96/100: it is not
+- The internal adversarial pass does **not** raise M8's 72/100: it is not
   independent, and the third-party gap remains declared.
 
 ## 2026-10-21 - M0 gains a live system constellation
