@@ -946,6 +946,14 @@ export class Renderer {
     this.running = true;
     const loop = (now) => {
       if (!this.running) return;
+      // High-refresh monitors can reach ~320 Hz: pause drawing while the tab is
+      // hidden so the loop cannot pile up stale frames or waste a core, and
+      // resume cleanly when it comes back. requestAnimationFrame's own throttling
+      // already caps to the display's refresh rate.
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        this.raf = requestAnimationFrame(loop);
+        return;
+      }
       this.frame(now);
       this.raf = requestAnimationFrame(loop);
     };
@@ -968,11 +976,15 @@ export class Renderer {
 
     if (this.frameTimes.length > 0) {
       const last = this.frameTimes[this.frameTimes.length - 1];
-      const dt = nowMs - last;
+      // Clamp the elapsed time so a tab switch, debugger pause, or background
+      // throttle turning into a 30-second frame cannot drive the estimator to
+      // zero (or infinity) for the next several seconds. One frame cannot usefully
+      // cost more than 100 ms on any display, including high-refresh ones.
+      const dt = Math.min(Math.max(nowMs - last, 1), 100);
       if (dt > 0) this.fps = this.fps ? this.fps * 0.9 + (1000 / dt) * 0.1 : 1000 / dt;
     }
     this.frameTimes.push(nowMs);
-    if (this.frameTimes.length > 90) this.frameTimes.shift();
+    if (this.frameTimes.length > 320) this.frameTimes.shift();
     this.frames += 1;
 
     const lightDir = [-0.45, -0.78, -0.44];

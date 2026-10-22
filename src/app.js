@@ -1177,7 +1177,7 @@ async function renderEngine(root) {
       statsBox.append(statCard('glTF model triangles', s.modelTriangles.toLocaleString(), `${s.modelMeshes} primitives, material from the file`));
     }
     state.fpsHistory.push(s.fps);
-    if (state.fpsHistory.length > 60) state.fpsHistory.shift();
+    if (state.fpsHistory.length > 320) state.fpsHistory.shift();
     scope.update(state.fpsHistory);
     clear(sceneText);
     const description = r.describeScene();
