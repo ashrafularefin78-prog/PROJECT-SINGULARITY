@@ -17,7 +17,7 @@ up as futuristic features.
 | clang/TCC (or any real C frontend) compiled to WASM in M2 | subset C only | Getting Musl/clang to a shipping state here is a research effort, not an engineering sprint; the interpreter with a hard sandbox is what is deliverable and tested |
 | WebGPU compute in M3 | no compute shaders, no ray tracing | the WebGL2 renderer is real and measured; WebGPU would be a second renderer attached to nothing |
 | A TURN server in M5 | symmetric NAT on both ends ends the session | one can be configured (`src/collab/webrtc.js` exposes the API) but hosting relay bandwidth is a deployment responsibility, not an app feature; STUN-only is the shipped truth |
-| Real-device screen-reader validation in M7 | what the axe-core checks cannot prove | this environment has neither NVDA nor VoiceOver; the shipped evidence is axe-core (0 violations, 412 passing rule results) plus the a11y contract tests, and the gap is stated as not done |
+| VoiceOver/TalkBack validation in M7 | what the NVDA pass cannot prove about Safari, macOS and Android | NVDA 2026.2 is installed and recorded (17/17 steps, real speech log) alongside axe-core (0 violations, 412 passing rule results); this machine has no macOS or Android device, and the remaining gap is stated as not done |
 | Response headers on GitHub Pages in M8 | frame-ancestors/COOP/COEP inactive on the canonical host | Pages cannot send headers; `_headers` is ready for any host that reads it and `tools/verify-headers.js` proves the built artifact serves it |
 | A third-party red-team pass in M8 | no independent adversary | stated as not done; STRIDE is self-service and says so |
 

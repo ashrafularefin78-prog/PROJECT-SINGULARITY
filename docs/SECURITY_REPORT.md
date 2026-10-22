@@ -5,26 +5,32 @@ the mitigations. This document is the *evidence*: what was actually executed
 against the build, what it proved, and what remains untested.
 
 Everything below was run locally against the shipped bundle, in the browser, on
-the code in this repository. There was **no third-party audit and no red-team
-session**, which is stated again in the residual risk section because it is the
-single biggest limitation of this report.
+the code in this repository. There was **no third-party audit**. One internal,
+model-assisted adversarial session is recorded in
+[reports/red-team-session.md](reports/red-team-session.md) and its 22 checks in
+[reports/red-team-session.json](reports/red-team-session.json); it shares an
+author with the code, so the third-party gap remains the biggest limitation of
+this report.
 
 ## 1. Method
 
 | Method | What it covers |
 |--------|----------------|
-| `tests/crypto.test.js` (18 tests) | The protocol layer: X3DH, Double Ratchet, bundle signatures, replay, tampering, group epochs, streaming file AEAD, passphrase-encrypted private key storage |
+| `tests/crypto.test.js` (6 tests) | The protocol layer: X3DH, Double Ratchet, bundle signatures, replay, tampering, group epochs and passphrase-encrypted private key storage |
+| `tests/stream.test.js` (6 tests) | Streaming file AEAD: irregular chunks, frame order, the authenticated final flag and lazy decryption |
 | `tests/fuzz.test.js` (11 tests) | Deterministic fuzzing of the two parsers that face hostile input (C front end, signaling/crypto decoders) plus the CRDT and the ciphertext paths |
 | `tests/mesh.test.js` (13 tests) | Ingress handling and the browser relay carrier: ciphertext-only relay visibility, room isolation, presence flood control, a sealed round trip through the node's contract, outbox failover across a dead node, and sealed-frame-id dedupe |
 | `tests/webrtc.test.js` (7 tests) | Signaling-code validation, including codes from untrusted sources |
 | `tests/storage.test.js` (8 tests) | Damaged-log recovery, migrations, quota behaviour |
 | `tests/stdlib.test.js` (51 tests) | The C library surface and the preprocessor, including the fail-closed cases (a `strcpy` that would overflow its destination is an error, not silent corruption) |
 | In-app probes (M8 panel) | Live CSP / Trusted Types behaviour, the hostile-input probe that tries `innerHTML` and `eval()` and shows the refusal |
+| `tools/red-team.js` (22 checks) | Internal adversarial pass: rogue Trusted Types policies, inline handlers and `javascript:` URLs, editor markup, same-origin framing, a poisoned service-worker cache, the M2 worker under the shipped policy, and the relay's field/validation contract |
 | Manual browser runs | Header/CSP inspection over the served response, offline shell under a subpath deployment, two-carrier WebRTC channel, encrypted message round-trip |
 
-Total suite: **267 tests across 23 suites**, all 267 green in a browser
-(~2.3 s, runnable from the site at `/tests/browser.html`); under bare Node the
-same suite reports 242 pass and 25 browser-only skips instead of failing them.
+Total suite: **267 tests across 23 suites**. The browser runner executes 266 and
+skips one Node-only import probe (0 failures, ~4.2 s, runnable from the site at
+`/tests/browser.html`); under bare Node the same suite reports 242 pass and 25
+browser-only skips instead of failing them.
 
 Fuzz corpora (the numbers in the table are the counts printed by the suite):
 400 lexer inputs, 408 parser inputs, 60 sources compiled twice, 3 runaway
@@ -51,7 +57,7 @@ codes.
 | Resource exhaustion (user code) | 3 infinite programs (spin loop, empty `for`, unbounded recursion) | **Stopped deterministically** by the step/depth budget, twice with identical outcomes, each in well under 2 s |
 | CRDT integrity | Duplicated, reordered, delayed ops from hostile peers | Converges; duplicates absorbed; unexplainable ops parked in a causal buffer instead of applied |
 | Presence flood | Ingress flood at a peer | **Throttled** for presence packets, 0 document envelopes dropped (dropping an op would lose a character) |
-| XSS / markup injection | Hostile HTML/script strings through every user-visible input | No markup sinks exist in the codebase (`createElement`/`textContent` only); Trusted Types enforced; CSP has no `unsafe-inline`/`unsafe-eval`. The in-app probe demonstrates the refusal |
+| XSS / markup injection | Hostile HTML/script strings through every user-visible input | No markup sinks exist in the codebase (`createElement`/`textContent` only); Trusted Types enforced with a `trusted-types` allowlist; CSP has no `unsafe-inline`/`unsafe-eval`. The in-app probe and the internal red-team run demonstrate the refusal |
 | Cross-origin script injection | Worker/service-worker URL minting with a foreign origin | Rejected by the single Trusted Types policy (`scriptUrl` throws) |
 | Storage damage | Damaged op log on load | Log rebuilt from recovered text, recovery reported in the UI, no silent data claim |
 
@@ -102,11 +108,30 @@ arithmetic, but a correctness and resource-reporting hole.
 `number literal '…' is out of range`, carrying line and column.
 **Evidence:** the fuzz test asserts every `num` token is finite.
 
+### S-4 (low, fixed) - Trusted Types had no policy allowlist
+
+**Found by:** the internal red-team browser probe on 2026-10-22.
+**Issue:** `require-trusted-types-for 'script'` blocked plain-string sinks, but
+nothing restricted which policies page script could create. A probe created
+`red-team-probe` with a permissive `createHTML` and used it to insert an `<img>`;
+the markup entered the DOM (the inline handler was still blocked by CSP). The
+app's policy was named `singularity#script-url`, and `#` cannot be named in a CSP
+`trusted-types` allowlist, so adding the directive required a rename.
+**Impact:** defence-in-depth loss. It requires script execution first, so it was
+not a standalone XSS; CSP remains the execution barrier.
+**Fix:** the policy is now `singularity-script-url`, and `index.html`, `_headers`
+and both playgrounds carry `trusted-types singularity-script-url`. In the
+post-fix probe, `createPolicy('red-team-xss')` fails with `Policy
+"red-team-xss" disallowed`, plain `innerHTML` still fails with a TrustedHTML
+error, and the M2 worker and service worker still run.
+**Evidence:** `node tools/red-team.js`, checks RT-H1, RT-X1 to RT-X6, RT-W2 and
+RT-S2; [`reports/red-team-session.md`](reports/red-team-session.md).
+
 ## 4. Residual risk and what was NOT tested
 
 | Gap | Why it matters | Status |
 |-----|----------------|--------|
-| **No third-party audit, no red-team session** | Self-tested crypto is not audited crypto; protocol-level mistakes are exactly what an audit finds | Not done. Stated in the in-app scorecard (M8 and M4 notes) and in the README |
+| **No third-party audit; internal red-team only** | Self-tested crypto is not audited crypto; protocol-level mistakes are exactly what an audit finds. An internal pass shares the author's blind spots | Internal adversarial review 22/22 on 2026-10-22 ([report](reports/red-team-session.md)); no independent red-team. Stated in the in-app scorecard (M8 and M4 notes) and in the README |
 | **OWASP ZAP baseline scan** | A full ZAP 2.17.0 run (spider + 1,077-request active scan against the local dev server, 2026-10-20): **0 High, 0 Medium, 0 Low, 2 Informational** — `10027` suspicious comments (ZAP pattern-matches ordinary source-code comments such as "where it is null") and `10109` modern-web-application, both informational. The first pass the same morning had flagged `40035` Medium — the dev server served `.git/config` — and `10036` Low — a `Server: SimpleHTTP/...Python/3.14.8` banner; both are fixed in `tools/serve.py` (dot-file deny list + `server_version = "singularity-dev"`) and `tools/serve.js` (dot-segment deny), and the archived re-scan shows the two findings gone. CSP and Trusted Types verified in the running app; no vulnerability findings. Reports: [`docs/reports/zap-baseline.html`](reports/zap-baseline.html) (HTML) and [`docs/reports/zap-alerts.json`](reports/zap-alerts.json) (machine-readable). A second, passive quick scan of the **deployed GitHub Pages origin** (`docs/reports/zap-deployed.html`, 2026-10-21) reports **0 High, 5 Medium, 2 Low, 5 Informational**: the Mediums are properties of static hosting (no CSP response header, no anti-clickjacking response header, no COOP/COEP, no HSTS) plus ZAP's CSP-quality notes (`style-src 'unsafe-inline'`, a directive with no fallback), not injection findings; the app's meta CSP and Trusted Types still apply there. Limits: the active scan runs against a local dev server, the deployed run is passive only, and ZAP's markup findings do not substitute for a human red-team pass | Run locally and against the deployed origin; stated in M8 scorecard and README |
 | **No local encryption at rest** | IndexedDB holds plaintext documents and session state; device access equals data access | Declared in the threat model, not mitigated |
 | **Key storage is unhardened** | Keys are `CryptoKey` objects in memory (non-extractable where possible) with no platform keystore binding | Declared; M4 note in the app says "no audited key storage" |
@@ -114,7 +139,7 @@ arithmetic, but a correctness and resource-reporting hole.
 | **`frame-ancestors` cannot be expressed in a meta CSP** | Clickjacking protection depends on the host reading `_headers` | Declared, not mitigated on the canonical host: GitHub Pages serves the meta policy only, so clickjacking protection is absent there. `_headers` and `tools/serve.py` deliver it on hosts that read the file; stated in the M8 note |
 | **No screen-reader security review of the JS surface** | Not a security property per se, but assistive-tech-visible content could leak local data | Out of scope here |
 | **Multi-machine WebRTC session never driven by a person** | The automated test covers a real data channel in one machine; NAT traversal across two networks is unproven | Not done |
-| **No hostile-extension / XSS-in-practice test in a hardened browser profile** | CSP and Trusted Types were verified inside the running app, not against a crafted exploit corpus | Not done |
+| **No hostile-extension / third-party XSS corpus** | CSP and Trusted Types were verified inside the running app and by an internal probe suite, not by an independent exploit corpus in a hardened profile | Internal probes done; independent exercise not done |
 
 ## 5. Reproduce it
 
@@ -122,6 +147,8 @@ arithmetic, but a correctness and resource-reporting hole.
 python3 tools/serve.py 5173
 # app:      http://127.0.0.1:5173/
 # suite:    http://127.0.0.1:5173/tests/browser.html   (267 tests, 23 suites)
+node tools/red-team.js
+# 22/22 internal adversarial checks; writes docs/reports/red-team-session.json
 ```
 
 The M8 panel shows the live policy state (CSP, Trusted Types, sandbox isolation)

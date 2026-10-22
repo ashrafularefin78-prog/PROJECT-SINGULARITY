@@ -120,10 +120,11 @@ and undo did not change at all when WebRTC was added.
   no DOM, no storage, no crypto, no network, and is terminated rather than
   asked to stop.
 - **CSP:** no `unsafe-inline`, no `unsafe-eval`, `require-trusted-types-for
-  'script'`, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`,
-  COOP `same-origin` + COEP `require-corp`. Delivered as a header by the server
-  and as a meta tag by the document, so a host that cannot set headers still
-  enforces the script policy.
+  'script'` with `trusted-types singularity-script-url` (so page script cannot
+  mint a second policy), `object-src 'none'`, `base-uri 'none'`,
+  `frame-ancestors 'none'`, COOP `same-origin` + COEP `require-corp`. Delivered
+  as a header by the server and as a meta tag by the document, so a host that
+  cannot set headers still enforces the script policy.
 - Full detail, residual risk and what is out of scope: [THREAT_MODEL.md](THREAT_MODEL.md);
   executed evidence and findings: [SECURITY_REPORT.md](SECURITY_REPORT.md).
 

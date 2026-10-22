@@ -1,0 +1,339 @@
+{
+  "schema": 1,
+  "kind": "internal-adversarial-review",
+  "independent": false,
+  "date": "2026-10-22",
+  "generatedAt": "2026-10-21T22:43:00.546Z",
+  "target": {
+    "commit": "64be267921e96227ee4878d1cd343114f745b7a9",
+    "dirty": true
+  },
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "node": "v24.20.0",
+    "appPort": 5231,
+    "relayPort": 8891,
+    "browser": "Edg/156.0.4314.36",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0"
+  },
+  "scope": [
+    "Trusted Types policy names and DOM XSS sinks",
+    "CSP enforcement in the shipped page",
+    "clickjacking on the local header-capable server",
+    "service-worker cache poisoning and recovery",
+    "M2 worker under the shipped Trusted Types policy",
+    "ciphertext relay contract and input validation"
+  ],
+  "limitations": [
+    "This is an internal, model-assisted adversarial review, not a third-party audit.",
+    "The GitHub Pages origin cannot send frame-ancestors or X-Frame-Options; that accepted risk is not fixed by this review.",
+    "A live cross-network WebRTC tamper test was not possible on one machine; signaling validation is covered by tests/webrtc.test.js.",
+    "No penetration test of a hardened browser profile, native code, or the hosting provider was performed."
+  ],
+  "summary": {
+    "total": 22,
+    "passed": 22,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "id": "RT-H1",
+      "area": "transport policy",
+      "attempt": "served CSP has a Trusted Types policy allowlist",
+      "expected": "trusted-types singularity-script-url",
+      "observed": "default-src 'self'; script-src 'self'; style-src 'self' 'sha256-ActgC60ZLhkgZShDeF5iw8kp+TINQ4WoWdpA13Na7+Q='; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types singularity-script-url",
+      "ok": true
+    },
+    {
+      "id": "RT-H2",
+      "area": "transport policy",
+      "attempt": "served CSP has no unsafe-inline or unsafe-eval",
+      "expected": "neither token present",
+      "observed": "default-src 'self'; script-src 'self'; style-src 'self' 'sha256-ActgC60ZLhkgZShDeF5iw8kp+TINQ4WoWdpA13Na7+Q='; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types singularity-script-url",
+      "ok": true
+    },
+    {
+      "id": "RT-H3",
+      "area": "transport policy",
+      "attempt": "clickjacking headers on the header-capable server",
+      "expected": "frame-ancestors 'none' and X-Frame-Options DENY",
+      "observed": {
+        "frameAncestors": true,
+        "xfo": "DENY"
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-X1",
+      "area": "XSS",
+      "attempt": "create a second Trusted Types policy from page script",
+      "expected": "rejected by the CSP allowlist",
+      "observed": "TypeError: Failed to execute 'createPolicy' on 'TrustedTypePolicyFactory': Policy \"red-team-xss\" disallowed.",
+      "ok": true
+    },
+    {
+      "id": "RT-X2",
+      "area": "XSS",
+      "attempt": "assign a plain string to innerHTML",
+      "expected": "TypeError, TrustedHTML required",
+      "observed": "TypeError: Failed to set the 'innerHTML' property on 'Element': This document requires 'TrustedHTML' assignment.",
+      "ok": true
+    },
+    {
+      "id": "RT-X3",
+      "area": "XSS",
+      "attempt": "assign a script element body",
+      "expected": "TypeError, TrustedScript required",
+      "observed": "TypeError: Failed to set the 'textContent' property on 'HTMLScriptElement': This document requires 'TrustedScript' assignment.",
+      "ok": true
+    },
+    {
+      "id": "RT-X4",
+      "area": "XSS",
+      "attempt": "trigger an inline onerror handler and a javascript: URL",
+      "expected": "neither executes",
+      "observed": {
+        "inline": false,
+        "javascriptUrl": false,
+        "violations": [
+          {
+            "directive": "trusted-types",
+            "blockedURI": "trusted-types-policy"
+          },
+          {
+            "directive": "trusted-types",
+            "blockedURI": "trusted-types-policy"
+          },
+          {
+            "directive": "require-trusted-types-for",
+            "blockedURI": "trusted-types-sink"
+          },
+          {
+            "directive": "require-trusted-types-for",
+            "blockedURI": "trusted-types-sink"
+          },
+          {
+            "directive": "require-trusted-types-for",
+            "blockedURI": "trusted-types-sink"
+          },
+          {
+            "directive": "require-trusted-types-for",
+            "blockedURI": "trusted-types-sink"
+          },
+          {
+            "directive": "require-trusted-types-for",
+            "blockedURI": "trusted-types-sink"
+          },
+          {
+            "directive": "require-trusted-types-for",
+            "blockedURI": "trusted-types-sink"
+          },
+          {
+            "directive": "script-src-elem",
+            "blockedURI": "inline"
+          },
+          {
+            "directive": "script-src-elem",
+            "blockedURI": "inline"
+          }
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-X5",
+      "area": "XSS",
+      "attempt": "run a script body inserted with appendChild",
+      "expected": "does not execute",
+      "observed": false,
+      "ok": true
+    },
+    {
+      "id": "RT-X6",
+      "area": "XSS",
+      "attempt": "put markup through the M1 editor input",
+      "expected": "stays text; no element created",
+      "observed": {
+        "value": "<img src=x data-rt=\"editor\" onerror=\"window.__rtEditor = true\">",
+        "injectedImages": 0,
+        "markupInValue": true
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-C1",
+      "area": "clickjacking",
+      "attempt": "frame the app from a same-origin page",
+      "expected": "frame document not readable (blocked)",
+      "observed": {
+        "readable": false,
+        "title": null,
+        "error": null
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-S1",
+      "area": "service worker",
+      "attempt": "write a poisoned response for the app shell into the live cache",
+      "expected": "cache accepts the write (same-origin code already controls the cache)",
+      "observed": {
+        "key": "singularity-v9",
+        "marker": false
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-S2",
+      "area": "service worker",
+      "attempt": "reload online after the cache poison",
+      "expected": "network-first refresh replaces the poison and the page boots",
+      "observed": {
+        "marker": false,
+        "hasPoison": false,
+        "length": 225476
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-W1",
+      "area": "worker policy",
+      "attempt": "find the M2 Compile button",
+      "expected": "present",
+      "observed": true,
+      "ok": true
+    },
+    {
+      "id": "RT-W2",
+      "area": "worker policy",
+      "attempt": "compile and run the built-in C sample in a worker",
+      "expected": "exit 0 and the sample output ends with done.",
+      "observed": "5\nsquares 1..5 = 55 (linked list on the heap)\ngrade(87) = B, sign(-3) = -1\n[    42][42    ][00042]\ntype two integers: \nscanf read 2 values, sum = 46\nechoing the rest of stdin:  hello from stdin\ndone.\n",
+      "ok": true
+    },
+    {
+      "id": "RT-R1",
+      "area": "relay contract",
+      "attempt": "post an envelope with extra plaintext fields",
+      "expected": "accepted, but extras dropped",
+      "observed": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "seq": 1,
+          "queued": 1
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-R2",
+      "area": "relay contract",
+      "attempt": "drain the envelope and list the fields the relay returns",
+      "expected": "to, from, ct, relayedAt, header only",
+      "observed": {
+        "keys": [
+          "ct",
+          "from",
+          "header",
+          "relayedAt",
+          "to"
+        ],
+        "envelope": {
+          "to": "rt-peer",
+          "from": "rt-sender",
+          "ct": "Q0lQSEVSVEVYVA==",
+          "relayedAt": 1792622578725,
+          "header": {
+            "kind": "probe"
+          }
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-R3",
+      "area": "relay contract",
+      "attempt": "search the durable log for the canary and the extra fields",
+      "expected": "no plaintext canary or extra-field names stored",
+      "observed": {
+        "canary": false,
+        "plaintextField": false,
+        "messageField": false,
+        "bytes": 204
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-R4",
+      "area": "relay validation",
+      "attempt": "route id with a path traversal",
+      "expected": "400",
+      "observed": {
+        "status": 400,
+        "json": {
+          "ok": false,
+          "error": "to must match [A-Za-z0-9._-]{1,64} or be \"*\""
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-R5",
+      "area": "relay validation",
+      "attempt": "empty ciphertext",
+      "expected": "400",
+      "observed": {
+        "status": 400,
+        "json": {
+          "ok": false,
+          "error": "ct must be a non-empty string"
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-R6",
+      "area": "relay validation",
+      "attempt": "70,000-byte ciphertext over the 65,536 cap",
+      "expected": "413",
+      "observed": {
+        "status": 413,
+        "json": {
+          "ok": false,
+          "error": "ct exceeds --max-ct (65536 bytes)"
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-R7",
+      "area": "relay validation",
+      "attempt": "malformed JSON",
+      "expected": "400",
+      "observed": {
+        "status": 400,
+        "json": {
+          "ok": false,
+          "error": "body is not JSON"
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "RT-R8",
+      "area": "relay validation",
+      "attempt": "65-character routing id",
+      "expected": "400",
+      "observed": {
+        "status": 400,
+        "json": {
+          "ok": false,
+          "error": "to must match [A-Za-z0-9._-]{1,64} or be \"*\""
+        }
+      },
+      "ok": true
+    }
+  ]
+}

@@ -361,7 +361,9 @@ function moduleHead(id, title, lede) {
   return el('header', { class: 'mod-head', dataset: { mod: modKey(id) } }, [
     el('span', { class: 'mod-badge', role: 'img', 'aria-label': `Module ${id}`, text: id }),
     el('div', {}, [
-      el('h1', { class: 'mod-title', text: title }),
+      // Programmatically focusable: an Alt+1..8 jump moves focus here so the
+      // new panel is announced instead of leaving the user on <body>.
+      el('h1', { class: 'mod-title', text: title, tabindex: '-1' }),
       el('p', { class: 'lede', text: lede }),
       el('div', { class: 'mod-meta' }, [
         el('span', { class: `pill ${meta.status}`, text: full ? 'full' : 'partial' }),
@@ -966,7 +968,7 @@ char *grade(int score) {
 }
 
 int main(void) {
-  printf("fib(20) = %d\n", fib(20));
+  printf("fib(20) = %d\\n", fib(20));
 
   /* A real linked list: structs, malloc and -> through the pointer arena. */
   struct Node *head = NULL;
@@ -980,19 +982,19 @@ int main(void) {
   for (struct Node *cur = head; cur != NULL; cur = cur->next) {
     sum += cur->value;
   }
-  printf("squares 1..5 = %d (linked list on the heap)\n", sum);
-  printf("grade(87) = %s, sign(-3) = %d\n", grade(87), -3 < 0 ? -1 : 1);
-  printf("[%6d][%-6d][%05d]\n", 42, 42, 42);
+  printf("squares 1..5 = %d (linked list on the heap)\\n", sum);
+  printf("grade(87) = %s, sign(-3) = %d\\n", grade(87), -3 < 0 ? -1 : 1);
+  printf("[%6d][%-6d][%05d]\\n", 42, 42, 42);
 
   int a = 0, b = 0;
   printf("type two integers: ");
   int read = scanf("%d %d", &a, &b);
-  printf("\nscanf read %d values, sum = %d\n", read, a + b);
+  printf("\\nscanf read %d values, sum = %d\\n", read, a + b);
 
   int c;
   printf("echoing the rest of stdin: ");
   while ((c = getchar()) != -1) putchar(c);
-  printf("\ndone.\n");
+  printf("\\ndone.\\n");
   return 0;
 }
 `;
@@ -1115,11 +1117,23 @@ async function renderEngine(root) {
     import('./graphics/renderer.js'),
     import('./graphics/gltf.js'),
   ]);
-  const canvas = el('canvas', { id: 'scene', width: 960, height: 460 });
+  const canvas = el('canvas', {
+    id: 'scene',
+    width: 960,
+    height: 460,
+    role: 'img',
+    // The canvas is focusable and takes arrow keys, but without a name it was
+    // announced as only "canvas" - the text alternative below it was not
+    // associated with the control. The label is replaced with the live scene
+    // summary as soon as the renderer reports one.
+    'aria-label': 'Interactive 3D scene. Arrow keys orbit; plus and minus zoom.',
+    'aria-describedby': 'scene-alt',
+    'aria-keyshortcuts': 'ArrowLeft ArrowRight ArrowUp ArrowDown + -',
+  });
   const overlay = el('div', { class: 'canvas-overlay m3-telemetry-hud', text: 'initialising WebGL2…' });
   const statsBox = el('div', { class: 'stats' });
   refs.engineStats = statsBox;
-  const sceneText = el('div');
+  const sceneText = el('div', { id: 'scene-alt' });
   const modelStatus = el('p', { class: 'small dim mt-6', text: 'sample model: waiting for the engine to start…' });
   const reduced = state.a11y.motion === 'reduced';
   // A live oscilloscope for the frame rate: the same numbers as the stat cards,
@@ -1167,6 +1181,11 @@ async function renderEngine(root) {
     scope.update(state.fpsHistory);
     clear(sceneText);
     const description = r.describeScene();
+    // Keep the canvas name in step with the scene without rewriting it every
+    // frame: the summary only changes when the scene does, and an attribute
+    // change on the focused canvas would otherwise be re-announced.
+    const label = `${description.summary} Arrow keys orbit; plus and minus zoom.`;
+    if (canvas.getAttribute('aria-label') !== label) canvas.setAttribute('aria-label', label);
     sceneText.appendChild(el('p', { class: 'dim small', text: description.summary }));
     sceneText.appendChild(el('p', { class: 'small', text: description.camera }));
     sceneText.appendChild(el('ul', { class: 'list' }, description.objects.map((o) => el('li', { text: `${o.label}: ${o.count.toLocaleString()} — ${o.detail}` }))));
@@ -2592,7 +2611,7 @@ function renderA11y(root) {
         auditOut,
       ]),
       card('Where this is honest about its limits', [
-        note('Screen-reader behaviour was reasoned about and structured for (roles, labels, live regions, focus order, text alternatives) but has not been driven by an actual NVDA/VoiceOver/TalkBack session. Bangla and Arabic shaping inside the code editor is deferred to the browser’s own text layout; the app sets lang and dir correctly and keeps code LTR.', 'warn'),
+        note('A real NVDA 2026.2 session on Windows Edge drove all eight panels, the editor, the M3 canvas and Bangla/Arabic/RTL: every panel heading was announced, the canvas read its text alternative, and the language switches were tagged and read (Bangla and Arabic voices are not installed on this machine). VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. Bangla and Arabic shaping inside the code editor is deferred to the browser’s own text layout; the app sets lang and dir correctly and keeps code LTR.', 'warn'),
       ]),
     ]),
   );
@@ -3255,8 +3274,8 @@ const MODULE_STATUS = [
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 82, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD over WebCrypto; the signed prekey bundle is verified inside the handshake, and identity keys are sealed to a passphrase (PBKDF2 600k) in IndexedDB. No audited key storage.' },
   { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 88, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. No bundled TURN, so symmetric NAT on both ends still needs one.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 92, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
-  { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 55, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch that reclaims frame time, and an accessibility audit contract with 12 checked rules. Not validated against real screen readers; evidence-backed score, not the structural maximum.' },
-  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 96, note: 'Strict CSP with Trusted Types enforced at the canonical host; _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; the active scan and third-party red-team are not done, and the module note says so.' },
+  { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 72, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated; 83 structural, 72 evidence-backed.' },
+  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 96, note: 'Strict CSP with Trusted Types and a one-policy allowlist enforced at the canonical host; _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
 ];
 
 /* The hero lives in index.html so that the largest contentful paint does not
@@ -3371,13 +3390,13 @@ const ROADMAP = [
   { state: 'active', what: 'M2 - Runtime (88/100)', detail: 'Declared partial: no clang-to-WASM backend yet and no variadic user functions. Next: a real WASM compilation path.' },
   { state: 'active', what: 'M3 - Engine (84/100)', detail: 'Declared partial: no measured HDRI probe, no skeletal animation, and no WebGPU path yet. glTF base-colour and normal-map sampling is now implemented.' },
   { state: 'active', what: 'M5 - Transport (88/100)', detail: 'Declared partial: the relay runs as a local dev node; no bundled TURN server for symmetric NATs.' },
-  { state: 'active', what: 'M7 - Accessibility (55/100)', detail: 'Evidence-backed score: semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. Not validated against real screen readers; the structural maximum is 83.' },
+  { state: 'active', what: 'M7 - Accessibility (72/100)', detail: 'Evidence-backed score: semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass announced all eight panel headings, read the M3 canvas description and read Bangla/Arabic text with the right language tags. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain; 83 structural, 72 evidence-backed.' },
   { state: 'active', what: 'M8 - Hardening (96/100)', detail: 'Declared partial: no third-party red-team pass. The OWASP ZAP baseline ran (spider + active scan) and its report is archived: 0 High, 0 Medium, 0 Low.' },
   { state: 'planned', what: 'WASM backend for M2', detail: 'Compile C to WebAssembly in the worker and keep the interpreter as the fallback.' },
   { state: 'planned', what: 'WebGPU renderer path', detail: 'A second backend behind the same engine API, with the WebGL2 path kept for compatibility.' },
   { state: 'planned', what: 'OPFS and SharedArrayBuffer pooling', detail: 'Faster cold start and cross-tab memory sharing where COOP/COEP allow it.' },
   { state: 'planned', what: 'Relay deployment and NAT traversal', detail: 'A hosted relay node and a TURN story, so peer tests are not confined to one machine.' },
-  { state: 'planned', what: 'Screen-reader validation pass', detail: 'Drive the interface with NVDA and VoiceOver, then fix what they find - the honest way to close M7.' },
+  { state: 'planned', what: 'VoiceOver and TalkBack validation', detail: 'NVDA 2026.2 is recorded in docs/reports/nvda-session.md. Drive Safari/VoiceOver and Android/TalkBack next, then fix what they find.' },
   { state: 'planned', what: 'URL-addressable playgrounds', detail: 'Standalone sample pages for the C runtime and the engine, so each can be tried without the full shell.' },
 ];
 
@@ -3557,8 +3576,8 @@ const CASE_STUDIES = [
     score: moduleMeta('M7').points,
     problem: 'An instrument-dense interface has to remain usable with a keyboard, a screen reader, high contrast and 200% text.',
     decision: 'Use semantic elements, a roving-tabindex tablist, live regions, a text alternative for the 3D scene, and preferences for motion, contrast, scale, direction, language and theme. Code stays left-to-right in RTL layouts.',
-    tradeoff: 'It has not been validated with NVDA or VoiceOver. Bangla and Arabic shaping in the editor is delegated to the browser text layout; the panel labels are translated, not the whole app.',
-    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. Structural score 83/100; evidence-backed score 55/100 - the honest ceiling until a real screen-reader pass.',
+    tradeoff: 'A real NVDA 2026.2 session covers all eight panel headings, the editor, the M3 canvas and Bangla/Arabic/RTL; VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain unvalidated. Bangla and Arabic shaping in the editor is delegated to the browser text layout; the panel labels are translated, not the whole app.',
+    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. NVDA 2026.2 session: 17/17 steps, every panel heading announced, M3 canvas read, Bangla/Arabic lang tags verified. Structural score 83/100; evidence-backed score 72/100 - VoiceOver/TalkBack and deeper module flows are the remaining gap.',
   },
   {
     id: 'security',
@@ -3569,8 +3588,8 @@ const CASE_STUDIES = [
     score: moduleMeta('M8').points,
     problem: 'Ship a hostile-environment app with no build server, no third-party scripts and no markup sinks.',
     decision: 'Enforce a strict CSP and Trusted Types, isolate the runtime in a Worker, rate-limit per-peer ingress, generate SRI at deploy time, and build against a written STRIDE model. The canonical deployment is GitHub Pages, which sends no custom response headers, so the policy that arrives there is the meta CSP in index.html: enforced, but without frame-ancestors, COOP or COEP, which the HTML spec forbids in a meta policy. _headers carries the full set, and tools/verify-headers.js proves the local server and the built artifact deliver it; a host that reads _headers activates the rest.',
-    tradeoff: 'No third-party red-team session. The OWASP ZAP baseline has now run and is archived (reports/zap-baseline.html): 0 High, 0 Medium, 0 Low, 2 informational - but a scanner run is not a human adversarial pass, so the red-team gap stays declared. SRI covers entry subresources, not the transitive import graph. Clickjacking and cross-origin isolation therefore depend on a host that reads _headers, which the canonical GitHub Pages deployment is not; the meta policy it does have is still enforced.',
-    evidence: '11 fuzz tests, 0 markup sinks, 0 axe violations, every rule in _headers verified against the local server and the built artifact by tools/verify-headers.js, and the archived ZAP 2.17.0 scan (spider + 1,077-request active scan; 0 High, 0 Medium, 0 Low, 2 Informational). 96/100.',
+    tradeoff: 'No third-party red-team session. An internal 22-check adversarial pass is recorded in docs/reports/red-team-session.md and found the missing Trusted Types policy allowlist, but it shares an author with the code, so the independent-review gap stays declared. The OWASP ZAP baseline has run and is archived (reports/zap-baseline.html): 0 High, 0 Medium, 0 Low, 2 informational - but a scanner run is not a human adversarial pass either. SRI covers entry subresources, not the transitive import graph. Clickjacking and cross-origin isolation therefore depend on a host that reads _headers, which the canonical GitHub Pages deployment is not; the meta policy it does have is still enforced.',
+    evidence: '11 fuzz tests, 0 markup sinks, 0 axe violations, every rule in _headers verified against the local server and the built artifact by tools/verify-headers.js, an internal 22/22 adversarial pass with a Trusted Types allowlist enforced, and the archived ZAP 2.17.0 scan (spider + 1,077-request active scan; 0 High, 0 Medium, 0 Low, 2 Informational). 96/100.',
   },
 ];
 
@@ -4241,6 +4260,9 @@ let panelToken = 0;
 async function renderPanel(id) {
   const token = ++panelToken;
   const previous = state.activePanel;
+  const focusBefore = document.activeElement;
+  const focusId = focusBefore && focusBefore.id ? focusBefore.id : null;
+  const focusWasTab = focusBefore?.getAttribute?.('role') === 'tab';
   state.activePanel = id;
   const panel = PANELS.find((p) => p.id === id) || PANELS[0];
   
@@ -4266,6 +4288,11 @@ async function renderPanel(id) {
   newContainer.className = 'panel-host';
   
   const oldContainer = refs.main.firstElementChild;
+  // `#main` itself has an id and used to be restored by the generic branch
+  // below, which put focus back on the landmark instead of the new panel and
+  // silenced the announcement. Only a control that lived inside the old panel
+  // is worth restoring.
+  const focusInOldPanel = !!(focusBefore && oldContainer && oldContainer.contains(focusBefore));
   if (oldContainer && previous && id !== previous) {
     refs.main.appendChild(newContainer);
     if (oldContainer.parentNode) oldContainer.remove();
@@ -4277,6 +4304,19 @@ async function renderPanel(id) {
   await panel.render(newContainer);
   if (token !== panelToken) return;
   renderTabs();
+  // The tab strip is rebuilt on every switch, so the button the user
+  // activated no longer exists once the new markup is in place. Without this
+  // restore, focus falls to <body> and NVDA announces nothing at all. Prefer
+  // the control that asked for the render (a tab or a preference select); an
+  // Alt+1..8 jump has no such control, so focus the new panel heading so the
+  // change has an accessible name.
+  if (focusWasTab || (focusId && focusId.startsWith('tab-'))) {
+    document.getElementById(`tab-${panel.id}`)?.focus({ preventScroll: true });
+  } else if (focusInOldPanel && focusId && document.getElementById(focusId)) {
+    document.getElementById(focusId).focus({ preventScroll: true });
+  } else if (previous && previous !== id) {
+    newContainer.querySelector('.mod-title')?.focus({ preventScroll: true });
+  }
   document.title = `${panel.label} · Project Singularity`;
   try {
     if (location.hash !== `#${panel.id}`) history.replaceState(null, '', `#${panel.id}`);

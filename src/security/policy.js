@@ -7,6 +7,11 @@
  * create a single narrowly-scoped policy that only ever mints *same-origin*
  * script URLs. There is no policy for TrustedHTML at all, so `innerHTML`
  * remains unusable throughout the codebase by construction.
+ *
+ * The CSP `trusted-types` directive names this policy. Without that allowlist,
+ * any code that can execute could create its own permissive policy and defeat
+ * the sink protection; with it, only this one name is accepted. Keep the name
+ * in sync with index.html, _headers and the playgrounds.
  */
 
 let policy = null;
@@ -16,7 +21,7 @@ function getPolicy() {
   const tt = globalThis.trustedTypes;
   if (!tt || typeof tt.createPolicy !== 'function') return null;
   try {
-    policy = tt.createPolicy('singularity#script-url', {
+    policy = tt.createPolicy('singularity-script-url', {
       createScriptURL: (input) => {
         const url = new URL(String(input), globalThis.location.href);
         if (url.origin !== globalThis.location.origin) {

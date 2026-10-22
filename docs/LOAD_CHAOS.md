@@ -67,7 +67,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **115.3 KiB gzip JS** (456.8 KiB raw over 15 cold-load files plus the stylesheet) + 26.4 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.2 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
+| Initial JS payload | ≤ 170 KB gzip | **116.6 KiB gzip JS** (460.7 KiB raw over 15 cold-load files plus the stylesheet) + 26.4 KiB gzip CSS, measured from the import graph; the other 14 modules are fetched on demand and reported separately (90.2 KiB gzip JS) | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **774 ms**, FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 96 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -93,11 +93,11 @@ module cannot hide by being imported late.
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk, cold load (this report's measurement) | **115.3 KiB gzip JS over 15 files plus `styles/app.css`**, 26.4 KiB gzip CSS, 456.8 KiB raw total |
+| Import-graph walk, cold load (this report's measurement) | **116.6 KiB gzip JS over 15 files plus `styles/app.css`**, 26.4 KiB gzip CSS, 460.7 KiB raw total |
 | Import-graph walk, deferred graph | **90.2 KiB gzip JS over 14 modules** - the C runtime (interpreter, parser, lexer, preprocessor, sandbox and worker), the WebGL2 engine (renderer, glTF, HDR, environment, maths), the E2EE stack and the WebRTC/relay carriers |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts every shipped script live and is visible on the M0 dashboard |
 
-The largest cold-load file is `src/app.js` (67.2 KiB gzip of 212.3 KiB raw);
+The largest cold-load file is `src/app.js` (68.3 KiB gzip of 215.9 KiB raw);
 inside the deferred graph the largest are `src/runtime/interpreter.js`
 (21.6 KiB gzip of 83.5 KiB raw) - which grew during the M2 work that added `<string.h>`,
 `<ctype.h>`, `<math.h>`, the preprocessor, typedefs, two-dimensional arrays,
@@ -454,12 +454,13 @@ the editor:
 | Multi-byte round trip through the CRDT and IndexedDB | insert ✓, survives a reload ✓, 16 codepoints intact |
 | Writing direction | `dir="ltr"` with `unicode-bidi` left at normal; the M7 panel exposes a writing-direction preference for RTL readers |
 
-What this is **not** is a screen-reader session. NVDA and VoiceOver cannot run on
-a headless CI machine, and this report does not claim they were run. The
-accessibility-tree audit covers the same tree those tools consume; the parts
-that genuinely need a person listening to a screen reader — announcement order,
-verbosity, interruption behaviour — remain unverified and are listed at the end
-of this file.
+What this is **not** is a screen-reader session: it audits the accessibility
+tree and runs axe-core, not a listener. A separate real NVDA 2026.2 pass is
+recorded in [reports/nvda-session.md](reports/nvda-session.md) (17/17 steps,
+Windows Edge) and found and fixed the focus and canvas defects described there.
+VoiceOver/TalkBack ? and the announcement order, verbosity and interruption
+behaviour that need a person listening on those platforms ? remain unverified
+and are listed at the end of this file.
 
 ### 6. Dead code and hostile input, by the numbers
 
@@ -482,7 +483,7 @@ delivers with what `_headers` says, plus asserting the three directives a
 
 | Header | Value | Source |
 |--------|-------|--------|
-| `Content-Security-Policy` | strict policy incl. `frame-ancestors 'none'`, `require-trusted-types-for 'script'` | `_headers` |
+| `Content-Security-Policy` | strict policy incl. `frame-ancestors 'none'`, `require-trusted-types-for 'script'` with a one-policy `trusted-types` allowlist | `_headers` |
 | `Cross-Origin-Opener-Policy` | `same-origin` | `_headers` |
 | `Cross-Origin-Embedder-Policy` | `require-corp` | `_headers` |
 | `Cross-Origin-Resource-Policy` | `same-origin` | `_headers` |
@@ -719,8 +720,9 @@ with every interaction landing.
   process this project has and proves its log replays every accepted envelope;
   there is no second node to fail over to, and the app itself still ships
   without an application server.
-- No screen-reader session (NVDA/VoiceOver): the accessibility tree and axe-core
-  were audited, which is what a screen reader consumes, but nobody listened.
+- No VoiceOver/TalkBack session: the NVDA 2026.2 pass is separate
+  ([reports/nvda-session.md](reports/nvda-session.md)); this report's accessibility
+  evidence is the tree and axe-core, and the other platforms remain unverified.
 - No mid-range phone. The one-hour soak and the Lighthouse runs are desktop Edge on
   this machine. The soak's number is the JS heap after a forced GC — not resident set
   size, and not GPU memory — so it is reported against the conditions run, not

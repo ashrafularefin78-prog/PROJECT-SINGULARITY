@@ -14,6 +14,7 @@ const SUITES = [
   './mesh.test.js',
   './topology.test.js',
   './webrtc.test.js',
+  './stream.test.js',
   './renderer.test.js',
   './gltf.test.js',
   './hdr.test.js',

@@ -21,11 +21,11 @@ decorative.
 
 ## 1. Where the project stands
 
-- 8 modules, 3 full and 5 declared partial; self-assessed 708/1000.
+- 8 modules, 3 full and 5 declared partial; self-assessed 697/1000.
 - 254 tests across 16 suites (236 pass + 18 browser-only skips in bare Node).
 - Canonical deployment: <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/>.
 - The remaining module gaps are named: no third-party red-team or ZAP baseline
-  (M8), no screen-reader pass (M7), no TURN relay or HDRI probe (M5/M3).
+  (M8), no VoiceOver/TalkBack pass yet (the NVDA pass is recorded), no TURN relay or HDRI probe (M5/M3).
 
 ## 2. Horizon 1 - temporal core (shipped in this pass)
 
@@ -64,7 +64,7 @@ project currently does not use. Ordered by payoff per unit of risk.
 | E2.1 | **WebGPU compute path** | particles and GGX prefiltering move from draw calls to compute dispatches, with WebGL2 unchanged as the fallback | measured parity on the 1M-particle scene, capability-gated so a missing adapter is a declared skip, not a failure |
 | S2.1 | **Local-first retrieval** | a hand-written inverted index plus trigram fuzzy search over documents and retained ops, ranked on-device | query latency and recall published alongside the index size; no network call in the trace |
 | T2.1 | **Convergence sentinel** | digest comparison across peers turns "it looks the same" into a boolean the dashboard can show | two-tab and two-peer tests, with a deliberate divergence injected and detected |
-| A2.1 | **VoiceOver/NVDA pass** | the honest ceiling on M7 is evidence, not code | recorded pass over editor, tablist, theme controls; scorecard updated |
+| A2.1 | **VoiceOver/TalkBack pass** | NVDA 2026.2 is recorded; the other platforms are the remaining M7 evidence gap | recorded pass over editor, tablist and preferences on Safari/macOS and Android; scorecard updated |
 | X2.1 | **ZAP baseline in CI** | passive scan of the built artifact, findings triaged in `docs/SECURITY_REPORT.md` | report artifact committed, every finding either fixed or accepted with a reason |
 
 Sequencing note: D2.1 before T1.7 (durability makes the snapshot trustworthy),
@@ -100,7 +100,7 @@ These are worth attempting only after Horizon 2, and each may end in a written
 - No "AI feature" that is a prompt wrapper; anything model-shaped must run
   on-device and be measured.
 - No claimed module promotion without the missing evidence: M8 stays partial
-  until a scan and a red-team pass exist, M7 until a screen-reader pass does.
+  until a scan and a red-team pass exist, M7 until VoiceOver/TalkBack join the NVDA pass.
 
 ## 6. Order of work
 
@@ -108,6 +108,6 @@ These are worth attempting only after Horizon 2, and each may end in a written
 |------|------|------------------|
 | 1 (this one) | T1.1-T1.4 temporal core | a second execution path for the CRDT, 9 new tests, new M1 card |
 | 2 | T1.5, T2.1, D2.1 | divergence detection across peers, OPFS durability with a crash test |
-| 3 | A2.1, X2.1 | M7 and M8 evidence gaps closed or honestly re-scored |
+| 3 | A2.1, X2.1 | M7 VoiceOver/TalkBack and M8 evidence gaps closed or honestly re-scored |
 | 4 | E2.1, S2.1 | WebGPU compute path, on-device retrieval |
 | 5 | Horizon 3 candidate | one research bet, chosen by measured payoff rather than novelty |

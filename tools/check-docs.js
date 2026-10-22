@@ -43,6 +43,7 @@ const durability = json('docs/reports/durability.json');
 const relayLoad = json('docs/reports/relay-load.json');
 const relayChaos = json('docs/reports/relay-chaos.json');
 const relayFailover = json('docs/reports/relay-failover.json');
+const nvda = json('docs/reports/nvda-session.json');
 
 const files = {
   report: read('docs/LOAD_CHAOS.md'),
@@ -50,6 +51,8 @@ const files = {
   plan: read('docs/PLAN.md'),
   demo: read('docs/DEMO.md'),
   chart: read('docs/charts/budget.svg'),
+  a11y: read('docs/A11Y_VALIDATION.md'),
+  nvda: read('docs/reports/nvda-session.md'),
 };
 
 const app = payload.files.find((f) => f.file === 'src/app.js');
@@ -91,6 +94,17 @@ claim('docs/reports/a11y.json axe', `0 axe-core violations, ${a11y.axe.passes} p
 claim('docs/reports/a11y.json browser', a11y.browser.replace('Edg/', ''), ['report']);
 claim('tools/payload.js --json src/runtime/interpreter.js', `(${kib(interp.gzipBytes)} KiB gzip of ${kib(interp.rawBytes)} KiB raw)`, ['report']);
 claim('tools/payload.js --json src/runtime/preprocess.js', `(${kib(preprocess.gzipBytes)} KiB gzip)`, ['report']);
+
+// The screen-reader artifact is a measured run, not prose. The step and failure
+// counts must agree with the report, and the M7 score must be the one the app
+// actually publishes - not the structural maximum that drifted into README 708.
+const modulePoints = [...read('src/app.js').matchAll(/id: 'M(\d)'.*?points: (\d+)/g)].map((m) => Number(m[2]));
+const scoreTotal = modulePoints.reduce((a, b) => a + b, 0);
+claim('docs/reports/nvda-session.json summary', `${nvda.summary.steps}/${nvda.summary.steps} steps, ${nvda.summary.failed} failures`, ['a11y']);
+claim('docs/reports/nvda-session.json summary', `${nvda.summary.steps}/${nvda.summary.steps} steps passed`, ['nvda']);
+claim('src/app.js MODULE_STATUS points', `${scoreTotal} / 1000`, ['readme']);
+claim('src/app.js MODULE_STATUS points', `Evidence-backed score: ${modulePoints[6]}/100`, ['a11y']);
+claim('src/app.js MODULE_STATUS points', `score is ${modulePoints[6]}/100`, ['nvda']);
 
 // The relay artifacts. `relay-load` is a fleet-wide reconciliation of (from,
 // seq) keys across four generator processes against one relay process;

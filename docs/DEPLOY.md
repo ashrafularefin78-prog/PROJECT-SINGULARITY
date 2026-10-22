@@ -63,7 +63,7 @@ $ node tools/verify-headers.js
   ok   /sw.js           status 200
   ok   /src/app.js      status 200
   ok   /styles/app.css  status 200
-  ok   content-security-policy: default-src 'self'; script-src 'self'; style-src 'self' 'sha256-1BOQes/p9BgrpUIzRlEMVyF/J8AouR1pXUT/Q5w0sjM='; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'
+  ok   content-security-policy: default-src 'self'; script-src 'self'; style-src 'self' 'sha256-ActgC60ZLhkgZShDeF5iw8kp+TINQ4WoWdpA13Na7+Q='; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types singularity-script-url
   ok   cross-origin-opener-policy: same-origin
   ok   cross-origin-embedder-policy: require-corp
 

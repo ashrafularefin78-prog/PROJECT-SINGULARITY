@@ -3,6 +3,56 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-10-22 - M7 gets a real NVDA pass
+
+### Added
+- **A real screen-reader harness.** `tools/nvda-session.js` starts NVDA with
+  debug logging, drives a windowed Edge session over CDP, and decodes NVDA's
+  own `Speaking [...]` lines into `docs/reports/nvda-session.json`. The run
+  covers all eight panels, the editor, the M3 canvas, Bangla/Arabic editor text
+  and the RTL preference: **17/17 steps, 0 failures**, NVDA 2026.2 / Edge
+  156.0.4314.36. `docs/reports/nvda-session.md` is the annotated transcript.
+- **An internal adversarial harness.** `tools/red-team.js` drives a header-capable
+  server and a real relay node: rogue Trusted Types policies, inline handlers and
+  `javascript:` URLs, editor markup, same-origin framing, a poisoned
+  service-worker cache, the M2 worker under the shipped policy, and the relay's
+  field/validation contract. **22/22 checks pass**; the non-independent results
+  are in `docs/reports/red-team-session.md` and `.json`.
+
+### Fixed
+- **Panel switches moved focus to `<body>`.** `renderPanel` now restores focus
+  for tab activation and same-id controls, and focuses the new panel's
+  `tabindex="-1"` heading for Alt+1..8 jumps. The first run of the harness
+  caught a second bug in that fix: `<main id="main">` matched the generic
+  id-restore branch and kept focus on the landmark; restore is now limited to
+  controls that lived inside the old panel.
+- **The M3 canvas was an unnamed graphic.** It now exposes `role="img"`, a live
+  scene-summary `aria-label`, `aria-describedby="scene-alt"` and
+  `aria-keyshortcuts`; NVDA reads the summary, camera, object counts and keys.
+- **Trusted Types had no policy allowlist.** The app's policy name contained
+  `#`, which a CSP `trusted-types` directive cannot name. Renamed it to
+  `singularity-script-url` and added `trusted-types singularity-script-url` to
+  the meta CSP, `_headers` and both playgrounds, so page script can no longer
+  mint a second, permissive policy.
+- **The M2 built-in C sample did not compile.** Its `\n` escapes were interpreted
+  by the JavaScript template literal, so the textarea received an actual newline
+  inside a C string. Doubled the eight escapes; the sample now prints
+  `fib(20) = 6765` and exits 0 in the worker.
+
+### Changed
+- M7's evidence-backed score moves **55 -> 72** (the structural maximum remains
+  83); the in-app total moves **680 -> 697**. The README's old 708 used the
+  structural maximum as if it were evidence-backed and is corrected to 697,
+  with the remaining VoiceOver/TalkBack and deeper-flow gaps named.
+- Cold load is **116.6 KiB gzip JS / 460.7 KiB raw** after the security and
+  sample fixes; README, LOAD_CHAOS, DEMO, PLAN and the budget chart are updated
+  together, and `tools/check-docs.js` still matches all 46 published numbers.
+- The browser runner now includes `tests/stream.test.js`; the browser suite is
+  **266 pass + 1 Node-only skip**, and the README's stale 221-test table and
+  "18 need a browser" count are corrected to the real 23-suite, 267-test set.
+- The internal adversarial pass does **not** raise M8's 96/100: it is not
+  independent, and the third-party gap remains declared.
+
 ## 2026-10-21 - M0 gains a live system constellation
 
 ### Added

@@ -19,11 +19,11 @@
   <text class="small" x="20" y="44">The right-hand end of each track is the target. Bars are clamped at the target; the ratio beside them is the real one.</text>
   <line class="axis" x1="20" y1="56" x2="768" y2="56" />
 
-  <!-- Initial JS payload: 115.3 KiB gzip cold load vs 170 KB (met, ~68%); the 90.2 KiB gzip deferred graph is measured separately -->
+  <!-- Initial JS payload: 116.6 KiB gzip cold load vs 170 KB (met, ~68.5%); the 90.2 KiB gzip deferred graph is measured separately -->
   <text class="label" x="20" y="82">Initial JS payload (gzip)</text>
-  <text class="value" x="768" y="82" text-anchor="end">115.3 KiB of 170 KB - met</text>
+  <text class="value" x="768" y="82" text-anchor="end">116.6 KiB of 170 KB - met</text>
   <rect class="track" x="20" y="88" width="748" height="9" />
-  <rect class="met" x="20" y="88" width="506" height="9" />
+  <rect class="met" x="20" y="88" width="513" height="9" />
 
   <!-- Throttled LCP: 774 ms vs 1500 ms (met, 0.52x) -->
   <text class="label" x="20" y="114">Largest Contentful Paint, Slow 4G + 4x CPU</text>

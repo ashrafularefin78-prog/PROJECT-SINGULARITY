@@ -24,7 +24,7 @@ Trust boundaries:
 | **Repudiation** | Storage says "saved" but the log is not self-contained | On load, ops that cannot be applied are detected, the log is rebuilt from recovered text, and the UI reports the recovery | `loadDocument()` damaged-log path + the M6 recovery notice |
 | **Information disclosure** | Relay or server reads user content | Only ciphertext and routing metadata ever leave the device | `CiphertextRelay.inspect()` lists the exact fields the relay can read; a test asserts plaintext never appears |
 | **Information disclosure** | Nonce reuse leaks plaintext across messages | The AEAD nonce is *derived* from the unique message key, never chosen independently | 60 identical plaintexts → 60 distinct ciphertexts, all decryptable |
-| **Information disclosure** | XSS exfiltrates keys from the page | No markup sinks exist; Trusted Types enforced; script-src without `unsafe-inline`/`unsafe-eval` | CSP meta/headers in the running app; an in-app probe attempts `innerHTML` and `eval()` and shows them refused |
+| **Information disclosure** | XSS exfiltrates keys from the page | No markup sinks exist; Trusted Types enforced with a one-policy allowlist; script-src without `unsafe-inline`/`unsafe-eval` | CSP meta/headers in the running app; an in-app probe attempts `innerHTML` and `eval()` and shows them refused; `tools/red-team.js` cannot create a second policy |
 | **Information disclosure** | Local data readable after the device is lost | **Not addressed.** IndexedDB is plaintext at rest. Declared below. | — |
 | **Denial of service** | Infinite loop in user C freezes the tab | Step budget (deterministic), heap cap, recursion cap, wall-clock kill switch, and execution only in a worker that can be terminated | Loop test stops at exactly 5,000,000 steps; recursion test hits the depth cap; heap test refuses the allocation |
 | **Denial of service** | Oversized allocation exhausts memory | Array allocations are charged against a byte cap before allocation | Heap-budget test |
@@ -40,11 +40,15 @@ Trust boundaries:
    in plaintext. Anyone with the unlocked device and profile access can read
    them. Fixing it properly means a passphrase/KDF and a locked-state UX, which
    was out of scope for this pass.
-2. **No screen-reader validation.** Accessibility is structurally designed and
-   testable by keyboard, but has not been driven by NVDA/VoiceOver/TalkBack.
-3. **No red-team session.** The claims above are backed by unit tests written by
-   the same author as the code, which is weaker evidence than an independent
-   adversary.
+2. **Partial screen-reader validation.** A real NVDA 2026.2 pass covers all
+   eight panels, the editor, the M3 canvas and Bangla/Arabic/RTL on Windows
+   Edge. VoiceOver/TalkBack/JAWS and the deeper M2/M4/M5/M6 flows are not yet
+   validated; the evidence is in `docs/reports/nvda-session.md`.
+3. **No third-party red-team session.** One internal, model-assisted adversarial
+   pass (22/22 checks) is recorded in `docs/reports/red-team-session.md`. It
+   found and fixed a missing Trusted Types policy allowlist and a broken M2
+   sample, but it shares an author with the code, which is weaker evidence than
+   an independent adversary.
 4. **Crypto is unaudited.** The composition follows X3DH/Double Ratchet
    published designs and uses only WebCrypto primitives, but no external
    cryptographer has reviewed it. Do not use it to protect anything real.

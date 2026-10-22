@@ -11,6 +11,8 @@
     "test:browser": "node tools/browser-run.js",
     "serve": "node tools/serve.js",
     "verify:headers": "node tools/verify-headers.js",
+    "test:nvda": "node tools/nvda-session.js",
+    "test:red-team": "node tools/red-team.js",
     "measure:payload": "node tools/payload.js",
     "measure:lcp": "node tools/perf.js lcp",
     "measure:soak": "node tools/perf.js soak",
