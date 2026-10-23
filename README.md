@@ -101,6 +101,16 @@ ships with. `_headers` carries the same policy for hosts that read it, and the
 CSP also travels inside `index.html` as a meta tag for hosts that cannot send
 headers at all.
 
+## Reviewer quick-start
+
+One command that builds the site, runs the Node test suite and the docs check:
+
+```bash
+python3 tools/build-site.py && node tests/run.js && node tools/check-docs.js && node tools/verify-headers.js
+```
+
+(Install the pre-commit hook once with `git config core.hooksPath .githooks`.)
+
 ## Verify it
 
 The test suite runs **in the browser** against the same modules the app uses - no

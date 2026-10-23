@@ -42,3 +42,12 @@ singularity-cdp-*/
 # captures. Regenerable scratch, never project content.
 *.log
 *.err
+
+# Extra tool folders, browser profiles and local logs that should never be published.
+.cache/
+.vscode/
+.idea/
+*.profile
+*.trace
+chrome-profile/
+playwright-profile/

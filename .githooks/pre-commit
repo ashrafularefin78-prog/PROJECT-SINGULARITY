@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# Re-run the documentation-number consistency check before every commit.
+# `tools/check-docs.js` regressed three times (stale payload/relay figures
+# in README and reports). Blocking locally is cheaper than fixing in review.
+node tools/check-docs.js || exit 1
