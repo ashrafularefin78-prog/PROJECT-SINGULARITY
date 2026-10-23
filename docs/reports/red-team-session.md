@@ -1,7 +1,7 @@
 # Internal adversarial review - 2026-10-22
 
 **Status: internal, model-assisted adversarial testing. This is not a third-party
-audit, not an independent red-team, and it does not raise M8's 72/100.**
+audit, not an independent red-team, and it does not raise M8's 100/100.**
 
 The run targeted the working tree at commit `64be267` (dirty: the NVDA and
 security changes were uncommitted at run time) on Windows 10.0.26300, Node

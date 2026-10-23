@@ -41,7 +41,7 @@ JSONs by `tools/check-docs.js`:
 
 | Plan row | Executed as | Evidence |
 |----------|-------------|----------|
-| Initial JS payload | **116.6 KiB** gzip JS cold load + 26.4 KiB gzip CSS against the 170 KB ceiling - met; M2/M3/M4 and the WebRTC half of M5 load on first open, and the 90.2 KiB gzip deferred graph is measured and reported separately | `tools/payload.js`, LOAD_CHAOS.md section 1 |
+| Initial JS payload | **118.3 KiB** gzip JS cold load + 26.4 KiB gzip CSS against the 170 KB ceiling - met; M2/M3/M4 and the WebRTC half of M5 load on first open, and the 90.2 KiB gzip deferred graph is measured and reported separately | `tools/payload.js`, LOAD_CHAOS.md section 1 |
 | Concurrent users | **1,000 simulated clients** through the ciphertext relay: 50,000 envelopes, all delivered, 0 lost, p95 12.2 ms | `docs/reports/relay-load.json` |
 | Chaos survival | `SIGKILL` with 20,000 envelopes pending: all replayed from the log after a **256 ms outage** | `docs/reports/relay-chaos.json` |
 | Failover | primary killed for good, backlog re-posted from client outboxes to a standby: 0 lost, 0 duplicated, kill to first accepted post **1322 ms** | `docs/reports/relay-failover.json` |

@@ -100,7 +100,7 @@ claim('tools/payload.js --json src/runtime/preprocess.js', `(${kib(preprocess.gz
 // The screen-reader artifact is a measured run, not prose. The step and failure
 // counts must agree with the report, and the M7 score must be the one the app
 // actually publishes - not the structural maximum that drifted into README 708.
-const modulePoints = [...read('src/app.js').matchAll(/id: 'M(\d)'.*?points: (\d+)/g)].map((m) => Number(m[2]));
+const modulePoints = [...read('src/app.js').matchAll(/id: 'M(\d+)'.*?points: (\d+)/g)].map((m) => Number(m[2]));
 const scoreTotal = modulePoints.reduce((a, b) => a + b, 0);
 claim('docs/reports/nvda-session.json summary', `${nvda.summary.steps}/${nvda.summary.steps} steps, ${nvda.summary.failed} failures`, ['a11y']);
 claim('docs/reports/nvda-session.json summary', `${nvda.summary.steps}/${nvda.summary.steps} steps passed`, ['nvda']);

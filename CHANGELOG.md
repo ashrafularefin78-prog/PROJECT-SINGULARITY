@@ -47,7 +47,7 @@ Each entry is derived from the commit history; the newest comes first.
   **680 -> 673**; the reviewer's independent tally marks M7 and M8 at the same
   72. The README's old 708 used the structural maximum as if it were
   evidence-backed and is corrected to 673, with the remaining gaps named.
-- Cold load is **116.6 KiB gzip JS / 460.7 KiB raw** after the security and
+- Cold load is **116.5 KiB gzip JS / 460.7 KiB raw** after the security and
   sample fixes; README, LOAD_CHAOS, DEMO, PLAN and the budget chart are updated
   together, and `tools/check-docs.js` still matches all 52 published numbers.
 - The browser runner now includes `tests/stream.test.js`; the browser suite is
