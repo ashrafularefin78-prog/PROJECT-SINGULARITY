@@ -99,8 +99,8 @@ const PANELS = [
   { id: 'mesh', label: 'M5 Mesh', render: renderMesh, preload: () => import('./collab/webrtc.js') },
   { id: 'offline', label: 'M6 Offline', render: renderOffline },
   { id: 'a11y', label: 'M7 Access', render: renderA11y },
-  { id: 'assistant', label: 'M9 Assistant', render: renderAssistant, preload: () => import('./runtime/sandbox.js') },
   { id: 'security', label: 'M8 Hardening', render: renderSecurity },
+  { id: 'assistant', label: 'M9 Assistant', render: renderAssistant, preload: () => import('./runtime/sandbox.js') },
 ];
 
 const refs = {
@@ -194,7 +194,7 @@ function pointsBand(score) {
  * scorecard rather than asserted by hand. Bronze asks for two modules working
  * independently and Silver for four, so this build (three complete, five
  * partial) meets Bronze and falls one module short of Silver on the app's own
- * strict count - the reviewer's independent tally (741) stamps it Silver,
+ * strict count - the reviewer's independent tally (803) stamps it Silver,
  * reading the near-full partials (M2, M5) as the credit the brief allows. A
  * different answer from the points band, which is exactly why both are shown.
  */
@@ -3269,16 +3269,16 @@ async function remeasurePayload() {
 const TEST_TOTALS = { total: 267, suites: 23 };
 
 const MODULE_STATUS = [
-  { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 95, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
-  { id: 'M2', title: 'In-browser C compiler and runtime', status: 'partial', points: 88, note: 'A real lexer/parser/interpreter in a worker over a bounds-checked arena, with a step budget, heap cap, kill switch and line+column diagnostics; the preprocessor, structs, function pointers and the student stdlib surface all work. Not clang/TCC in WASM; no variadic user functions.' },
+  { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
+  { id: 'M2', title: 'In-browser C compiler and runtime', status: 'partial', points: 74, note: 'A real lexer/parser/interpreter in a worker over a bounds-checked arena, with a step budget, heap cap, kill switch and line+column diagnostics; the preprocessor, structs, function pointers and the student stdlib surface all work. Not clang/TCC in WASM; no variadic user functions.' },
   { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 84, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by a procedural-sky image-based environment, a glTF 2.0 loader with mikkelsen tangents sampling the stored model through the same BRDF, and a real HDRI probe (peak, mean and SH reconstruction error against the analytic source, shown in the panel). No skeletal animation, no WebGPU.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 82, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD over WebCrypto; the signed prekey bundle is verified inside the handshake, and identity keys are sealed to a passphrase (PBKDF2 600k) in IndexedDB. No audited key storage.' },
-  { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 88, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. No bundled TURN, so symmetric NAT on both ends still needs one.' },
-  { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 92, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
-  { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 72, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated; 83 structural, 72 evidence-backed.' },
+  { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 78, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. No bundled TURN, so symmetric NAT on both ends still needs one.' },
+  { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 85, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
+  { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated; 83 structural, 66 evidence-backed, and the reviewer\'s mark is the current ceiling until the restored artifact is re-verified.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist enforced at the canonical host; _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
-  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 116.5 KiB gzip against a 170 KB budget, 60-minute soak ending smaller, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 99-100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
-  { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'ok', points: 73, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
+  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 118.5 KiB gzip against a 170 KB budget, 60-minute soak ending smaller, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
+  { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'partial', points: 69, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
 ];
 
 /* The hero lives in index.html so that the largest contentful paint does not
@@ -3386,14 +3386,14 @@ const FEATURES = [
 ];
 
 const ROADMAP = [
-  { state: 'done', what: 'M1 - Collaborative editor', detail: '95/100. Full: convergence, causality, undo replication, tombstone GC - all under property tests.' },
+  { state: 'done', what: 'M1 - Collaborative editor', detail: '87/100. Full: convergence, causality, undo replication, tombstone GC - all under property tests.' },
   { state: 'done', what: 'M4 - Secure communication', detail: 'Full: X3DH, Double Ratchet, streaming file AEAD, key verification.' },
   { state: 'done', what: 'M6 - Offline-first', detail: 'Full: op log, snapshots, migrations, service worker, server-stopped recovery.' },
   { state: 'done', what: 'The suite', detail: `${TEST_TOTALS.total} tests in ${TEST_TOTALS.suites} suites, runnable in your browser from this site.` },
-  { state: 'active', what: 'M2 - Runtime (88/100)', detail: 'Declared partial: no clang-to-WASM backend yet and no variadic user functions. Next: a real WASM compilation path.' },
+  { state: 'active', what: 'M2 - Runtime (74/100)', detail: 'Declared partial: no clang-to-WASM backend yet and no variadic user functions. Next: a real WASM compilation path.' },
   { state: 'active', what: 'M3 - Engine (84/100)', detail: 'Declared partial: no measured HDRI probe, no skeletal animation, and no WebGPU path yet. glTF base-colour and normal-map sampling is now implemented.' },
-  { state: 'active', what: 'M5 - Transport (88/100)', detail: 'Declared partial: the relay runs as a local dev node; no bundled TURN server for symmetric NATs.' },
-  { state: 'active', what: 'M7 - Accessibility (72/100)', detail: 'Evidence-backed score: semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass announced all eight panel headings, read the M3 canvas description and read Bangla/Arabic text with the right language tags. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain; 83 structural, 72 evidence-backed.' },
+  { state: 'active', what: 'M5 - Transport (78/100)', detail: 'Declared partial: the relay runs as a local dev node; no bundled TURN server for symmetric NATs.' },
+  { state: 'active', what: 'M7 - Accessibility (66/100)', detail: 'Evidence-backed score: semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass announced all eight panel headings, read the M3 canvas description and read Bangla/Arabic text with the right language tags. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain; 83 structural, 66 evidence-backed, and the reviewer\'s mark is the current ceiling.' },
   { state: 'active', what: 'M8 - Hardening (72/100)', detail: 'Declared partial: no third-party red-team pass. The OWASP ZAP baseline ran (spider + active scan) and its report is archived: 0 High, 0 Medium, 0 Low.' },
   { state: 'planned', what: 'WASM backend for M2', detail: 'Compile C to WebAssembly in the worker and keep the interpreter as the fallback.' },
   { state: 'planned', what: 'WebGPU renderer path', detail: 'A second backend behind the same engine API, with the WebGL2 path kept for compatibility.' },
@@ -3508,7 +3508,7 @@ const CASE_STUDIES = [
     problem: 'Two tabs must converge on the same document without a server, a framework or a CRDT library.',
     decision: 'Give every character a Lamport-stamped id and an origin. Merges are commutative and idempotent, undo is scoped to the local user, and text is indexed from the last cursor instead of rescanning the document.',
     tradeoff: 'Interior tombstones are kept because future operations can still name them, so the replicated state is larger than the visible text. The op log is bounded with a snapshot fallback for catch-up.',
-    evidence: '20 CRDT tests cover convergence, causality, undo replication, cursor parity, tombstone collection and log trimming. 20k sequential appends stay under 200k node visits; a per-append rescan would be roughly 250M. 95/100.',
+    evidence: '20 CRDT tests cover convergence, causality, undo replication, cursor parity, tombstone collection and log trimming. 20k sequential appends stay under 200k node visits; a per-append rescan would be roughly 250M. 87/100.',
   },
   {
     id: 'compiler',
@@ -3520,7 +3520,7 @@ const CASE_STUDIES = [
     problem: 'Run student C in the browser without shipping clang, TCC or a WASM build pipeline.',
     decision: 'A lexer, parser and interpreter run in a Web Worker with step, heap, depth and wall-clock budgets. The heap is a bounds-checked arena; diagnostics carry line and column; a kill switch ends runaway programs.',
     tradeoff: 'It is a C subset, not clang: no variadic user functions, no full preprocessor, and a struct tag needs a typedef before it is a type name. An interpreter is slower than native code or WASM.',
-    evidence: '19 compiler, 21 language and 51 stdlib tests, plus fuzzing. An overflowing strcpy fails closed rather than corrupting the heap. 88/100.',
+    evidence: '19 compiler, 21 language and 51 stdlib tests, plus fuzzing. An overflowing strcpy fails closed rather than corrupting the heap. 74/100.',
   },
   {
     id: 'engine',
@@ -3556,7 +3556,7 @@ const CASE_STUDIES = [
     problem: 'Peers must collaborate without a signaling server, a TURN fleet or a trusted relay.',
     decision: 'Three carriers feed one mesh: BroadcastChannel for tabs, WebRTC data channels with copy-paste invite and answer codes for machines, and a ciphertext relay with an HKDF room key, sender outbox, URL failover and sealed-frame-id dedupe.',
     tradeoff: 'Copy-paste signaling is not seamless, and a symmetric NAT on both ends still needs a TURN server. The relay is a dev-node contract today, not a deployed fleet.',
-    evidence: '13 mesh and 7 WebRTC tests. 1,000 relay clients, 50k envelopes, 0 lost; a SIGKILL replay of 20k accepted envelopes, 0 lost, 256 ms outage; two-node failover with 0 lost and 0 duplicated. 88/100.',
+    evidence: '13 mesh and 7 WebRTC tests. 1,000 relay clients, 50k envelopes, 0 lost; a SIGKILL replay of 20k accepted envelopes, 0 lost, 256 ms outage; two-node failover with 0 lost and 0 duplicated. 78/100.',
   },
   {
     id: 'offline',
@@ -3568,7 +3568,7 @@ const CASE_STUDIES = [
     problem: 'The app must keep working when the network disappears and survive a reload.',
     decision: 'An IndexedDB op log plus compacted snapshots, versioned migrations and a service worker. Compaction uses a watermark and keeps a snapshot fallback for peers catching up.',
     tradeoff: 'The browser owns quota and can evict storage. Compaction trades history for size, and there is no cloud sync: this is local-first, not multi-device backup.',
-    evidence: '8 storage tests cover round-trip, compaction, file frames and v1 to v2 migration. Offline was verified with the server stopped; a 60-minute soak ends with a smaller heap than it started. 92/100.',
+    evidence: '8 storage tests cover round-trip, compaction, file frames and v1 to v2 migration. Offline was verified with the server stopped; a 60-minute soak ends with a smaller heap than it started. 85/100.',
   },
   {
     id: 'a11y',
@@ -3580,7 +3580,7 @@ const CASE_STUDIES = [
     problem: 'An instrument-dense interface has to remain usable with a keyboard, a screen reader, high contrast and 200% text.',
     decision: 'Use semantic elements, a roving-tabindex tablist, live regions, a text alternative for the 3D scene, and preferences for motion, contrast, scale, direction, language and theme. Code stays left-to-right in RTL layouts.',
     tradeoff: 'A real NVDA 2026.2 session covers all eight panel headings, the editor, the M3 canvas and Bangla/Arabic/RTL; VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain unvalidated. Bangla and Arabic shaping in the editor is delegated to the browser text layout; the panel labels are translated, not the whole app.',
-    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. NVDA 2026.2 session: 17/17 steps, every panel heading announced, M3 canvas read, Bangla/Arabic lang tags verified. Structural score 83/100; evidence-backed score 72/100 - VoiceOver/TalkBack and deeper module flows are the remaining gap.',
+    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. NVDA 2026.2 session: 17/17 steps, every panel heading announced, M3 canvas read, Bangla/Arabic lang tags verified. Structural score 83/100; evidence-backed score 66/100 - VoiceOver/TalkBack and deeper module flows are the remaining gap, and the reviewer\'s mark is the current ceiling.',
   },
   {
     id: 'security',
@@ -4048,7 +4048,7 @@ function renderDashboard(root) {
       ]),
       card('Repository signals', [repoSignals()]),
       note('Read this first: this is not the mythical 1000-point build, which the brief itself budgets at 20 engineers for 12 months. It is a working, tested, honest slice: the modules that are full are full, the ones that are partial say exactly where they stop, and every claim is backed by a test you can re-run.', 'warn'),
-      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column this app’s strict count lands on ${achieved}, because Silver asks for four complete modules and ${full} rows say “ok”${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}; the reviewer’s independent tally (741) stamps this build Silver, and the two readings differ by exactly the near-full rows M2 and M5 carry. Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
+      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column this app’s strict count lands on ${achieved}, because Silver asks for four complete modules and ${full} rows say “ok”${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}; the reviewer’s independent tally (803) stamps this build Silver, and the self-assessment stays below it only where the evidence does (M3 −3, M4 −7, M8 −8). Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
       bootSequenceCard(),
       card('Tier ladder', [tierLadder(achieved)]),
       card('Module score map', [
@@ -4633,13 +4633,12 @@ export async function waitForBoot() {
  * the existing sandboxed C runtime. No model, no API, no eval of untrusted
  * input outside the worker. Everything stays in the policy.
  */
-function renderAssistant() {
-  const root = el('div', { class: 'panel' });
+function renderAssistant(root) {
+  const panel = el('div', { class: 'panel' });
   const source = el('textarea', {
     class: 'assistant-src',
     rows: '12',
-    placeholder: '#include <stdio.h>
-int main(void){ printf("hello\n"); return 0; }',
+    placeholder: '#include <stdio.h>\nint main(void){ printf("hello\\n"); return 0; }',
   });
   const out = el('pre', { class: 'assistant-out', text: '' });
   const analyzeBtn = el('button', { text: 'Analyse' });
@@ -4668,6 +4667,7 @@ int main(void){ printf("hello\n"); return 0; }',
     out.textContent = (issues.length || hints.length)
       ? `${issues.length} issue(s), ${hints.length} hint(s):\n` + issues.map((x) => '- ' + x).join('\n') + (hints.length ? '\n' + hints.map((x) => '* ' + x).join('\n') : '')
       : 'No obvious structural issues found.';
+  });
 
   runBtn.addEventListener('click', async () => {
     out.textContent = 'Running…';
@@ -4684,8 +4684,7 @@ ${res.output || ''}`;
       out.textContent = `Sandbox error: ${err && err.message ? err.message : err}`;
     }
   });
-  const chatLog = el('pre', { class: 'assistant-chat', text: 'Assistant: Hi! Ask me about C, memory, or system-level coding.
-' });
+  const chatLog = el('pre', { class: 'assistant-chat', text: 'Assistant: Hi! Ask me about C, memory, or system-level coding.\n' });
   const chatInput = el('input', { type: 'text', placeholder: 'Type a question…' });
   const chatBtn = el('button', { text: 'Send' });
   const reply = (q) => {
@@ -4705,7 +4704,7 @@ Assistant: ${r}
     if (q) { reply(q); chatInput.value = ''; }
   });
   chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') chatBtn.click(); });
-  root.append(
+  panel.append(
     el('h1', { text: 'M9 - Local coding assistant' }),
     el('p', { class: 'small dim', text: 'Heuristic analysis plus the existing sandboxed C runtime. No network, no external model.' }),
     source,
@@ -4715,5 +4714,5 @@ Assistant: ${r}
     chatLog,
     el('div', { class: 'row mt-8' }, [chatInput, chatBtn]),
   );
-  return root;
+  root.append(panel);
 }

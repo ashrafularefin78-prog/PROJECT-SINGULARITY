@@ -18,7 +18,7 @@
  * value, asserts that the check fails, and restores it.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -105,11 +105,70 @@ const modulePoints = [...read('src/app.js').matchAll(/id: 'M(\d+)'.*?points: (\d
 const eightModulePoints = modulePoints.slice(0, 8);
 const eightModuleTotal = eightModulePoints.reduce((a, b) => a + b, 0);
 const scoreTotal = modulePoints.reduce((a, b) => a + b, 0);
-const nvdaRecordedHash = (read('docs/reports/nvda-session.md').match(/SHA-256: `([0-9a-f]{64})`/) || [])[1];
-const nvdaActualHash = createHash('sha256').update(readFileSync(join(root, 'docs/reports/nvda-session.json'))).digest('hex');
+
+/**
+ * The score sentence is an arithmetic claim, not just a pair of numbers. Parse
+ * the eight terms the README publishes, add them, and require the result to be
+ * both the total it states and the total the in-app scorecard carries. Eight
+ * modules are worth at most 800 points, so a total above that is a failure even
+ * if the sum is internally consistent.
+ */
+function parseSelfScore(text) {
+  const match = text.match(/\*\*Self-assessed:\s*(\d+)\s*\/\s*(\d+)\s+points\*\*[\s\S]*?\(([^)]*?)=\s*(\d+)\)/);
+  if (!match) {
+    return { ok: false, why: 'README publishes a self-assessment total and an eight-module arithmetic expression' };
+  }
+  const stated = Number(match[1]);
+  const max = Number(match[2]);
+  const expression = match[3];
+  const expressionTotal = Number(match[4]);
+  const terms = (expression.match(/\d+/g) || []).map(Number);
+  const termTotal = terms.reduce((a, b) => a + b, 0);
+  return {
+    ok:
+      max === 800 &&
+      terms.length === 8 &&
+      termTotal === expressionTotal &&
+      stated === expressionTotal &&
+      stated === eightModuleTotal &&
+      stated <= 800,
+    why: `README's eight-module terms (${terms.join(' + ') || 'none'}) sum to ${termTotal}, the sentence states ${expressionTotal} and the scorecard carries ${eightModuleTotal}; the total must match both and stay within 800`,
+  };
+}
+const selfScore = parseSelfScore(files.readme);
+
+// Report Markdown files that record a SHA-256 are evidence transcripts. Prove
+// the linked artifact still hashes to the recorded value. A number-sync that
+// rewrites docs/reports/*.json without a new measured run fails here; these JSON
+// files are evidence, not another copy of the prose to be kept in step.
+const reportHashes = [];
+for (const name of readdirSync(join(root, 'docs/reports')).filter((file) => file.endsWith('.md'))) {
+  const text = read(`docs/reports/${name}`);
+  const recorded = text.match(/SHA-256:\s*`([0-9a-f]{64})`/);
+  if (!recorded) continue;
+  const link = text.match(/Artifact:\s*\[`?([^`\]]+)`?\]\(([^)]+)\)/);
+  const rel = link ? join('docs/reports', link[2].replace(/^\.\//, '')) : null;
+  let actual = null;
+  if (rel) {
+    try {
+      actual = createHash('sha256').update(readFileSync(join(root, rel))).digest('hex');
+    } catch {
+      actual = null;
+    }
+  }
+  reportHashes.push({
+    from: `docs/reports/${name} recorded SHA-256`,
+    ok: Boolean(rel) && actual === recorded[1],
+    why: rel
+      ? `the recorded SHA-256 matches ${rel.replace(/\\/g, '/')}`
+      : `docs/reports/${name} records a SHA-256 but has no Artifact: link`,
+  });
+}
+
 claim('docs/reports/nvda-session.json summary', `${nvda.summary.steps}/${nvda.summary.steps} steps, ${nvda.summary.failed} failures`, ['a11y']);
 claim('docs/reports/nvda-session.json summary', `${nvda.summary.steps}/${nvda.summary.steps} steps passed`, ['nvda']);
 claim('src/app.js MODULE_STATUS points', `${eightModuleTotal} / 800`, ['readme']);
+claim('src/app.js MODULE_STATUS points', `${scoreTotal} / 1000`, ['readme']);
 claim('src/app.js MODULE_STATUS points', `Evidence-backed score: ${modulePoints[6]}/100`, ['a11y']);
 claim('src/app.js MODULE_STATUS points', `score is ${modulePoints[6]}/100`, ['nvda']);
 // M8's score is quoted in the red-team report too, and every scored roadmap
@@ -185,6 +244,23 @@ try {
   testCounts.text = `${error.stdout || ''}${error.stderr || ''}`.trim();
 }
 
+// A scorecard is only a claim until the module carrying it parses. The M9
+// assistant once shipped with raw newlines inside quoted strings and an
+// unclosed handler: every number below matched while the app refused to boot,
+// so the published score could not be seen at all. Parse the file that owns the
+// numbers, not just its text.
+let appParses = { ok: true, text: '' };
+try {
+  execFileSync(process.execPath, ['--check', join(root, 'src/app.js')], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+} catch (error) {
+  appParses.ok = false;
+  appParses.text = `${error.stderr || ''}`.trim();
+}
+
 // The deployed-scan verdict is what the security workflow reads, so its own
 // self-test runs here: the exit codes are the gate, and a parser that silently
 // found nothing would turn every scan into a pass. It stays out of the browser
@@ -205,6 +281,11 @@ try {
 // the last snapshot must not be bigger than the first. A checker that only
 // matches strings would pass on a report that says the opposite.
 const shapes = [
+  {
+    from: 'node --check src/app.js',
+    ok: appParses.ok,
+    why: 'src/app.js parses, so the scorecard it publishes can render',
+  },
   {
     from: 'tools/zap-verdict.js --self-test',
     ok: zapVerdict.ok,
@@ -276,21 +357,40 @@ const shapes = [
       ) && (relayLoad.thresholds == null || relayLoad.thresholds.every((t) => t.ok)),
     why: 'every relay report written under the threshold gate carries its verdicts, and all of them passed (the load artifact predates the gate)',
   },
+  ...reportHashes,
+  {
+    from: 'README.md self-assessment arithmetic',
+    ok: selfScore.ok,
+    why: selfScore.why,
+  },
   {
     from: 'src/app.js MODULE_STATUS points (eight modules)',
     ok: eightModulePoints.length === 8 && eightModuleTotal <= 800,
     why: 'the eight module points total no more than 800',
-  },
-  {
-    from: 'docs/reports/nvda-session.md recorded SHA-256',
-    ok: nvdaRecordedHash === nvdaActualHash,
-    why: 'the recorded SHA-256 matches docs/reports/nvda-session.json',
   },
 ];
 if (selfTest) claims.push({ from: 'self-test', value: `${kib(payload.jsGzip + 4096)} KiB gzip JS`, where: ['report'] });
 
 // ------------------------------------------------------------------- report
 let failures = 0;
+
+// The ordinary self-test injects a bad payload figure. Prove the arithmetic
+// parser is not vacuous too: corrupt the published total in memory and require
+// the same parse to reject it.
+if (selfTest) {
+  const corrupted = files.readme.replace(
+    /(\*\*Self-assessed:[\s\S]*?=\s*)\d+(\))/,
+    (_, before, after) => `${before}9999${after}`,
+  );
+  const probe = parseSelfScore(corrupted);
+  if (probe.ok) {
+    failures += 1;
+    console.log('  FAIL self-test: a wrong eight-module total was not detected');
+  } else {
+    console.log('  ok   self-test: a wrong eight-module total was caught');
+  }
+}
+
 for (const { from, value, where } of claims) {
   const alternatives = Array.isArray(value) ? value : [value];
   const hit = alternatives.find((alt) => where.every((name) => files[name].includes(alt)));
@@ -310,6 +410,9 @@ for (const { from, ok, why } of shapes) {
     console.log(`  FAIL ${why} (${from})`);
     if (from === 'tools/test-count.js --check' && testCounts.text) {
       console.log(testCounts.text.split(/\r?\n/).map((line) => `       ${line}`).join('\n'));
+    }
+    if (from === 'node --check src/app.js' && appParses.text) {
+      console.log(appParses.text.split(/\r?\n/).map((line) => `       ${line}`).join('\n'));
     }
   }
 }

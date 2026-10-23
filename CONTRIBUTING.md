@@ -47,9 +47,15 @@ Run all of these before opening a pull request; CI runs the same set:
 |------|---------|----------------|
 | Fast suite | `node tests/run.js` | No regressions in the 242 tests that do not need a browser (the 25 browser-only ones skip with a reason). |
 | Full suite | `node tools/browser-run.js` | All 267 tests green in a real browser, including WebGL2, IndexedDB and the peer connection. Point it at a deployment with `--url=` to test that deployment. |
-| Docs gate | `node tools/check-docs.js` | Every number the README and reports publish is still the number the artifacts produce. If your change moves a measurement, re-run the measuring tool and update the doc from its output - never hand-edit a published number. |
+| Docs gate | `node tools/check-docs.js` | Every number the README and reports publish is still the number the artifacts produce, the eight module points still add up to the stated total, and every recorded report hash still matches. If your change moves a measurement, re-run the measuring tool and update the doc from its output - never hand-edit a published number. |
 | Critical CSS | `python3 tools/critical-css.py` | Required after any edit to `styles/app.css`; it regenerates the inlined first-viewport block and its CSP hash. `--check` verifies the sync. |
 | Accessibility | `node tools/a11y.js` | axe-core must still report 0 violations across all nine modules. |
+
+`docs/reports/*.json` are evidence artifacts, not documents to keep in step. Never
+rewrite one as part of a number sync and never hand-edit captured speech or a
+measurement: regenerate it with the tool that produced it (and then update the
+report and its recorded SHA-256 together). `tools/check-docs.js` re-hashes every
+artifact a report records, so an edited evidence file fails the gate.
 
 ## How to work
 

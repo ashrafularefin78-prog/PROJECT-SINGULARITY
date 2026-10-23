@@ -5,7 +5,9 @@ with debug logging, a windowed Edge session was driven over the DevTools
 Protocol, and the transcript below is decoded from NVDA's own
 `Speaking [...]` log lines.
 
-Artifact: [`nvda-session.json`](nvda-session.json) (17 steps, 0 failures).
+Artifact: [`nvda-session.json`](nvda-session.json) (17 steps, 0 failures). This
+JSON is evidence, not a synced document: `tools/check-docs.js` verifies the
+recorded hash and fails the build if the file changes.
 SHA-256: `a01f247022b4210c4ffb870d132121d853e40fc8ffe9f86110bfac0bebaf73e0`.
 
 | | |
@@ -97,7 +99,7 @@ panel documents.
 ## Limits, stated plainly
 
 - **Windows NVDA only.** VoiceOver (Safari/macOS), TalkBack (Android) and JAWS
-  were not run. The score is 72/100, not the 83 structural maximum.
+  were not run. The score is 66/100, not the 83 structural maximum.
 - **M2, M4, M5 and M6 were reached and announced, not exhaustively driven.**
   Their forms, dialogs and error paths still need a screen-reader pass.
 - **The M7 audit button and the live audit table were not driven.** The audit

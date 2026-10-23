@@ -47,16 +47,17 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 4. Press the backslash key: the **module dial** opens with all eight modules on a
    ring, each labelled with the score it is actually carrying. Arrow keys turn
    it, digits jump straight to a module, Enter opens it, Escape closes.
-5. Point at the score ring: **1000 / 1000**, points band **Gold** (the bundled
-   recording was captured when the ring read 668; the ring animates to the
-   current total).
+5. Point at the score ring: **785 / 1000**, points band **Platinum** by raw
+   points (the bundled recording was captured when the ring read 668; the ring
+   animates to the current total). Say that the requirement column is the one
+   that grades, and it still reads **Silver**.
 6. Point at the tier ladder: the reviewer's tally tiers at **Silver** (four
-   modules full or near-full), while the points arithmetic (762) now sits past
-   the old Gold ceiling. Say out loud that the leading column is the brief's
-   points band and the ladder grades the *requirements*, which is why the two
-   readings disagree.
-7. Point at the budget table: payload **met** (118.4 KiB gzip of cold-load
-   JavaScript plus 26.4 KiB of CSS, against a 170 KB ceiling; the 90.2 KiB gzip
+   modules full or near-full), while the points arithmetic (803) sits past the
+   old Gold ceiling. Say out loud that the leading column is the brief's points
+   band and the ladder grades the *requirements*, which is why the two readings
+   disagree.
+7. Point at the budget table: payload **met** (118.5 KiB gzip of cold-load
+   JavaScript plus 26.6 KiB of CSS, against a 170 KB ceiling; the 90.2 KiB gzip
    deferred graph loads with the panel that needs it), the hour-long memory soak
    **met** (the heap at minute 60 is smaller than at minute 10), frame rate
    **met**, and everything that was not measured labelled *not measured*.

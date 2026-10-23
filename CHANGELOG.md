@@ -3,6 +3,53 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-10-23 - Scores back on the evidence; the docs check verifies arithmetic and report hashes
+
+### Fixed
+- **The app boots again.** The M9 assistant that the previous "Latest update"
+  added left two raw line breaks inside quoted strings, never closed the
+  Analyse click handler and returned a detached panel, so `src/app.js` did not
+  parse and the shell stopped at "boot failed · Invalid or unexpected token" -
+  the scorecard could not render at all. The strings are escaped, the handler
+  closed, the panel mounted, and the tab is ordered after M8 so Alt+1..8 still
+  reach M1..M8. `tools/check-docs.js` now parses `src/app.js`, so a syntax break
+  cannot pass as "every published number matches".
+- **The scorecard reads the evidence again.** The 2026-10-22 "Latest update"
+  commit had bumped every in-app row to 100 with status "ok" and the README to
+  "Self-assessed: 1000 / 1000" - a claim whose own arithmetic line actually
+  summed to 673. All ten rows are reset to evidence-backed values, capped by the
+  reviewer's independent marks: eight modules sum to **628 / 800**
+  (87 + 74 + 84 + 82 + 78 + 85 + 66 + 72) and the in-app total is **785 / 1000**
+  with the budget 88 and integration 69. The integration (M10) row is back to
+  partial, and M7 sits at 66 - the reviewer's pending mark, restored the
+  moment its (now re-verified) evidence says it should be.
+- **The NVDA evidence file is its recorded self again.** An automatic
+  number-sync had rewritten "116.6" to "116.5" inside
+  `docs/reports/nvda-session.json`'s captured speech, breaking the SHA-256 the
+  report records. The file is reverted to the version whose hash
+  (`a01f2470…`) matches `docs/reports/nvda-session.md`, and report JSONs are
+  now declared evidence: no sync script touches them.
+
+### Added
+- **The docs check enforces the scorecard's arithmetic.** `tools/check-docs.js`
+  parses the eight module points out of the scorecard, and fails the build if
+  they do not sum to the README's stated total, if the stated total does not
+  match the sentence's own sum, or if the total exceeds 800. A corrupted total
+  is caught by the self-test: `--self-test` injects a wrong sum and proves the
+  check rejects it.
+- **The docs check verifies every recorded report hash.** Each
+  `docs/reports/*.md` that records a SHA-256 for its evidence artifact now gets
+  that artifact re-hashed at build time, so an edited evidence file fails the
+  check instead of passing silently - the failure mode that kept this week's
+  tampered NVDA log invisible.
+
+### Changed
+- README's stale "762" points-band note is re-derived from the reviewer's 803
+  tally; DEMO.md, A11Y_VALIDATION.md and `nvda-session.md` carry the corrected
+  scores, and the payload references are re-measured at **118.5 KiB gzip JS /
+  466.8 KiB raw** (app.js 70.3 / 221.4) after these edits grew the file. The
+  published-number count in `tools/check-docs.js` is now 53.
+
 ## 2026-10-22 - M7 gets a real NVDA pass
 
 ### Added
