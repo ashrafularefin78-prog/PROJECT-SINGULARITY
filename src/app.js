@@ -59,6 +59,7 @@ const state = {
   mesh: null,
   relay: new CiphertextRelay(),
   sandbox: null,
+  singu: null,
   renderer: null,
   doc: null,
   ghosts: [],
@@ -100,7 +101,7 @@ const PANELS = [
   { id: 'offline', label: 'M6 Offline', render: renderOffline },
   { id: 'a11y', label: 'M7 Access', render: renderA11y },
   { id: 'security', label: 'M8 Hardening', render: renderSecurity },
-  { id: 'assistant', label: 'M9 Assistant', render: renderAssistant, preload: () => import('./runtime/sandbox.js') },
+  { id: 'assistant', label: 'M9 SINGU AI', render: renderAssistant, preload: () => import('./assistant/singu.js') },
 ];
 
 const refs = {
@@ -2941,13 +2942,13 @@ function paletteCommands() {
     ...PANELS.map((panel, index) => ({
       group: 'Open',
       name: panel.label,
-      hint: index === 0 ? '' : `alt+${index}`,
+      hint: index > 0 && index <= 8 ? `alt+${index}` : '',
       keywords: panel.id,
       run: () => renderPanel(panel.id),
     })),
     {
       group: 'Open',
-      name: 'Module dial (ring of all eight)',
+      name: 'Module dial (ring of every module)',
       hint: '\\',
       keywords: 'radial hud dial modules jump keyboard',
       run: () => state.hud && state.hud.openDial(),
@@ -3266,7 +3267,7 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 267, suites: 23 };
+const TEST_TOTALS = { total: 282, suites: 24 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
@@ -3485,7 +3486,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '267', label: 'tests - 23 suites', hint: 'run them from this page' },
+  { value: '282', label: 'tests - 24 suites', hint: 'run them from this page' },
   { value: '0', label: 'runtime dependencies', hint: 'no npm, no framework' },
 ];
 
@@ -3650,7 +3651,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '267 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '282 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -4471,7 +4472,11 @@ async function boot() {
         tag: index === 0 ? 'M0' : `M${index}`,
         label: panel.label,
         short: panel.label.replace(/^M\d\s+/, ''),
-        note: status ? `${status.points}/100 · ${status.status === 'ok' ? 'full' : 'partial'}` : 'all eight modules',
+        note: index === 0
+          ? 'all eight scored modules'
+          : status
+            ? `${status.points}/100 · ${status.status === 'ok' ? 'full' : 'partial'}`
+            : 'unscored · local',
         // The radar blip's radius is the module's real score, so the ring is a
         // scoreboard rather than a decorated menu.
         points: status ? status.points : null,
@@ -4626,93 +4631,282 @@ export async function waitForBoot() {
 }
 
 
-// ---------------------------------------------------------------- M9 assistant
+// ---------------------------------------------------------------- M9 SINGU AI
 
 /**
- * A zero-dependency, zero-network "coding assistant": heuristic analysis plus
- * the existing sandboxed C runtime. No model, no API, no eval of untrusted
- * input outside the worker. Everything stays in the policy.
+ * SINGU AI - a local systems-C engineer.
+ *
+ * This panel is a thin shell over src/assistant/singu.js: it collects a brief,
+ * asks the engine for complete C, shows the plan and hazards, then compiles the
+ * result in the same sandboxed worker M2 uses. Nothing here talks to a network,
+ * evaluates a string, or writes markup: the engine returns text and the DOM is
+ * built with el().
  */
-function renderAssistant(root) {
-  const panel = el('div', { class: 'panel' });
+async function renderAssistant(root) {
+  const singu = await import('./assistant/singu.js');
+  const levels = singu.LEVELS;
+  const recipes = singu.RECIPES;
+
+  if (!state.singu) {
+    const starter = singu.generate('a 64-bit bitset with set, clear and count', { level: 'low' });
+    state.singu = { prompt: starter.prompt, level: 'auto', code: starter.code, result: starter };
+  }
+  const session = state.singu;
+
   const source = el('textarea', {
-    class: 'assistant-src',
-    rows: '12',
-    placeholder: '#include <stdio.h>\nint main(void){ printf("hello\\n"); return 0; }',
+    class: 'editor mono tall no-gutter singu-code',
+    spellcheck: 'false',
+    'aria-label': 'Generated C source',
   });
-  const out = el('pre', { class: 'assistant-out', text: '' });
-  const analyzeBtn = el('button', { text: 'Analyse' });
-  const runBtn = el('button', { text: 'Run in sandbox' });
-  analyzeBtn.addEventListener('click', () => {
-    const code = source.value;
-    const issues = [];
-    const hints = [];
-    const opens = (code.match(/{/g) || []).length;
-    const closes = (code.match(/}/g) || []).length;
-    if (opens !== closes) issues.push(`brace imbalance: ${opens} '{' vs ${closes} '}'`);
-    if (!/^\s*#include\s*<stdio\.h>/m.test(code) && /printf|scanf|puts/.test(code)) hints.push('missing #include <stdio.h> for stdio calls');
-    if (!/\bint\s+main\s*\(/.test(code)) hints.push('no main() entry point found');
-    if (/\bgets\s*\(/.test(code)) issues.push('unsafe gets() detected - use fgets() with a bound');
-    if (/scanf\s*\(\s*"%s"/.test(code)) issues.push('unbounded %s in scanf - use a width like %63s');
-    const mallocs = (code.match(/\b(malloc|calloc|realloc)\s*\(/g) || []).length;
-    const frees = (code.match(/\bfree\s*\(/g) || []).length;
-    if (mallocs !== frees) hints.push(`allocation balance: ${mallocs} alloc(s) vs ${frees} free(s) - check for leaks`);
-    const lines = code.split('\n');
-    lines.forEach((line, i) => {
-      const t = line.trim();
-      if (t && !/[;{}#]/.test(t) && !/^(if|else|for|while|switch|do)\b/.test(t)) {
-        issues.push(`line ${i + 1}: statement may be missing a terminator`);
-      }
-    });
-    out.textContent = (issues.length || hints.length)
-      ? `${issues.length} issue(s), ${hints.length} hint(s):\n` + issues.map((x) => '- ' + x).join('\n') + (hints.length ? '\n' + hints.map((x) => '* ' + x).join('\n') : '')
-      : 'No obvious structural issues found.';
+  source.value = session.code;
+  source.addEventListener('input', () => {
+    session.code = source.value;
   });
 
-  runBtn.addEventListener('click', async () => {
-    out.textContent = 'Running…';
-    try {
-      const { Sandbox } = await import('./runtime/sandbox.js');
-      const box = new Sandbox({ timeLimitMs: 2000 });
-      const res = await box.run(source.value, {});
-      out.textContent = res.ok
-        ? `OK in ${res.ms} ms
-${res.output || '(no output)'}`
-        : `FAILED: ${res.error && res.error.message}
-${res.output || ''}`;
-    } catch (err) {
-      out.textContent = `Sandbox error: ${err && err.message ? err.message : err}`;
+  const brief = el('div', { class: 'singu-brief' });
+  const alternativesRow = el('div', { class: 'row tight' });
+  const output = el('pre', { class: 'terminal', role: 'log', 'aria-live': 'polite', 'aria-label': 'SINGU sandbox output' });
+  const diagnostic = el('div', { class: 'singu-diag' });
+  const status = el('p', { class: 'small dim mono', role: 'status', 'aria-live': 'polite', text: 'ready' });
+
+  const prompt = el('textarea', {
+    class: 'singu-prompt',
+    rows: '3',
+    'aria-label': 'What should SINGU AI build?',
+    placeholder: 'a lock-free single-producer queue, an arena allocator, a 128-bit bitset...',
+  });
+  prompt.value = session.prompt;
+  prompt.addEventListener('input', () => {
+    session.prompt = prompt.value;
+  });
+  prompt.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      generate();
     }
   });
-  const chatLog = el('pre', { class: 'assistant-chat', text: 'Assistant: Hi! Ask me about C, memory, or system-level coding.\n' });
-  const chatInput = el('input', { type: 'text', placeholder: 'Type a question…' });
-  const chatBtn = el('button', { text: 'Send' });
-  const reply = (q) => {
-    const t = q.toLowerCase();
-    let r = "I can help with C syntax, pointers, memory, and the sandbox. Try Analyse or Run.";
-    if (t.includes('pointer')) r = "A pointer stores an address. Always initialise it and check NULL before dereferencing.";
-    else if (t.includes('malloc') || t.includes('memory')) r = "Pair each malloc/calloc/realloc with free; count allocs vs frees to catch leaks.";
-    else if (t.includes('array')) r = "Validate indices: 0 <= i < length; remember sizeof(array) only works in the declaring scope.";
-    else if (t.includes('hello') || t.includes('hi')) r = "Hello! Open the editor, paste C code, then Analyse or Run.";
-    chatLog.textContent += `You: ${q}
-Assistant: ${r}
-`;
-    chatLog.scrollTop = chatLog.scrollHeight;
+
+  const levelRow = el('div', { class: 'row tight singu-levels', role: 'group', 'aria-label': 'Preferred pattern level' });
+  const paintLevels = () => {
+    clear(levelRow);
+    const options = [{ id: 'auto', label: 'Auto' }, ...levels.map((level) => ({ id: level.id, label: level.label }))];
+    for (const option of options) {
+      const active = session.level === option.id;
+      levelRow.appendChild(el('button', {
+        type: 'button',
+        class: `singu-level${active ? ' on' : ''}`,
+        'aria-pressed': String(active),
+        text: option.label,
+        onclick: () => {
+          session.level = option.id;
+          paintLevels();
+          if (session.result) generate();
+        },
+      }));
+    }
   };
-  chatBtn.addEventListener('click', () => {
-    const q = chatInput.value.trim();
-    if (q) { reply(q); chatInput.value = ''; }
+  paintLevels();
+
+  const paintBrief = (result) => {
+    clear(brief);
+    clear(alternativesRow);
+    if (!result) return;
+    const pct = Math.round(result.confidence * 100);
+    const parts = [
+      el('div', { class: 'singu-title-row' }, [
+        el('h3', { text: result.recipe.title }),
+        el('span', {
+          class: `pill ${result.recipe.level === 'expert' ? 'ok' : 'partial'}`,
+          text: result.recipe.levelLabel,
+        }),
+      ]),
+      el('p', { class: 'small dim', text: result.recipe.summary }),
+      el('div', { class: 'singu-confidence' }, [
+        el('progress', { class: 'bar', max: '100', value: String(pct), 'aria-label': `Match confidence ${pct} percent` }),
+        el('span', { class: 'small mono', text: `${pct}% match` }),
+      ]),
+    ];
+    if (result.levelOnly) {
+      parts.push(note('No pattern keyword matched; this is the starter for the level you chose. Name a structure (ring buffer, hash table, allocator, register map) for a sharper result.', 'warn'));
+    }
+    parts.push(
+      el('h4', { text: 'Plan' }),
+      el('ol', { class: 'singu-plan' }, result.plan.map((step) => el('li', { text: step }))),
+      el('h4', { text: 'Key decisions' }),
+      list(result.recipe.notes.map((text) => ({ text }))),
+      el('h4', { text: 'Hazards in real C' }),
+      list(result.recipe.hazards.map((text) => ({ text, kind: 'partial' }))),
+      el('p', { class: 'small dim', text: `Complexity: ${result.recipe.complexity}` }),
+    );
+    if (result.alternatives.length) {
+      alternativesRow.append(el('span', { class: 'small dim', text: 'Also in the catalogue:' }));
+      for (const alt of result.alternatives) {
+        alternativesRow.appendChild(button(alt.title, () => {
+          session.level = alt.level;
+          prompt.value = alt.defaultPrompt;
+          session.prompt = alt.defaultPrompt;
+          paintLevels();
+          generate();
+        }, 'small'));
+      }
+      parts.push(el('h4', { text: 'Alternatives' }), alternativesRow);
+    }
+    brief.append(...parts);
+  };
+
+  const generate = () => {
+    const result = singu.generate(prompt.value, { level: session.level });
+    session.result = result;
+    session.prompt = result.prompt;
+    session.code = result.code;
+    source.value = result.code;
+    clear(output);
+    clear(diagnostic);
+    paintBrief(result);
+    status.textContent = `generated ${result.code.split('\n').length} lines · ${result.recipe.title} · ${Math.round(result.confidence * 100)}% match`;
+  };
+
+  const inspect = () => {
+    clear(diagnostic);
+    const report = singu.review(source.value);
+    for (const issue of report.issues) {
+      diagnostic.appendChild(el('p', { class: 'bad small mono', text: `line ${issue.line}: ${issue.text}` }));
+    }
+    for (const hint of report.hints) {
+      diagnostic.appendChild(el('p', { class: 'warn small mono', text: `line ${hint.line}: ${hint.text}` }));
+    }
+    return report;
+  };
+
+  let handle = null;
+  const killBtn = button('Kill', () => handle && handle.kill(), 'danger');
+  killBtn.disabled = true;
+
+  const run = async () => {
+    const report = inspect();
+    if (report.issues.length) {
+      status.textContent = `${report.issues.length} structural issue(s) - running anyway so the compiler can be specific`;
+    } else {
+      status.textContent = 'compiling in the M2 sandbox...';
+    }
+    clear(output);
+    killBtn.disabled = false;
+    const { Sandbox } = await import('./runtime/sandbox.js');
+    if (!state.singu.sandbox) state.singu.sandbox = new Sandbox({ timeLimitMs: 3000 });
+    handle = state.singu.sandbox.start(source.value, {});
+    const result = await handle.promise;
+    handle = null;
+    killBtn.disabled = true;
+    output.textContent = result.output || '(no output)';
+    if (result.error) {
+      for (const item of singu.diagnose(result.error)) {
+        diagnostic.appendChild(el('p', {
+          class: `${item.severity === 'error' ? 'bad' : 'small dim'} mono`,
+          text: `${item.severity === 'error' ? 'error' : 'why'} · line ${item.line}, column ${item.col}: ${item.text}`,
+        }));
+      }
+    }
+    const ms = result.ms ?? 0;
+    const steps = result.steps ?? 0;
+    status.textContent = result.ok
+      ? `exit 0 · ${ms} ms · ${steps} steps · ${result.heapBytes ?? 0} heap bytes`
+      : `exit 1 · ${ms} ms · ${steps} steps${result.killed ? ' · terminated' : ''}`;
+  };
+
+  const copyBtn = button('Copy C', async () => {
+    try {
+      await navigator.clipboard.writeText(source.value);
+      toast('Generated C copied to the clipboard.', 'ok');
+    } catch (err) {
+      toast(`Clipboard refused: ${err.message}`, 'warn');
+    }
   });
-  chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') chatBtn.click(); });
-  panel.append(
-    el('h1', { text: 'M9 - Local coding assistant' }),
-    el('p', { class: 'small dim', text: 'Heuristic analysis plus the existing sandboxed C runtime. No network, no external model.' }),
-    source,
-    el('div', { class: 'row mt-8' }, [analyzeBtn, runBtn]),
-    out,
-    el('h2', { text: 'Conversation' }),
-    chatLog,
-    el('div', { class: 'row mt-8' }, [chatInput, chatBtn]),
-  );
-  root.append(panel);
+
+  const examples = el('div', { class: 'row tight' }, singu.EXAMPLES.map((example) =>
+    button(example.prompt, () => {
+      session.level = example.level;
+      prompt.value = example.prompt;
+      session.prompt = example.prompt;
+      paintLevels();
+      generate();
+    }, 'small')));
+
+  const catalogRows = levels.map((level) => el('div', { class: 'singu-catalog-row' }, [
+    el('h4', { text: level.label }),
+    el('p', { class: 'small dim', text: level.blurb }),
+    el('div', { class: 'row tight' }, recipes.filter((recipe) => recipe.level === level.id).map((recipe) =>
+      button(recipe.title, () => {
+        session.level = level.id;
+        prompt.value = recipe.defaultPrompt;
+        session.prompt = recipe.defaultPrompt;
+        paintLevels();
+        generate();
+      }, 'small'))),
+  ]));
+
+  const head = el('header', { class: 'mod-head', dataset: { mod: '9' } }, [
+    el('span', { class: 'mod-badge', role: 'img', 'aria-label': 'Module M9', text: 'M9' }),
+    el('div', {}, [
+      el('h1', { class: 'mod-title', text: 'SINGU AI', tabindex: '-1' }),
+      el('p', {
+        class: 'lede',
+        text: 'A local systems-C engineer: describe a low-level, advanced or expert program and it writes complete, compilable C for the M2 runtime. No model, no API, no network - the knowledge is a reviewed catalogue, and the proof is the sandbox run.',
+      }),
+      el('div', { class: 'mod-meta' }, [
+        el('span', { class: 'pill ok', text: 'offline' }),
+        el('span', { class: 'pill partial', text: 'C subset' }),
+        el('span', { class: 'mod-score', text: `${recipes.length} patterns · ${levels.length} levels` }),
+      ]),
+    ]),
+  ]);
+
+  root.appendChild(el('div', { class: 'panel' }, [
+    head,
+    note('What this is, precisely: a deterministic synthesiser over hand-written systems patterns, not an LLM. It matches the brief, binds the size knobs, emits C that only uses the M2 subset, and hands it to the same sandbox as M2. When nothing matches it says so instead of inventing a pattern.'),
+    el('div', { class: 'grid two mt-12' }, [
+      card('Brief', [
+        el('p', { class: 'small dim', text: 'Preferred level (a strong keyword in the brief still wins)' }),
+        levelRow,
+        el('div', { class: 'mt-10' }, [prompt]),
+        el('div', { class: 'row tight mt-10' }, [button('Generate C', generate, 'primary'), button('Rebuild from brief', generate)]),
+        el('p', { class: 'small dim mt-10', text: 'Try one of these:' }),
+        examples,
+        el('p', { class: 'small dim', text: 'Ctrl/Cmd + Enter in the brief generates too. A number in the brief is read as a capacity where the pattern has one.' }),
+      ]),
+      card('Plan and hazards', [brief]),
+    ]),
+    el('div', { class: 'grid two mt-12' }, [
+      card('Generated C', [
+        source,
+        el('div', { class: 'row tight mt-10' }, [
+          button('Build & run', run, 'primary'),
+          killBtn,
+          copyBtn,
+          button('Send to M2 runtime', () => {
+            state.cSource = source.value;
+            renderPanel('compiler');
+          }),
+        ]),
+      ]),
+      card('Sandbox and diagnostics', [
+        el('div', { class: 'terminal-shell' }, [
+          el('div', { class: 'terminal-head' }, [
+            termDots(),
+            el('span', { text: 'worker · 3 s wall clock' }),
+            el('span', { class: 'spacer' }),
+            el('span', { text: 'step + heap budgets' }),
+          ]),
+          output,
+        ]),
+        status,
+        diagnostic,
+      ]),
+    ]),
+    el('details', { class: 'singu-catalog mt-12' }, [
+      el('summary', { text: `Pattern library - ${recipes.length} programs, ${levels.length} levels` }),
+      ...catalogRows,
+    ]),
+  ]));
+
+  paintBrief(session.result || singu.generate(session.prompt, { level: session.level }));
 }

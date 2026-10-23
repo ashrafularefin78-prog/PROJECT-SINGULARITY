@@ -26,6 +26,7 @@ const SUITES = [
   './constellation.test.js',
   './a11y.test.js',
   './sw.test.js',
+  './singu.test.js',
 ];
 
 async function main() {

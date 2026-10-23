@@ -2631,3 +2631,37 @@ html[data-theme='light'] .repo-stat {
   min-height: 520px;
   contain: layout paint;
 }
+
+/* ------------------------------------------------------- M9 SINGU AI (local) */
+
+.mod-head[data-mod='9'], .tab[data-mod='9'] { --mod: #4dd0e1; --mod-soft: rgba(77, 208, 225, 0.18); }
+
+.singu-levels { gap: 6px; }
+.singu-level { padding: 6px 12px; font-size: 0.86em; }
+.singu-level.on {
+  color: #f2f7ff;
+  border-color: var(--accent-3);
+  background: linear-gradient(180deg, rgba(77, 208, 225, 0.28), rgba(77, 208, 225, 0.08));
+  box-shadow: var(--glow-cyan);
+}
+.singu-prompt { min-height: 84px; resize: vertical; }
+.singu-code { min-height: 360px; }
+.singu-brief h3 { margin: 0; font-size: 1.02em; }
+.singu-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.singu-confidence { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; }
+.singu-confidence .bar { flex: 1 1 auto; }
+.singu-brief h4,
+.singu-catalog-row h4 {
+  margin: 16px 0 6px;
+  color: var(--dim);
+  font: 700 calc(10px * var(--scale)) / 1.2 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.singu-plan { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 0.92em; }
+.singu-plan li { color: var(--text); }
+.singu-diag { display: grid; gap: 4px; margin-top: 8px; max-height: 190px; overflow: auto; }
+.singu-diag p { margin: 0; }
+.singu-catalog summary { cursor: pointer; color: var(--accent-3); font-weight: 600; }
+.singu-catalog-row { margin-top: 14px; }
+.singu-catalog-row h4 { margin-top: 0; }

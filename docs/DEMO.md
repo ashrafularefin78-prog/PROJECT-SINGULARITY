@@ -56,8 +56,8 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    old Gold ceiling. Say out loud that the leading column is the brief's points
    band and the ladder grades the *requirements*, which is why the two readings
    disagree.
-7. Point at the budget table: payload **met** (118.5 KiB gzip of cold-load
-   JavaScript plus 26.6 KiB of CSS, against a 170 KB ceiling; the 90.2 KiB gzip
+7. Point at the budget table: payload **met** (120.0 KiB gzip of cold-load
+   JavaScript plus 26.9 KiB of CSS, against a 170 KB ceiling; the 110.6 KiB gzip
    deferred graph loads with the panel that needs it), the hour-long memory soak
    **met** (the heap at minute 60 is smaller than at minute 10), frame rate
    **met**, and everything that was not measured labelled *not measured*.
@@ -146,7 +146,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run: **267 tests, 23 suites, all
+Open **/tests/browser.html** and let the suite run: **282 tests, 24 suites, all
 green, no skips**, including the fuzzer. Then name the gaps: no red-team session, no
 audited crypto, no TURN, no measured HDRI probe/IBL, no clang→WASM, no VoiceOver/TalkBack pass, and
 no distributed load or chaos rig.

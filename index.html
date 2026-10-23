@@ -22,7 +22,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-ActgC60ZLhkgZShDeF5iw8kp+TINQ4WoWdpA13Na7+Q='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types singularity-script-url"
+      content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'sha256-dDzmioGO2CPeIKok7dQyojk8uBPM37rZshNqCAmky3w='; img-src 'self' data: blob:; font-src 'self' file:; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types singularity-script-url"
     />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#06090d" />
@@ -33,13 +33,13 @@
     -->
     <meta
       name="description"
-      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 267 tests green in your browser."
+      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 282 tests green in your browser."
     />
     <link rel="canonical" href="https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/" />
     <meta property="og:title" content="Project Singularity - the impossible website challenge" />
     <meta
       property="og:description"
-      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 267 tests green in your browser."
+      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 282 tests green in your browser."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/" />
@@ -58,7 +58,7 @@
     <meta name="twitter:title" content="Project Singularity - the impossible website challenge" />
     <meta
       name="twitter:description"
-      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 267 tests green in your browser."
+      content="One page that behaves like an operating system, a collaborative editor, a 3D engine and an encrypted messenger. Zero dependencies, no framework, 282 tests green in your browser."
     />
     <meta
       name="twitter:image"
@@ -106,6 +106,9 @@
   --accent: #6ea8fe;
   --accent-2: #b39ddb;
   --accent-3: #4dd0e1;
+  --accent-oklch: oklch(0.72 0.12 250);
+  --accent-2-oklch: oklch(0.74 0.10 300);
+  --accent-3-oklch: oklch(0.80 0.10 200);
   --ok: #57d68d;
   --warn: #f7b955;
   --bad: #ff6b81;
@@ -138,6 +141,14 @@ html[data-contrast='high'] {
   --bad: #ff97a6;
 }
 * { box-sizing: border-box; }
+button:focus-visible,
+.button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(110, 168, 254, 0.22);
+}
+html[data-theme='light'] :focus-visible { outline-color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) {
+html { scroll-behavior: smooth; }
+}
 html,
 body { height: 100%; }
 body {
@@ -197,6 +208,7 @@ html[data-motion='auto'] * { animation: none !important; transition: none !impor
   align-items: center;
   padding: 14px 22px;
   border-bottom: 1px solid var(--line);
+  min-height: 127px;
   background: linear-gradient(180deg, rgba(12, 19, 28, 0.92), rgba(5, 7, 11, 0.75));
   backdrop-filter: blur(14px);
 }
@@ -997,6 +1009,7 @@ html[data-theme='light'] .repo-stat {
     linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
     linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
 }
+.tab[data-mod='9'] { --mod: #4dd0e1; --mod-soft: rgba(77, 208, 225, 0.18); }
 </style>
     <!-- critical-css:end -->
     <!--
@@ -1039,7 +1052,7 @@ html[data-theme='light'] .repo-stat {
     <meta name="twitter:title" content="Project Singularity - a browser-native workspace by Ashraful Arefin" />
     <meta
       name="twitter:description"
-      content="Own CRDT, in-browser C runtime, WebGL2 engine, E2EE and offline-first storage in one page. Zero runtime dependencies. 267 tests runnable in your browser."
+      content="Own CRDT, in-browser C runtime, WebGL2 engine, E2EE and offline-first storage in one page. Zero runtime dependencies. 282 tests runnable in your browser."
     />
     <meta name="twitter:image" content="https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/assets/screenshots/og.png" />
     <meta name="twitter:image:alt" content="Project Singularity dashboard - score ring, live telemetry and module deck" />
@@ -1168,12 +1181,12 @@ html[data-theme='light'] .repo-stat {
             <div class="hero-badges" id="hero-badges">
               <span class="chip accent">8 MODULES</span>
               <span class="chip ok">0 RUNTIME DEPS</span>
-              <span class="chip ok" id="hero-tests">267 tests GREEN</span>
+              <span class="chip ok" id="hero-tests">282 tests GREEN</span>
               <span class="chip ok">MIT OPEN SOURCE</span>
               <span class="chip ok">TRUSTED TYPES ENFORCED</span>
             </div>
             <div class="hero-actions">
-              <a class="button primary" href="tests/browser.html" target="_blank" rel="noopener">RUN 267 tests IN THIS BROWSER</a>
+              <a class="button primary" href="tests/browser.html" target="_blank" rel="noopener">RUN 282 tests IN THIS BROWSER</a>
               <a class="button" href="#case-study">READ THE CASE STUDY</a>
               <a class="button" href="#screenshots">SEE THE SCREENSHOTS</a>
               <a class="button" href="docs/demo/demo.mp4" target="_blank" rel="noopener">WATCH THE 15-MIN DEMO</a>

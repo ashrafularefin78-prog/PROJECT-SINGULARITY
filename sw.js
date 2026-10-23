@@ -21,7 +21,7 @@
  * All user data lives in IndexedDB and is never touched here, so a cache
  * eviction can never cost anyone a character.
  */
-const VERSION = 'singularity-v9';
+const VERSION = 'singularity-v10';
 
 /** Resolve a shell path against this worker's directory, so subpaths work. */
 const here = (path) => new URL(path, self.location.href).href;
@@ -51,6 +51,7 @@ const SHELL = [
   './src/storage/db.js',
   './src/storage/opfs.js',
   './src/crypto/e2ee.js',
+  './src/assistant/singu.js',
   './src/runtime/sandbox.js',
   './src/runtime/worker.js',
   './src/runtime/interpreter.js',

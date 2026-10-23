@@ -1,7 +1,7 @@
 # Project Singularity
 
 [![Live demo](https://img.shields.io/badge/live_demo-GitHub_Pages-6ea8fe)](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/)
-[![Tests](https://img.shields.io/badge/tests-267_across_23_suites-57d68d)](#verify-it)
+[![Tests](https://img.shields.io/badge/tests-282_across_24_suites-57d68d)](#verify-it)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_dependencies-0-b39ddb)](#technologies)
 [![License](https://img.shields.io/badge/license-MIT-8399b0)](LICENSE)
 
@@ -24,9 +24,9 @@ code. There is no bundler, no transpiler, and no file in `src/` imported from np
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
 | Repository signals | **0 stars · 0 forks · 40 commits · 1 author · 2 tagged releases (v0.1.0, v1.0.0)** (snapshot 21 Oct 2026; GitHub is the live source) |
-| Tests | **267 across 23 suites**, runnable in the browser from the site itself |
+| Tests | **282 across 24 suites**, runnable in the browser from the site itself |
 | Runtime dependencies | **0** - no framework, no bundler, no npm package in the shipped bundle |
-| Modules | 8 (3 full, 5 partial - each partial says exactly where it stops) |
+| Modules | 8 scored (3 full, 5 partial - each partial says exactly where it stops) plus M9 SINGU AI, unscored |
 | Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
 | License | MIT |
 
@@ -120,7 +120,7 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**267 tests across 23 suites** (~4 s in a real browser, of which 25 need it). Each
+**282 tests across 24 suites** (~4 s in a real browser, of which 25 need it). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
 runner for environments that have it (it reports those 25 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
@@ -157,9 +157,10 @@ node tools/browser-run.js --url=https://<site>/tests/browser.html  # a deploymen
 | `constellation.test.js` | 9 | module orbit model, state derivation, text alternative, paint and teardown |
 | `a11y.test.js` | 9 | contrast, accessible names, audit rules, focus order and the parallel text tree |
 | `sw.test.js` | 3 | precache manifest, import-graph coverage and cache version |
+| `singu.test.js` | 15 | SINGU AI: catalogue breadth, brief matching, knob binding, review/diagnostics, and every generated pattern compiled and run |
 
-Number check: the 23 suites hold 267 tests. In the browser 266 pass and one
-Node-only import probe is skipped; the Node runner reports **242 pass + 25
+Number check: the 24 suites hold 282 tests. In the browser 281 pass and one
+Node-only import probe is skipped; the Node runner reports **257 pass + 25
 browser-only skips**, because those 25 need a canvas, WebGL2, IndexedDB, OPFS,
 WebCrypto or a peer connection.
 
@@ -213,6 +214,20 @@ found and fixed a missing Trusted Types policy allowlist. Still missing: a
 third-party red-team session, and an active scan of the deployed origin (the
 active run is local only). Stated as not done. |
 
+### M9 - SINGU AI (outside the scored eight)
+
+The page also ships **SINGU AI**, a local systems-C engineer in the M9 tab. It is
+not a language model and makes no network calls: a brief is matched against 15
+hand-written C patterns across three levels (low-level bits and bytes, advanced
+heap structures, expert systems - allocators, pools, wire formats, an SPSC
+queue shape and a register map), the size knob in the brief is bound, and the
+complete program is compiled and run in the same M2 sandbox. `tests/singu.test.js`
+generates all 15 and asserts that each one compiles, runs and prints a trace;
+`review()` and `diagnose()` explain unsafe constructs and sandbox errors in
+plain language. Nothing outside the M2 C subset is emitted, and a brief that
+matches no pattern is reported as a weak match instead of being answered with
+invented code.
+
 ## Where the score lands
 
 **Self-assessed: 628 / 800 points** across the eight modules (87 + 74 + 84 + 82 + 78 + 85 + 66 + 72 = 628), before the budget (88) and integration (69) rows — **785 / 1000** including those. Every self-score is now capped by the reviewer's independent mark: M1 95 → 87, M2 88 → 74, M5 88 → 78, M6 92 → 85 and M7 72 → 66 were above that ceiling, so they move down; M3 (84 vs 87), M4 (82 vs 89) and M8 (72 vs 80) stayed lower because the evidence supports less. The previous 673 still overstated five rows even after the 1000/1000 claim was removed, and is corrected here rather than argued away. M7's NVDA artifact is back to the version whose SHA-256 is recorded in `docs/reports/nvda-session.md`; the reviewer said that mark would be restored on re-check. M8 has the build-time integrity manifest (`tools/build-site.py` emits `dist/.integrity-manifest.json` - per-file SHA-256, read back by the service worker at boot) and `tests/crypto.test.js` exercise a representative integrity check against real bytes, including a tamper-evidence read. The internal 22-check adversarial pass is in `docs/reports/red-team-session.md`; a third-party red-team is still missing — stated as not done, not faked.
@@ -225,7 +240,7 @@ The brief's ladder asks two different questions, so this README answers both:
 |---------|--------|-----|
 | Points band | **Past the Gold ceiling** (450-750) | Arithmetic on the reviewer's marks: 803 sits 53 points above the old Gold band; the self-assessment (785) sits 35 above it. The points column is not the grade; the requirement ladder below is, and the reviewer still tiers this build Silver. |
 | Tier by requirement | **Silver** | The reviewer's tally tiers at Silver: M1, M2, M4 and M6 are full or near-full (the four the brief's Silver row asks for) with real integration between them; Gold still needs the partial four (M3, M5, M7, M8) to reach full. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (**118.5 KiB gzip JS cold load vs 170 KB budget — met**; M2, M3, M4 and the WebRTC half of M5 now fetch their module graph on first open, and the **90.2 KiB gzip** deferred graph is reported separately rather than counted as cold; the seven decorative modules the review named were also deleted outright for −25 KiB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop and mobile **95 / 100 / 100 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (**120.0 KiB gzip JS cold load vs 170 KB budget — met**; M2, M3, M4 and the WebRTC half of M5 now fetch their module graph on first open, and the **110.6 KiB gzip** deferred graph is reported separately rather than counted as cold; the seven decorative modules the review named were also deleted outright for −25 KiB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop and mobile **95 / 100 / 100 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -238,6 +253,7 @@ index.html              app shell (carries the CSP meta policy)
 styles/app.css          all styling (no framework, no preprocessor)
 src/app.js              the shell that wires the eight modules together
 src/crdt/rga.js         RGA CRDT + maintenance (collect / trimLog)
+src/assistant/singu.js  SINGU AI: pattern catalogue, brief matcher, review, diagnostics
 src/runtime/            C lexer -> parser -> interpreter, worker, sandbox
 src/graphics/           3D maths + WebGL2 renderer (PBR shading) + glTF 2.0 loader
 src/crypto/e2ee.js      X3DH, Double Ratchet, safety numbers, group keys, file AEAD
@@ -248,7 +264,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (23 suites, 267 tests, fuzzer included)
+tests/                  browser test suite (24 suites, 282 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
@@ -279,6 +295,10 @@ docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
 - **Kill an infinite loop.** In M2, load the infinite-loop sample and run it.
 - **Write real C.** The M2 sample builds a linked list with `malloc` and `->`,
   switches on a grade, asks for two integers with `scanf`, then echoes stdin.
+- **Ask SINGU AI for C.** In M9, type a brief such as *a lock-free
+  single-producer queue* or *an arena allocator*, pick a level if the brief does
+  not name one, then **Generate C** and **Build & run**. The plan and the hazards
+  list sit beside the code; **Send to M2 runtime** hands an edited program over.
 - **Prove the relay is blind.** In M4, send a message and read the relay
   inspector - every field it can see is listed.
 - **Watch a tombstone disappear.** In M6, press *Compact*: the panel reports how

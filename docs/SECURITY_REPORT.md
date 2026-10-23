@@ -27,9 +27,9 @@ this report.
 | `tools/red-team.js` (22 checks) | Internal adversarial pass: rogue Trusted Types policies, inline handlers and `javascript:` URLs, editor markup, same-origin framing, a poisoned service-worker cache, the M2 worker under the shipped policy, and the relay's field/validation contract |
 | Manual browser runs | Header/CSP inspection over the served response, offline shell under a subpath deployment, two-carrier WebRTC channel, encrypted message round-trip |
 
-Total suite: **267 tests across 23 suites**. The browser runner executes 266 and
+Total suite: **282 tests across 24 suites**. The browser runner executes 281 and
 skips one Node-only import probe (0 failures, ~4.2 s, runnable from the site at
-`/tests/browser.html`); under bare Node the same suite reports 242 pass and 25
+`/tests/browser.html`); under bare Node the same suite reports 257 pass and 25
 browser-only skips instead of failing them.
 
 Fuzz corpora (the numbers in the table are the counts printed by the suite):
@@ -146,7 +146,7 @@ RT-S2; [`reports/red-team-session.md`](reports/red-team-session.md).
 ```bash
 python3 tools/serve.py 5173
 # app:      http://127.0.0.1:5173/
-# suite:    http://127.0.0.1:5173/tests/browser.html   (267 tests, 23 suites)
+# suite:    http://127.0.0.1:5173/tests/browser.html   (282 tests, 24 suites)
 node tools/red-team.js
 # 22/22 internal adversarial checks; writes docs/reports/red-team-session.json
 ```
