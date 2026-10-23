@@ -13,7 +13,7 @@ Artifact: [docs/reports/nvda-session.md](reports/nvda-session.md) and
 ## Score
 
 - **Structural maximum: 83/100** - unchanged.
-- **Evidence-backed score: 100/100** - up from 55.
+- **Evidence-backed score: 72/100** - up from 55.
 - The remaining 11 points are the untested platforms (VoiceOver, TalkBack,
   JAWS), the deeper M2/M4/M5/M6 flows that this pass only reached at panel
   level, and Bangla/Arabic pronunciation (the language tags are verified; the

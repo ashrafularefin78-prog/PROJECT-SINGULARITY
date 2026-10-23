@@ -97,7 +97,7 @@ panel documents.
 ## Limits, stated plainly
 
 - **Windows NVDA only.** VoiceOver (Safari/macOS), TalkBack (Android) and JAWS
-  were not run. The score is 100/100, not the 83 structural maximum.
+  were not run. The score is 72/100, not the 83 structural maximum.
 - **M2, M4, M5 and M6 were reached and announced, not exhaustively driven.**
   Their forms, dialogs and error paths still need a screen-reader pass.
 - **The M7 audit button and the live audit table were not driven.** The audit

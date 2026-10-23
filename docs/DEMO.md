@@ -55,7 +55,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    the old Gold ceiling. Say out loud that the leading column is the brief's
    points band and the ladder grades the *requirements*, which is why the two
    readings disagree.
-7. Point at the budget table: payload **met** (118.3 KiB gzip of cold-load
+7. Point at the budget table: payload **met** (118.4 KiB gzip of cold-load
    JavaScript plus 26.4 KiB of CSS, against a 170 KB ceiling; the 90.2 KiB gzip
    deferred graph loads with the panel that needs it), the hour-long memory soak
    **met** (the heap at minute 60 is smaller than at minute 10), frame rate
