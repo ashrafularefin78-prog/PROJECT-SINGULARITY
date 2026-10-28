@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 452" width="780" height="452" role="img" aria-labelledby="title desc">
   <title id="title">Performance budget: measured values against the brief's targets</title>
-  <desc id="desc">One row per budget row. Each bar is the measured value as a share of the brief's target, so the right-hand end of every track is the target itself: a bar that reaches it meets the row, a bar that stops short falls short, and a bar that would overrun it is clamped and labelled with its ratio. The 10,000-user row is drawn as a one-tenth bar: 1,000 simulated clients is what was actually driven through the ciphertext relay, which delivered every envelope with p95 12.2 ms. The chaos row is green because the relay was SIGKILLed mid-backlog and every one of its 20,000 accepted envelopes replayed from the log without loss - met for the single node that exists, not a fleet. Every number comes from docs/LOAD_CHAOS.md. The payload row is the cold load: the 110.6 KiB gzip module graph fetched on first panel open (M2, M3, M4, M9 SINGU AI, WebRTC/relay) is reported separately in LOAD_CHAOS.md rather than hidden inside the bar. The only row that reaches its full target and still falls short is the frame rate at maximum settings, two frames short, and it is labelled as such. The soak row is a full hour of samples in which the heap ended smaller than it started. Columns are: row, value, and target.</desc>
+  <desc id="desc">One row per budget row. Each bar is the measured value as a share of the brief's target, so the right-hand end of every track is the target itself: a bar that reaches it meets the row, a bar that stops short falls short, and a bar that would overrun it is clamped and labelled with its ratio. The 10,000-user row is drawn as a one-tenth bar: 1,000 simulated clients is what was actually driven through the ciphertext relay, which delivered every envelope with p95 12.2 ms. The chaos row is green because the relay was SIGKILLed mid-backlog and every one of its 20,000 accepted envelopes replayed from the log without loss - met for the single node that exists, not a fleet. The payload is re-measured from the current import graph; all other rows retain historical evidence under the recorded conditions in docs/LOAD_CHAOS.md and are not new audits, browser runs or device guarantees. The payload row is the cold load: the 119.9 KiB gzip module graph fetched on first panel open (M2, M3, M4, M9 SINGU AI, WebRTC/relay) is reported separately in LOAD_CHAOS.md rather than hidden inside the bar. The only row that reaches its full target and still falls short is the frame rate at maximum settings, two frames short, and it is labelled as such. The historical soak row is a full hour of samples whose minute-60 snapshot is smaller than the minute-10 snapshot; the per-minute heap after GC rose from 1.10 to 1.53 MiB. Columns are: row, value, and target.</desc>
   <style>
     .bg { fill: #0d131c; }
     .label { fill: #c9d4e2; font: 12px ui-monospace, monospace; }
@@ -19,11 +19,11 @@
   <text class="small" x="20" y="44">The right-hand end of each track is the target. Bars are clamped at the target; the ratio beside them is the real one.</text>
   <line class="axis" x1="20" y1="56" x2="768" y2="56" />
 
-  <!-- Initial JS payload: 120.0 KiB gzip cold load vs 170 KB (met, ~70.6%); the 110.6 KiB gzip deferred graph is measured separately -->
+  <!-- Current initial payload: 15 files (14 JS + CSS), JS 122.2 KiB gzip + CSS 26.9 = 149.1 KiB gzip / 482.5 KiB raw; 18 deferred files are 119.9 KiB gzip JS, plus separate approximately 18.4 MiB compressed toolchain assets. JS ratio uses decimal 170 KB. -->
   <text class="label" x="20" y="82">Initial JS payload (gzip)</text>
-  <text class="value" x="768" y="82" text-anchor="end">120.0 KiB of 170 KB - met</text>
+  <text class="value" x="768" y="82" text-anchor="end">122.2 KiB of 170 KB - met</text>
   <rect class="track" x="20" y="88" width="748" height="9" />
-  <rect class="met" x="20" y="88" width="528" height="9" />
+  <rect class="met" x="20" y="88" width="551" height="9" />
 
   <!-- Throttled LCP: 774 ms vs 1500 ms (met, 0.52x) -->
   <text class="label" x="20" y="114">Largest Contentful Paint, Slow 4G + 4x CPU</text>
@@ -85,5 +85,5 @@
   <rect class="track" x="20" y="408" width="748" height="9" />
   <rect class="met" x="20" y="408" width="748" height="9" />
 
-  <text class="small" x="20" y="432">Every row is measured; the 10,000-user row carries the 1,000 clients actually run, and chaos is met for the relay nodes that exist - a kill-and-restart and a kill-and-hand-over, two processes on one laptop, not a fleet. Every evidence file is named in LOAD_CHAOS.md.</text>
+  <text class="small" x="20" y="432">Current payload; other rows are historical recorded evidence, not new device guarantees. Relay: 1,000 clients, two local processes, not a fleet. See LOAD_CHAOS.md.</text>
 </svg>

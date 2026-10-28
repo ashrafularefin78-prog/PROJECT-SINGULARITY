@@ -28,7 +28,7 @@ shims.
 |--------|--------------------|-----------|
 | `crdt/rga.js` | the op log (commutative, idempotent) + maintenance (collect/trimLog) | nothing |
 | `crdt/history.js` | deterministic replay of the op log + a structural state digest | `rga.js` only |
-| `runtime/*` | one worker per run, budgets enforced inside | nothing |
+| `runtime/*` | one disposable worker per run, separate compile/run limits | interpreter: browser APIs; compiler: self-hosted Clang/lld/WASI assets |
 | `graphics/*` | pure maths + a WebGL2 renderer | nothing |
 | `crypto/e2ee.js` | WebCrypto only | nothing |
 | `collab/mesh.js` | envelopes over a set of pluggable carriers | nothing |
@@ -72,6 +72,9 @@ acknowledged (interior tombstones are kept, because an op can point at one), and
 `trimLog(keep)` bounds the in-memory op log while a snapshot remains available
 for a peer that is far behind and asks for full state. Both are driven from the
 M6 panel and from the command palette, and both report exactly what they removed.
+Durable IndexedDB operation history is retained when saving text snapshots: text
+alone cannot reconstruct the character identities required by subsequent edits.
+Valid empty replay/snapshot state is distinct from an absent document.
 
 ## 3. Trade-offs, and what each one cost
 
@@ -80,7 +83,7 @@ M6 panel and from the command palette, and both report exactly what they removed
 | **RGA with LWW tombstones** | Order-independence for *both* inserts and deletes; makes undo/redo replicable | Tombstones accumulate; collection is watermark-bounded rather than complete, and interior tombstones are retained forever by design |
 | **Linked list, not a rope/index tree** | Correctness first, and legible in ~300 lines | A full scan per lookup would be O(n); mitigated by a cursor that makes sequential edits O(1) amortised (20k appends visit 0 nodes) |
 | **Diff the whole textarea** | Zero dependency, tiny, robust for a demo document | O(n) per keystroke; a real editor would use per-input events |
-| **Interpret instead of compiling to WASM** | Ships a genuinely safe sandbox with deterministic budgets | Not a C compiler in the spec's sense; slower than native code |
+| **Clang/WASM alongside the interpreter** | Real C/C++ headers, templates, STL and linking without sending source to a server | About 18.4 MiB compressed assets on first compile, compiler memory overhead, old Clang/WASI and no native OS APIs or exceptions |
 | **Step budget over a CPU timer** | Deterministic and reproducible in tests | A legitimate long computation can be cut short |
 | **Two carriers, one mesh protocol** | Tabs collaborate with no server at all, and separate machines get a real peer-to-peer channel | Two failure modes to reason about (ICE failures vs. no BroadcastChannel); no bundled TURN, so symmetric NAT on both ends needs one |
 | **Copy-pasted signaling codes** | No signaling server, no third party, no accounts | A human must move one string between machines |
@@ -116,10 +119,13 @@ and undo did not change at all when WebRTC was added.
 - **Untrusted server contract:** the only object that crosses the boundary is
   `{ to, from, header, ct }`. `CiphertextRelay.inspect()` exists to *prove* this
   in the UI: it lists every field the relay can read.
-- **Sandbox:** user C never executes on the main thread. The runtime worker has
-  no DOM, no storage, no crypto, no network, and is terminated rather than
-  asked to stop.
-- **CSP:** no `unsafe-inline`, no `unsafe-eval`, `require-trusted-types-for
+- **Sandbox:** user C/C++ never executes on the main thread. The trusted compiler
+  worker fetches integrity-checked same-origin assets and uses an in-memory sysroot.
+  Generated WebAssembly receives no filesystem, network, storage or DOM imports;
+  only restricted WASI console, arguments, clocks and secure random services.
+  The main thread terminates the worker rather than asking user code to stop.
+- **CSP:** no `unsafe-inline` or JavaScript `unsafe-eval`; narrowly permits
+  `wasm-unsafe-eval` for local WebAssembly compilation, `require-trusted-types-for
   'script'` with `trusted-types singularity-script-url` (so page script cannot
   mint a second policy), `object-src 'none'`, `base-uri 'none'`,
   `frame-ancestors 'none'`, COOP `same-origin` + COEP `require-corp`. Delivered
@@ -130,10 +136,10 @@ and undo did not change at all when WebRTC was added.
 
 ## 6. What is deliberately missing
 
-WebGPU renderer, OPFS for large binaries, a SharedArrayBuffer worker pool, an
-OffscreenCanvas render loop, a bundled TURN relay, image-based lighting from an
-HDRI probe, skeletal animation, clang→WASM, screen-reader
-validation, a red-team session, a 10,000-session distributed load rig, a multi-node cluster, and a
-narrated 10-minute demo video. None of these are stubbed with fake behaviour:
-they simply do not exist, and the scorecard, [PLAN.md](PLAN.md) and
-[LOAD_CHAOS.md](LOAD_CHAOS.md) say so in those words.
+WebGPU renderer, a SharedArrayBuffer worker pool, an OffscreenCanvas render loop,
+a bundled TURN relay, full HDRI specular prefiltering, skeletal animation, current
+Clang/native OS compatibility, VoiceOver/TalkBack validation, an independent
+red-team audit, a 10,000-session distributed load rig and a multi-node cluster.
+The shipped HDR probe drives diffuse irradiance only; recorded NVDA, demo and
+local security evidence are not substitutes for the missing independent/device
+validation. See the scorecard, [PLAN.md](PLAN.md) and [LOAD_CHAOS.md](LOAD_CHAOS.md).

@@ -1,5 +1,6 @@
 import { test, assert, assertEquals } from './harness.js';
 import { MIGRATIONS, openDatabase, openLocalStore } from '../src/storage/db.js';
+import { RGA } from '../src/crdt/rga.js';
 
 const uniqueName = () => `singularity-test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -55,7 +56,7 @@ test('M6: documents and meta survive reopen', async () => {
   second.close();
 }, { needs: 'indexeddb' });
 
-test('M6: compaction keeps the snapshot and drops the op log', async () => {
+test('M6: text snapshots preserve the causal op log', async () => {
   const name = uniqueName();
   const store = await openLocalStore(name);
   const ops = [];
@@ -64,7 +65,7 @@ test('M6: compaction keeps the snapshot and drops the op log', async () => {
   assertEquals(await store.countOps('doc'), 50);
 
   await store.compact('doc', 'x'.repeat(50));
-  assertEquals(await store.countOps('doc'), 0, 'op log must be cleared');
+  assertEquals(await store.countOps('doc'), 50, 'text cannot replace character identities');
   const snapshot = await store.loadDoc('doc');
   assertEquals(snapshot.text.length, 50, 'snapshot must hold the full document');
   store.close();
@@ -126,4 +127,71 @@ test('M6: quota estimation degrades gracefully when unavailable', async () => {
   assert(typeof est.usage === 'number');
   assert(typeof est.quota === 'number');
   store.close();
+});
+
+async function snapshotThenEdit(store) {
+  const doc = new RGA('author');
+  await store.appendOps('doc', doc.localInsert(0, 'abc'));
+  await store.compact('doc', doc.text());
+  await store.appendOps('doc', doc.localInsert(3, 'X'));
+  await store.appendOps('doc', doc.localInsert(0, 'Z'));
+  const restored = new RGA('reader');
+  restored.merge(await store.loadOps('doc'));
+  assertEquals(restored.text(), 'ZabcX');
+  assertEquals(restored.stats().buffered, 0);
+}
+
+test('M6: edits after a text snapshot retain their causal baseline', async () => {
+  const store = await openLocalStore(uniqueName());
+  try { await snapshotThenEdit(store); } finally { store.close(); }
+});
+
+test('M6: a snapshot and subsequent edits survive IndexedDB reopen', async () => {
+  const name = uniqueName();
+  const first = await openLocalStore(name);
+  await snapshotThenEdit(first);
+  first.close();
+  const reopened = await openLocalStore(name);
+  try {
+    const restored = new RGA('reopened');
+    restored.merge(await reopened.loadOps('doc'));
+    assertEquals(restored.text(), 'ZabcX');
+    assertEquals(restored.stats().buffered, 0);
+  } finally { reopened.close(); }
+}, { needs: 'indexeddb' });
+
+test('M6: empty snapshots and delete-all histories remain valid', async () => {
+  const store = await openLocalStore(uniqueName());
+  try {
+    const doc = new RGA('author');
+    await store.appendOps('doc', doc.localInsert(0, 'abc'));
+    await store.appendOps('doc', doc.localDelete(0, 3));
+    await store.compact('doc', '');
+    const restored = new RGA('reader');
+    restored.merge(await store.loadOps('doc'));
+    assertEquals(restored.text(), '');
+    assertEquals(restored.stats().buffered, 0);
+    assertEquals((await store.loadDoc('doc')).text, '');
+    assertEquals(await store.countOps('doc'), 6);
+  } finally { store.close(); }
+});
+
+test('M6: repair replaces only the damaged document history', async () => {
+  const store = await openLocalStore(uniqueName());
+  try {
+    await store.appendOps('damaged', [{ t: 'ins', id: [2, 'bad'], o: [1, 'missing'], c: 'x' }]);
+    await store.appendOps('other', [{ t: 'ins', id: [1, 'other'], o: null, c: 'Y' }]);
+    const fresh = new RGA('repair');
+    const replacement = fresh.localInsert(0, 'recovered');
+    assertEquals(await store.replaceOps('damaged', replacement, fresh.text()), 9);
+    const restored = new RGA('reader');
+    restored.merge(await store.loadOps('damaged'));
+    assertEquals(restored.text(), 'recovered');
+    assertEquals(restored.stats().buffered, 0);
+    assertEquals((await store.loadDoc('damaged')).text, 'recovered');
+    assertEquals(await store.countOps('other'), 1);
+    await store.replaceOps('damaged', [], '');
+    assertEquals(await store.countOps('damaged'), 0);
+    assertEquals((await store.loadDoc('damaged')).text, '');
+  } finally { store.close(); }
 });

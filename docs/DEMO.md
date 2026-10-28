@@ -8,6 +8,11 @@ the running application by `tools/demo.js`, not staged: the tour is a script, an
 this page is that script. What is *not* in it is a human voice, a red-team
 session, or a distributed load rig — see the end of this file.
 
+The recording is historical and predates the final persistence corrections and
+real compiler mode. Payload figures below describe the current import graph;
+Lighthouse, soak, load and security evidence remains tied to its archived runs.
+No new recording, browser/UI pass or device guarantee is claimed here.
+
 This page doubles as a manual acceptance test: every step names what you should
 see, so anyone can run the tour and check the claims in the README in about ten
 minutes.
@@ -56,11 +61,14 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    old Gold ceiling. Say out loud that the leading column is the brief's points
    band and the ladder grades the *requirements*, which is why the two readings
    disagree.
-7. Point at the budget table: payload **met** (120.0 KiB gzip of cold-load
-   JavaScript plus 26.9 KiB of CSS, against a 170 KB ceiling; the 110.6 KiB gzip
-   deferred graph loads with the panel that needs it), the hour-long memory soak
-   **met** (the heap at minute 60 is smaller than at minute 10), frame rate
-   **met**, and everything that was not measured labelled *not measured*.
+7. Point at the budget table: the current payload is **met** (122.2 KiB gzip
+   cold-load JavaScript plus 26.9 KiB gzip CSS = 149.1 KiB gzip / 482.5 KiB raw
+   across 15 initial files: 14 JS and the stylesheet, against a 170 KB JS ceiling).
+   The 18-file deferred graph is 119.9 KiB gzip JS; the approximately 18.4 MiB
+   compressed toolchain asset set is separate and loads on the first compiler run.
+   Label the hour-long memory soak and frame rate as **historical evidence**
+   under the recorded conditions, not new runs of the corrected app; the snapshot
+   at minute 60 is smaller than at minute 10. Leave unmeasured rows *not measured*.
 
 ## 1. M1 Editor — the CRDT (1.5 min)
 
@@ -74,7 +82,13 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 ## 2. M2 C Runtime — real C, sandboxed (1.5 min)
 
-1. Open **2. M2 C Runtime** and press **Run** on the default sample: `fib`,
+The recorded steps below exercise the lightweight interpreter. Select that mode
+when reproducing its deterministic step-budget and lexer/parser diagnostics.
+The separate current WebAssembly mode uses self-hosted Clang 8.0.1 (C11/C++17,
+no exceptions or native APIs); its first run fetches same-origin toolchain
+assets, not a compilation service. Program source is not uploaded.
+
+1. Open **2. M2 C Runtime**, select the interpreter and press **Run** on the default sample: `fib`,
    a struct, a `malloc` linked list, a `switch` on a grade, `scanf` reading two
    integers from the stdin box, then stdin echoed.
 2. Break it on purpose: delete a `}` and run. Show the lexer/parser diagnostic
@@ -118,8 +132,11 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 1. Open **6. M6 Offline**. Show the op log, the snapshot, quota usage and
    persistence state.
-2. Press **Compact**: it reports the collected tombstones, the trimmed ops and
-   the watermark that allowed it.
+2. Press **Compact**: it waits for pending writes, saves a text snapshot while
+   retaining durable causal operations, and reports reclaimed in-memory ops,
+   collected tombstones and the watermark. A rejected write must prevent snapshot
+   success; rejection recovery and writes queued during a flush are acceptance
+   gates in PLAN.md, not demonstrated by the historical recording.
 3. Stop the server (`Ctrl+C`), reload the page: the shell still loads from the
    service worker and the document is intact.
 4. Start the server again and reload under a subpath to show the scope-relative
@@ -146,10 +163,11 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run: **282 tests, 24 suites, all
-green, no skips**, including the fuzzer. Then name the gaps: no red-team session, no
-audited crypto, no TURN, no measured HDRI probe/IBL, no clang→WASM, no VoiceOver/TalkBack pass, and
-no distributed load or chaos rig.
+Open **/tests/browser.html** and let the suite run. Browser eligibility: 331 tests; 7 Node-only checks are skipped.
+Then name the remaining gaps: no independent crypto audit, no bundled TURN,
+no HDR specular prefilter, no VoiceOver/TalkBack validation and no 10,000-browser fleet.
+Internal red-team, NVDA, relay load/chaos and real Clang/WebAssembly evidence exist;
+the original recording predates these improvements.
 
 ## What the recording is, and what it is not
 

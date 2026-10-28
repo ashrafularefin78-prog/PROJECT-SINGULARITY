@@ -7,7 +7,7 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { brotliCompressSync, gzipSync } from 'node:zlib';
-import { extname, join, normalize, resolve } from 'node:path';
+import { extname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { headersFor, loadHeaderRules } from './headers.js';
 
@@ -28,6 +28,7 @@ const TYPES = {
   '.ico': 'image/x-icon',
   '.webmanifest': 'application/manifest+json',
   '.wasm': 'application/wasm',
+  '.gz': 'application/gzip',
   '.txt': 'text/plain; charset=utf-8',
   '.map': 'application/json; charset=utf-8',
 };
@@ -85,6 +86,12 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     let pathname = decodeURIComponent(url.pathname);
+    // WHATWG URL parsing normalizes literal backslashes; decoded ones would
+    // become separators on Windows. Deny both before proxying or path mapping.
+    if (req.url.split(/[?#]/, 1)[0].includes('\\') || pathname.includes('\\')) {
+      res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found');
+      return;
+    }
     if (RELAY && (pathname === '/relay' || pathname.startsWith('/relay/'))) {
       const res2 = await new Promise((resolvePromise) => {
         const chunks = [];
@@ -121,7 +128,10 @@ const server = createServer(async (req, res) => {
     }
     if (pathname.endsWith('/')) pathname += 'index.html';
     const target = join(ROOT, normalize(pathname).replace(/^([/\\])+/, ''));
-    if (!target.startsWith(ROOT)) {
+    const fromRoot = relative(ROOT, target);
+    // A string prefix also accepts ROOT-sibling directories. A relative path
+    // detects those escapes, including Windows drive/UNC changes.
+    if (isAbsolute(fromRoot) || fromRoot === '..' || fromRoot.startsWith('..' + sep)) {
       res.writeHead(403).end('Forbidden');
       return;
     }
@@ -148,6 +158,7 @@ const server = createServer(async (req, res) => {
       headers['content-encoding'] = encoding;
       headers.vary = 'accept-encoding';
     }
+    headers['content-length'] = payload.length;
     for (const { name, value } of headersFor(HEADER_RULES, pathname)) {
       if (name.toLowerCase() === 'cache-control') continue;
       headers[name.toLowerCase()] = value;

@@ -17,9 +17,10 @@
  *     the list. This is the guarantee the load harness measures with
  *     `--failover`: an envelope the fleet could not get confirmed is never
  *     dropped, because the ciphertext is still on the sender.
- *   - Failover across a list of base URLs. Transport errors and 5xx responses
- *     rotate to the next URL and flush the outbox through it; a 4xx response
- *     is a protocol error and is surfaced, never retried into a loop.
+ *   - Failover across a list of base URLs. Transport errors, 5xx responses and
+ *     429 backpressure rotate and retry within a bounded budget, keeping any
+ *     unacknowledged frames queued. Other 4xx responses are terminal protocol
+ *     errors and are surfaced, never retried into a loop.
  *
  * Same-origin by design: the shipped app carries `connect-src 'self'`, so a
  * relay has to be mounted under the same origin (a route or reverse proxy next
@@ -78,7 +79,7 @@ export class RelayCarrier {
     this.onStatus = options.onStatus || (() => {});
     this.fetchImpl = options.fetchImpl || ((...callArgs) => globalThis.fetch(...callArgs));
     this.wait = Number.isFinite(options.wait) ? options.wait : DEFAULT_WAIT_S;
-    this.outbox = new Map(); // frame id -> { id, wire, attempts }
+    this.outbox = new Map(); // frame id -> { id, wire, attempts, state, error }
     this.seen = new Set(); // frame ids already delivered to onFrame
     this.nextId = 1;
     this.stopped = true;
@@ -137,10 +138,9 @@ export class RelayCarrier {
 
   /**
    * Seal one payload and post it to `to` ('*' to the whole room). Resolves to
-   * `{ id, delivered, queued }`: a frame the node did not acknowledge stays in
-   * the outbox (queued) and does not throw - presence gossip should degrade,
-   * not crash - but the next `flush()` or `post()` will try again, and a
-   * later failover will carry it to another node.
+   * `{ id, delivered, queued, error? }`: transient failures stay queued for a
+   * later `flush()` or `post()`, while terminal protocol rejections are removed
+   * and reported as undelivered. Presence gossip degrades rather than throwing.
    */
   async post(to, payload) {
     const id = `${this.peerId}#${this.nextId}`;
@@ -148,14 +148,16 @@ export class RelayCarrier {
     const frame = await this.seal({ id, payload });
     const wire = { to, from: this.peerId, ct: frame.ct };
     if (frame.header !== undefined) wire.header = frame.header;
-    this.outbox.set(id, { id, wire, attempts: 1 });
+    // Keep the outcome on this reference: removal alone is not acknowledgement,
+    // and a shared flush can acknowledge one entry while rejecting another.
+    const entry = { id, wire, attempts: 1, state: 'queued', error: null };
+    this.outbox.set(id, entry);
     this.stats.posted += 1;
     const result = await this.flush();
-    if (this.outbox.has(id)) {
-      this.stats.outboxStuck += 1;
-      return { id, delivered: false, queued: true, error: result.error || this.stats.lastError };
-    }
-    return { id, delivered: true, queued: false };
+    if (entry.state === 'acked') return { id, delivered: true, queued: false };
+    const queued = this.outbox.has(id);
+    if (queued) this.stats.outboxStuck += 1;
+    return { id, delivered: false, queued, error: entry.error || result.error || this.stats.lastError };
   }
 
   /** Post everything still queued through the active node, rotating on failure. */
@@ -170,6 +172,7 @@ export class RelayCarrier {
 
   async _flushOutbox() {
     let error = null;
+    let rejectionError = null;
     for (let rotation = 0; rotation <= this.urls.length; rotation += 1) {
       if (rotation > 0) this._rotate();
       let transportDown = false;
@@ -180,29 +183,38 @@ export class RelayCarrier {
         } catch (err) {
           transportDown = true;
           error = String((err && err.message) || err);
+          entry.error = error;
           this.stats.lastError = error;
           break;
         }
         if (res.status === 200 && res.json && res.json.ok) {
+          entry.state = 'acked';
+          entry.error = null;
           this.outbox.delete(entry.id);
           this.stats.acked += 1;
           if (entry.attempts > 1) this.stats.reposted += 1;
           continue;
         }
-        if (res.status >= 400 && res.status < 500) {
+        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
           // A protocol error is not a node problem: another node would reject
           // the same bytes. Drop it and say so; never retry into a loop.
+          entry.state = 'rejected';
           this.outbox.delete(entry.id);
           error = `node rejected the envelope: ${res.status} ${(res.json && res.json.error) || ''}`.trim();
+          entry.error = error;
+          rejectionError = error;
           this.stats.lastError = error;
           continue;
         }
+        // Backpressure (429), like transport/5xx failures, keeps the entry for
+        // bounded failover here and a later flush if the retry budget runs out.
         transportDown = true;
         error = `node answered ${res.status}`;
+        entry.error = error;
         this.stats.lastError = error;
         break;
       }
-      if (this.outbox.size === 0) return { ok: true };
+      if (this.outbox.size === 0) return rejectionError ? { ok: false, error: rejectionError } : { ok: true };
       if (!transportDown) return { ok: false, error: error || 'post did not complete' };
     }
     return { ok: false, error: error || 'no relay node answered' };

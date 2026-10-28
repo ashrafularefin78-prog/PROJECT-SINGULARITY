@@ -1,0 +1,21 @@
+Self-hosted WebAssembly C/C++ toolchain
+
+Compiler: Clang 8.0.1, LLVM linker, legacy WASI ABI.
+Binary source: https://binji.github.io/wasm-clang/
+Downloaded 2026-10-28. manifest.json records uncompressed SHA-256 hashes.
+The compressed compiler, linker, memfs and sysroot are loaded on demand.
+
+The upstream wasm-clang integration is copyright 2020 WebAssembly Community
+Group participants and distributed under Apache License 2.0.
+Clang and LLVM 8 use the University of Illinois/NCSA Open Source License.
+libc++ and libc++abi use the MIT and University of Illinois/NCSA licenses.
+The WASI libc sysroot incorporates musl, which uses the MIT license.
+Upstream license texts are distributed alongside these assets. LLVM, libc++
+and libc++abi license texts were obtained from the LLVM 8.0.0 source archives;
+these are the same-generation licenses accompanying the 8.0.1 toolchain.
+
+This toolchain is not current Clang. Supported standards in this application:
+C89, C99, C11, GNU11; C++98, C++11, C++14, C++17.
+C++ exceptions, threads, native libraries, host files, and network access
+are not supported. The generated program receives only WASI console, clock,
+randomness and argument services. It cannot access the toolchain filesystem.

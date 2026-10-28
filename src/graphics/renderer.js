@@ -430,30 +430,41 @@ void main() {
 
 function compile(gl, type, source) {
   const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(shader);
+  if (!shader) throw new Error('could not allocate shader');
+  try {
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      throw new Error(`shader compile failed: ${gl.getShaderInfoLog(shader)}`);
+    }
+    return shader;
+  } catch (error) {
     gl.deleteShader(shader);
-    throw new Error(`shader compile failed: ${log}`);
+    throw error;
   }
-  return shader;
 }
 
 function program(gl, vsSource, fsSource) {
-  const vs = compile(gl, gl.VERTEX_SHADER, vsSource);
-  const fs = compile(gl, gl.FRAGMENT_SHADER, fsSource);
-  const prog = gl.createProgram();
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  gl.deleteShader(vs);
-  gl.deleteShader(fs);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    const log = gl.getProgramInfoLog(prog);
-    throw new Error(`program link failed: ${log}`);
+  let vs, fs, prog;
+  try {
+    vs = compile(gl, gl.VERTEX_SHADER, vsSource);
+    fs = compile(gl, gl.FRAGMENT_SHADER, fsSource);
+    prog = gl.createProgram();
+    if (!prog) throw new Error('could not allocate shader program');
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      throw new Error(`program link failed: ${gl.getProgramInfoLog(prog)}`);
+    }
+    return prog;
+  } catch (error) {
+    if (prog) gl.deleteProgram(prog);
+    throw error;
+  } finally {
+    if (vs) gl.deleteShader(vs);
+    if (fs) gl.deleteShader(fs);
   }
-  return prog;
 }
 
 function uniforms(gl, prog, names) {
@@ -477,6 +488,7 @@ export class Renderer {
     this.shadows = options.shadows !== false;
     this.camera = { azimuth: 0.6, elevation: 0.42, distance: 62 };
     this.running = false;
+    this.disposed = false;
     this.frameTimes = [];
     this.fps = 0;
     this.frames = 0;
@@ -505,6 +517,8 @@ export class Renderer {
   }
 
   init() {
+    if (this.disposed) throw new Error('cannot initialise a disposed renderer');
+    if (this.gl) return this.info();
     const gl = this.canvas.getContext('webgl2', {
       antialias: true,
       alpha: false,
@@ -513,26 +527,31 @@ export class Renderer {
     });
     if (!gl) throw new Error('WebGL2 is not available in this browser');
     this.gl = gl;
-    this.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-    this.renderer = (() => {
-      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-      return dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'unknown';
-    })();
+    try {
+      this.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+      this.renderer = (() => {
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        return dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'unknown';
+      })();
 
-    this._buildCube();
-    this._buildGround();
-    this._buildPrograms();
-    this._buildEnvironment();
-    this._buildInstances();
-    this._buildParticles();
-    this._buildShadowFramebuffer();
+      this._buildCube();
+      this._buildGround();
+      this._buildPrograms();
+      this._buildEnvironment();
+      this._buildInstances();
+      this._buildParticles();
+      this._buildShadowFramebuffer();
 
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
-    gl.cullFace(gl.BACK);
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.CULL_FACE);
+      gl.cullFace(gl.BACK);
 
-    this.resize();
-    return this.info();
+      this.resize();
+      return this.info();
+    } catch (error) {
+      this.dispose();
+      throw error;
+    }
   }
 
   info() {
@@ -574,8 +593,8 @@ export class Renderer {
     const gl = this.gl;
     this.groundVao = gl.createVertexArray();
     gl.bindVertexArray(this.groundVao);
-    const vbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    this.groundVbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.groundVbo);
     gl.bufferData(gl.ARRAY_BUFFER, GROUND_VERTICES, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
@@ -658,11 +677,11 @@ export class Renderer {
     // No vertex buffer at all: the indices are implicit in gl_VertexID, which
     // is what keeps a million particles essentially free of memory traffic.
     this.particleVao = gl.createVertexArray();
-    const buffer = gl.createBuffer();
+    this.particleVbo = gl.createBuffer();
     gl.bindVertexArray(this.particleVao);
     const indices = new Float32Array(MAX_PARTICLES);
     for (let i = 0; i < MAX_PARTICLES; i += 1) indices[i] = i;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.particleVbo);
     gl.bufferData(gl.ARRAY_BUFFER, indices, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 1, gl.FLOAT, false, 4, 0);
@@ -688,8 +707,9 @@ export class Renderer {
       noise: noiseTexture(128),
     };
 
-    const uploadCube = (faces, mips) => {
+    const uploadCube = (name, faces, mips) => {
       const tex = gl.createTexture();
+      this[name] = tex;
       gl.bindTexture(gl.TEXTURE_CUBE_MAP, tex);
       const faceBytes = faces.size * faces.size * 4;
       for (let face = 0; face < 6; face += 1) {
@@ -709,8 +729,8 @@ export class Renderer {
       }
       return tex;
     };
-    this.envIrradianceTexture = uploadCube(this.env.irradiance, false);
-    this.envSpecTexture = uploadCube(this.env.specular, true);
+    uploadCube('envIrradianceTexture', this.env.irradiance, false);
+    uploadCube('envSpecTexture', this.env.specular, true);
 
     this.noiseTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
@@ -800,41 +820,52 @@ export class Renderer {
    * @param {{ spin?: number }} [options]  radians/second about the world Y axis
    */
   attachModel(meshes, options = {}) {
-    if (!this.gl) throw new Error('attachModel() needs an initialised renderer');
+    if (!this.gl || this.disposed) throw new Error('attachModel() needs an initialised renderer');
+    const uploaded = [];
+    let staged;
+    try {
+      for (const mesh of meshes || []) {
+        // Prepare JS records before allocation; register each successful upload
+        // immediately so a later mesh failure can roll the entire batch back.
+        const record = {
+          material: {
+            baseColor: new Float32Array(mesh.material.baseColor),
+            metallic: mesh.material.metallic,
+            roughness: mesh.material.roughness,
+            doubleSided: mesh.material.doubleSided,
+            normalScale: mesh.material.normalTexture ? (mesh.material.normalTexture.scale ?? 1) : 1,
+            baseColorTexture: mesh.material.baseColorTexture || null,
+            normalTexture: mesh.material.normalTexture || null,
+          },
+          worldMatrix: mesh.worldMatrix,
+          textures: {},
+          dropped: false,
+          triangles: (mesh.indices ? mesh.indices.length : mesh.positions.length / 3) / 3,
+        };
+        Object.assign(record, uploadMesh(this.gl, mesh, { position: 0, normal: 1, uv: 2, tangent: 3 }));
+        uploaded.push(record);
+      }
+      staged = {
+        meshes: uploaded,
+        triangles: uploaded.reduce((n, m) => n + m.triangles, 0),
+        spin: options.spin ?? 0.25,
+      };
+    } catch (error) {
+      this._releaseModelMeshes(uploaded);
+      throw error;
+    }
+    // The previous model (and its in-flight texture decodes) stays valid until
+    // all replacement geometry has uploaded successfully.
     this.detachModel();
     const generation = (this.modelGeneration += 1);
-    const uploaded = (meshes || []).map((mesh) => {
-      const glMesh = uploadMesh(this.gl, mesh, { position: 0, normal: 1, uv: 2, tangent: 3 });
-      return {
-        ...glMesh,
-        material: {
-          baseColor: new Float32Array(mesh.material.baseColor),
-          metallic: mesh.material.metallic,
-          roughness: mesh.material.roughness,
-          doubleSided: mesh.material.doubleSided,
-          normalScale: mesh.material.normalTexture ? (mesh.material.normalTexture.scale ?? 1) : 1,
-          baseColorTexture: mesh.material.baseColorTexture || null,
-          normalTexture: mesh.material.normalTexture || null,
-        },
-        worldMatrix: mesh.worldMatrix,
-        textures: {},
-        dropped: false,
-        triangles: (mesh.indices ? mesh.indices.length : mesh.positions.length / 3) / 3,
-      };
-    });
-    this.model = {
-      meshes: uploaded,
-      triangles: uploaded.reduce((n, m) => n + m.triangles, 0),
-      spin: options.spin ?? 0.25,
-      generation,
-    };
+    this.model = { ...staged, generation };
     if (uploaded.some((m) => m.material.baseColorTexture || m.material.normalTexture)) {
       this._decodeModelTextures(generation, uploaded);
     }
     return {
       meshes: uploaded.length,
       triangles: this.model.triangles,
-      nodes: meshes.length,
+      nodes: meshes?.length ?? 0,
     };
   }
 
@@ -859,25 +890,34 @@ export class Renderer {
         bitmap.close();
         return;
       }
-      const texture = gl.createTexture();
-      const isNormal = slotName === 'normalTexture';
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, isNormal ? gl.RGBA8 : gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
-      const { wrapS, wrapT, magFilter, minFilter } = texDef.sampler;
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter === 9728 ? gl.NEAREST : gl.LINEAR);
-      // 9984-9987 are the mipmapped min-filter variants; WebGL2 mips NPOT fine.
-      if (minFilter >= 9984 && minFilter <= 9987) {
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-        gl.generateMipmap(gl.TEXTURE_2D);
-      } else if (minFilter === 9728) {
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      } else {
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      let texture;
+      try {
+        texture = gl.createTexture();
+        if (!texture) throw new Error('could not allocate model texture');
+        const isNormal = slotName === 'normalTexture';
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, isNormal ? gl.RGBA8 : gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+        const { wrapS, wrapT, magFilter, minFilter } = texDef.sampler;
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter === 9728 ? gl.NEAREST : gl.LINEAR);
+        // 9984-9987 are the mipmapped min-filter variants; WebGL2 mips NPOT fine.
+        if (minFilter >= 9984 && minFilter <= 9987) {
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+          gl.generateMipmap(gl.TEXTURE_2D);
+        } else if (minFilter === 9728) {
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        } else {
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        }
+        if (gl.getError && gl.getError() !== gl.NO_ERROR) throw new Error('model texture upload failed');
+        mesh.textures[slotName] = { texture };
+      } catch {
+        if (texture) gl.deleteTexture(texture);
+        // Upload failure, like decode failure, leaves factor-only rendering.
+      } finally {
+        bitmap.close();
       }
-      bitmap.close();
-      mesh.textures[slotName] = { texture };
     };
 
     for (const mesh of meshRecords) {
@@ -888,23 +928,59 @@ export class Renderer {
     }
   }
 
-  /** Drop the attached model and release its GPU buffers and textures. */
-  detachModel() {
-    if (!this.model) return;
+  _releaseModelMeshes(meshes) {
     const gl = this.gl;
-    if (gl) {
-      for (const mesh of this.model.meshes) {
-        mesh.dropped = true;
+    for (const mesh of meshes) {
+      if (mesh.dropped) continue;
+      mesh.dropped = true;
+      if (gl) {
         gl.deleteVertexArray(mesh.vao);
         for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
-        for (const slotName of ['baseColorTexture', 'normalTexture']) {
-          const uploaded = mesh.textures[slotName];
-          if (uploaded) gl.deleteTexture(uploaded.texture);
-          delete mesh.textures[slotName];
+        for (const uploaded of Object.values(mesh.textures)) gl.deleteTexture(uploaded.texture);
+      }
+      mesh.textures = {};
+    }
+  }
+
+  /** Drop the committed model and invalidate pending texture decodes. */
+  detachModel() {
+    this.modelGeneration += 1;
+    if (!this.model) return;
+    this._releaseModelMeshes(this.model.meshes);
+    this.model = null;
+  }
+
+  /** Permanently stop rendering and release all owned GPU resources once. */
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.stop();
+    this.detachModel();
+    const gl = this.gl;
+    if (gl) {
+      // A current program is only flagged for deletion until it is unbound.
+      gl.useProgram(null);
+      gl.bindVertexArray(null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      const groups = [
+        ['deleteBuffer', ['cubeVbo', 'cubeIbo', 'groundVbo', 'instanceVbo', 'particleVbo']],
+        ['deleteVertexArray', ['cubeVao', 'groundVao', 'particleVao']],
+        ['deleteTexture', ['envIrradianceTexture', 'envSpecTexture', 'noiseTexture', 'shadowTexture']],
+        ['deleteProgram', ['objectProgram', 'groundProgram', 'depthProgram', 'modelProgram', 'modelDepthProgram', 'particleProgram']],
+        ['deleteFramebuffer', ['shadowFbo']],
+      ];
+      for (const [remove, names] of groups) {
+        for (const name of names) {
+          if (this[name]) gl[remove](this[name]);
+          this[name] = null;
         }
       }
+      // There are currently no timer-query allocations in this renderer.
     }
-    this.model = null;
+    this.gl = null;
+    this.env = null;
+    this.instanceData = null;
+    this.frameTimes = [];
   }
 
   setInstances(n) {
@@ -942,7 +1018,7 @@ export class Renderer {
   }
 
   start() {
-    if (this.running) return;
+    if (this.running || this.disposed) return;
     this.running = true;
     const loop = (now) => {
       if (!this.running) return;
@@ -955,14 +1031,15 @@ export class Renderer {
         return;
       }
       this.frame(now);
-      this.raf = requestAnimationFrame(loop);
+      if (this.running) this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
   }
 
   stop() {
     this.running = false;
-    if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.raf != null) cancelAnimationFrame(this.raf);
+    this.raf = null;
   }
 
   // ----------------------------------------------------------------- render

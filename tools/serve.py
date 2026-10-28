@@ -118,7 +118,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         for `/.git/config`.
         """
         served = urllib.parse.unquote(urllib.parse.urlsplit(path).path)
-        if PREFIX and served.startswith(PREFIX):
+        # A decoded backslash is a filesystem separator on Windows, not a URL
+        # separator. Reject it before either prefix mapping or relay proxying.
+        if "\\" in served:
+            return True
+        if PREFIX and (served == PREFIX or served.startswith(PREFIX + "/")):
             served = served[len(PREFIX):] or "/"
         parts = [p for p in served.split("/") if p]
         if any(p.startswith(".") for p in parts):
@@ -141,17 +145,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return os.path.join(ROOT, *parts)
 
     def do_GET(self):
-        if self.proxy_relay("GET"):
+        self.serve_request("GET")
+
+    def do_HEAD(self):
+        self.serve_request("HEAD")
+
+    def serve_request(self, method):
+        # SimpleHTTPRequestHandler's inherited HEAD otherwise bypasses the
+        # denial and bare-prefix redirect applied to GET. The relay checks
+        # ambiguous separators itself, before forwarding any request.
+        if self.proxy_relay(method):
             return
         if self.is_sensitive(self.path):
             self.send_error(404, "not found")
             return
-        if PREFIX and urllib.parse.urlsplit(self.path).path == PREFIX:
+        if PREFIX and urllib.parse.unquote(urllib.parse.urlsplit(self.path).path) == PREFIX:
             self.send_response(301)
             self.send_header("Location", PREFIX + "/")
             self.end_headers()
             return
-        super().do_GET()
+        if method == "HEAD":
+            super().do_HEAD()
+        else:
+            super().do_GET()
 
     def do_POST(self):
         if self.proxy_relay("POST"):
@@ -166,11 +182,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         and the carrier's failover sees a transport error when the node is
         down (the proxy answers 502), which is what rotates it to the next URL.
         """
-        if not RELAY:
-            return False
         split = urllib.parse.urlsplit(self.path)
         served = urllib.parse.unquote(split.path)
-        if PREFIX and served.startswith(PREFIX):
+        # POST also reaches this method; never forward ambiguous separators.
+        if "\\" in served:
+            self.send_error(404, "not found")
+            return True
+        if not RELAY:
+            return False
+        if PREFIX:
+            if not (served == PREFIX or served.startswith(PREFIX + "/")):
+                return False
             served = served[len(PREFIX):] or "/"
         if not (served == "/relay" or served.startswith("/relay/")):
             return False
@@ -201,7 +223,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
-        self.wfile.write(payload)
+        if method != "HEAD":
+            self.wfile.write(payload)
         return True
 
     def end_headers(self):

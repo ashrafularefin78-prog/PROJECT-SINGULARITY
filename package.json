@@ -5,10 +5,11 @@
   "private": true,
   "type": "module",
   "types": "types/index.d.ts",
-  "description": "Project Singularity - The Impossible Website Challenge. Browser-native, zero runtime dependencies.",
+  "description": "Project Singularity - browser-native, framework-free, with a self-hosted WebAssembly C/C++ toolchain.",
   "scripts": {
     "test": "node tests/run.js",
     "test:browser": "node tools/browser-run.js",
+    "test:ui": "node tools/ui-regressions.js",
     "serve": "node tools/serve.js",
     "verify:headers": "node tools/verify-headers.js",
     "verify:zap": "node tools/zap-verdict.js",

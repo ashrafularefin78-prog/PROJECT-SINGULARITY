@@ -20,7 +20,7 @@ Run the gates (see [CONTRIBUTING.md](../CONTRIBUTING.md)) and tick what you
 ran:
 
 - [ ] `node tests/run.js` - fast suite green (browser-only tests may skip)
-- [ ] `node tools/browser-run.js` - all 282 tests green in a real browser
+- [ ] `node tools/browser-run.js` - all 331 tests green in a real browser
 - [ ] `node tools/check-docs.js` - every published number still matches its
       artifact; if your change moved a measurement, you re-ran the measuring
       tool and updated the docs from its output

@@ -44,7 +44,9 @@ function runnerCounts() {
 }
 
 const counts = runnerCounts();
-const { pass, fail, skip, total, suites } = counts;
+const { pass, fail, skip, total, suites, nodeOnly, suiteTotals } = counts;
+if (fail) throw new Error(`cannot publish counts from a failing suite (${fail} failures)`);
+const browserEligible = total - nodeOnly;
 
 const targets = {
   index: 'index.html',
@@ -72,6 +74,11 @@ function transform(name, text) {
   const s = String(suites);
   const p = String(pass);
   const k = String(skip);
+  const b = String(browserEligible);
+  text = text
+    .replace(/Browser eligibility: \d+ tests; \d+ Node-only checks are skipped\./g, `Browser eligibility: ${b} tests; ${nodeOnly} Node-only checks are skipped.`)
+    .replace(/\| `([^`]+\.test\.js)` \| \d+ \|/g, (row, file) => Object.hasOwn(suiteTotals, file) ? `| \`${file}\` | ${suiteTotals[file]} |` : row)
+    .replace(/(`tests\/([^`]+\.test\.js)` \()\d+( tests\))/g, (row, before, file, after) => Object.hasOwn(suiteTotals, file) ? `${before}${suiteTotals[file]}${after}` : row);
   // A multi-line replacement must use the file's own line ending. Writing `\n`
   // into a CRLF checkout rewrites the block differently from the bytes that are
   // already there, so `--check` reports drift on Windows that does not exist on
@@ -80,20 +87,20 @@ function transform(name, text) {
   switch (name) {
     case 'index':
       return text
-        .replace(/\b\d+ tests green in your browser/g, `${n} tests green in your browser`)
-        .replace(/\b\d+ tests runnable in your browser/g, `${n} tests runnable in your browser`)
-        .replace(/(id="hero-tests">)\d+( tests GREEN)/g, `$1${n}$2`)
-        .replace(/(RUN )\d+( tests IN THIS BROWSER)/g, `$1${n}$2`);
+        .replace(/\b\d+ tests green in your browser/g, `${b} tests runnable in your browser`)
+        .replace(/\b\d+ tests runnable in your browser/g, `${b} tests runnable in your browser`)
+        .replace(/(id="hero-tests">)\d+( tests GREEN)/g, `$1${b}$2`)
+        .replace(/(RUN )\d+( tests IN THIS BROWSER)/g, `$1${b}$2`);
     case 'app':
       return text
         .replace(
-          /\/\/ The suite's own totals[\s\S]*?const TEST_TOTALS = \{ total: \d+, suites: \d+ \};/,
+          /\/\/ The suite's own totals[\s\S]*?const TEST_TOTALS = \{ total: \d+, suites: \d+(?:, browser: \d+, nodeOnly: \d+)? \};/,
           [
             `// The suite's own totals are generated from the runner, not maintained by`,
             `// hand: tools/test-count.js --write rewrites this line and every other`,
             `// published count from node tests/run.js --json, and tools/check-docs.js`,
             `// fails the build when a claim drifts from it.`,
-            `const TEST_TOTALS = { total: ${n}, suites: ${s} };`,
+            `const TEST_TOTALS = { total: ${n}, suites: ${s}, browser: ${b}, nodeOnly: ${nodeOnly} };`,
           ].join(eol),
         )
         .replace(
@@ -108,17 +115,16 @@ function transform(name, text) {
         .replace(/\*\*\d+ tests across \d+ suites\*\*/g, `**${n} tests across ${s} suites**`)
         .replace(/\b\d+ of the \d+ tests\b/g, `${p} of the ${n} tests`)
         .replace(/\b\d+ pass with \d+ browser-only skips\b/g, `${p} pass with ${k} browser-only skips`)
-        .replace(/\bAll \d+ tests green\b/g, `All ${n} tests green`)
+        .replace(/\bAll \d+ tests green\b/g, `All ${b} tests green`)
         .replace(/\(\d+ suites, \d+ tests,/g, `(${s} suites, ${n} tests,`)
         .replace(/\b\d+ tests, \d+ suites\b/g, `${n} tests, ${s} suites`)
         .replace(/\b\d+ suites hold \d+ tests\b/g, `${s} suites hold ${n} tests`)
-        .replace(/\bIn the browser \d+ pass and one\b/g, `In the browser ${n - 1} pass and one`)
         .replace(/\*\*\d+ pass \+ \d+(\s+)browser-only skips\*\*/g, `**${p} pass + ${k}$1browser-only skips**`);
     case 'changelog':
       return text.replace(/\b\d+ tests across \d+ suites\b/g, `${n} tests across ${s} suites`);
     case 'contributing':
       return text
-        .replace(/\bAll \d+ tests green\b/g, `All ${n} tests green`)
+        .replace(/\bAll \d+ tests green\b/g, `All ${b} tests green`)
         .replace(/\b\d+ tests that do not need a browser\b/g, `${p} tests that do not need a browser`)
         .replace(/\bthe \d+ browser-only ones skip\b/g, `the ${k} browser-only ones skip`);
     case 'plan':
@@ -144,22 +150,21 @@ function transform(name, text) {
       return text
         .replace(/(The suite has since grown to\s*\*\*)\d+(\*\*)/g, `$1${n}$2`)
         .replace(/\b\d+ pass \+ \d+ browser-only skips under bare Node\b/g, `${p} pass + ${k} browser-only skips under bare Node`)
-        .replace(/\ball \d+ pass in(\s+)a real browser\b/g, (_, gap) => `all ${n} pass in${gap}a real browser`);
+        .replace(/\ball \d+ pass in(\s+)a real browser\b/g, (_, gap) => `all ${b} browser-eligible tests pass in${gap}a real browser`);
     case 'security':
       return text
         .replace(/\b\d+ tests across \d+ suites\b/g, `${n} tests across ${s} suites`)
         .replace(/\ball \d+ green\b/g, `all ${n} green`)
         .replace(/\b\d+ pass and \d+(\s+)browser-only skips\b/g, `${p} pass and ${k}$1browser-only skips`)
-        .replace(/\(\d+ tests, \d+ suites\)/g, `(${n} tests, ${s} suites)`)
-        .replace(/\bexecutes \d+ and(\s+)skips one Node-only import probe\b/g, `executes ${n - 1} and$1skips one Node-only import probe`);
+        .replace(/\(\d+ tests, \d+ suites\)/g, `(${n} tests, ${s} suites)`);
     case 'pr':
-      return text.replace(/\ball \d+ tests green in a real browser\b/g, `all ${n} tests green in a real browser`);
+      return text.replace(/\ball \d+ tests green in a real browser\b/g, `all ${b} tests green in a real browser`);
     default:
       return text;
   }
 }
 
-const allowed = new Set([total, pass, skip, suites, 0]);
+const allowed = new Set([total, pass, skip, suites, browserEligible, nodeOnly, 0]);
 const suspicious = [
   /\b(\d+)\s+(?:automated\s+)?tests?\s+(?:across|green|runnable|of the)/gi,
   /\b(?:all|RUN)\s+(\d+)\s+tests\b/gi,

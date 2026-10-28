@@ -14,7 +14,7 @@ up as futuristic features.
 
 | Missing | Where it bites | Why it is not built today |
 |---------|----------------|---------------------------|
-| clang/TCC (or any real C frontend) compiled to WASM in M2 | subset C only | Getting Musl/clang to a shipping state here is a research effort, not an engineering sprint; the interpreter with a hard sandbox is what is deliverable and tested |
+| Arbitrary native C/C++ programs in M2 | OS APIs, threads, exceptions and recent standards are unavailable | Real Clang 8.0.1/WASI compilation now ships locally, but a restricted browser runtime is not a native operating system |
 | WebGPU compute in M3 | no compute shaders, no ray tracing | the WebGL2 renderer is real and measured; WebGPU would be a second renderer attached to nothing |
 | A TURN server in M5 | symmetric NAT on both ends ends the session | one can be configured (`src/collab/webrtc.js` exposes the API) but hosting relay bandwidth is a deployment responsibility, not an app feature; STUN-only is the shipped truth |
 | VoiceOver/TalkBack validation in M7 | what the NVDA pass cannot prove about Safari, macOS and Android | NVDA 2026.2 is installed and recorded (17/17 steps, real speech log) alongside axe-core (0 violations, 412 passing rule results); this machine has no macOS or Android device, and the remaining gap is stated as not done |
@@ -23,8 +23,9 @@ up as futuristic features.
 
 ## Things never going into the shipped page, on principle
 
-- **No npm/third-party "futuristic" dependencies.** Zero runtime dependencies
-  is a scored, tested constraint; an "AI overlay" cannot import its way in.
+- **No npm/framework or speculative "futuristic" dependencies.** The shell is
+  hand-written; the explicit exception is M2's self-hosted Clang/WASI toolchain,
+  chosen to provide real C/C++ compilation rather than pretending a subset is complete.
 - **No claims that depend on infrastructure this project does not host.**
   A 10,000-user rig does not exist; nobody here can lease it. Every load/chaos
   number is therefore run at the scale that was actually exercised.

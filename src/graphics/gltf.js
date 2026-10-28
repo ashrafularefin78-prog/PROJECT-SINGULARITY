@@ -237,34 +237,84 @@ const COMPONENT_CTORS = {
 
 const TYPE_COUNTS = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16 };
 
-/**
- * Materialise accessor `idx` into a flat typed array.
- * Sparse accessors are not supported and throw.
- */
-function readAccessor(gltf, buffers, idx) {
-  const acc = gltf.accessors[idx];
-  if (acc.sparse) throw new Error(`glTF accessor ${idx}: sparse accessors are not supported`);
-
-  const Ctor = COMPONENT_CTORS[acc.componentType];
-  if (!Ctor) throw new Error(`glTF accessor ${idx}: unknown componentType ${acc.componentType}`);
-
-  const count = TYPE_COUNTS[acc.type] || 1;
-  const bv = gltf.bufferViews[acc.bufferView];
-  const byteStride = bv.byteStride || 0;
-  const offset = (bv.byteOffset || 0) + (acc.byteOffset || 0);
-  const buf = buffers[bv.buffer];
-
-  if (!byteStride || byteStride === Ctor.BYTES_PER_ELEMENT * count) {
-    // Tightly packed: slice directly.
-    return new Ctor(buf, offset, acc.count * count);
+function reference(items, idx, label) {
+  if (!Array.isArray(items) || !Number.isSafeInteger(idx) || idx < 0 || idx >= items.length
+      || !items[idx] || typeof items[idx] !== 'object' || Array.isArray(items[idx])) {
+    throw new Error(`glTF: invalid ${label} reference ${idx}`);
   }
+  return items[idx];
+}
 
-  // Interleaved: copy element-by-element.
+function byteInteger(value, label, minimum = 0) {
+  if (!Number.isSafeInteger(value) || value < minimum) throw new Error(`glTF: invalid ${label}`);
+  return value;
+}
+
+function validateBufferView(gltf, buffers, idx) {
+  const bv = reference(gltf.bufferViews, idx, 'bufferView');
+  const def = reference(gltf.buffers, bv.buffer, 'buffer');
+  const buf = buffers[bv.buffer];
+  const offset = byteInteger(bv.byteOffset === undefined ? 0 : bv.byteOffset, 'bufferView byteOffset');
+  const length = byteInteger(bv.byteLength, 'bufferView byteLength', 1);
+  if (!(buf instanceof ArrayBuffer) || offset > def.byteLength || length > def.byteLength - offset
+      || offset > buf.byteLength || length > buf.byteLength - offset) {
+    throw new Error(`glTF bufferView ${idx}: range exceeds buffer byteLength`);
+  }
+  if (bv.byteStride !== undefined) {
+    byteInteger(bv.byteStride, 'bufferView byteStride', 4);
+    if (bv.byteStride > 252 || bv.byteStride % 4 !== 0) {
+      throw new Error(`glTF bufferView ${idx}: invalid byteStride alignment or size`);
+    }
+  }
+  return bv;
+}
+
+/** Materialise a bounds-checked accessor; sparse accessors are unsupported. */
+function readAccessor(gltf, buffers, idx, vertexAttribute = false) {
+  const acc = reference(gltf.accessors, idx, 'accessor');
+  if (acc.sparse) throw new Error(`glTF accessor ${idx}: sparse accessors are not supported`);
+  if (!Number.isSafeInteger(acc.componentType) || !Object.hasOwn(COMPONENT_CTORS, acc.componentType)) {
+    throw new Error(`glTF accessor ${idx}: unknown componentType ${acc.componentType}`);
+  }
+  if (typeof acc.type !== 'string' || !Object.hasOwn(TYPE_COUNTS, acc.type)) {
+    throw new Error(`glTF accessor ${idx}: unknown type ${acc.type}`);
+  }
+  byteInteger(acc.count, 'accessor count', 1);
+  const Ctor = COMPONENT_CTORS[acc.componentType];
+  const count = TYPE_COUNTS[acc.type];
+  const componentBytes = Ctor.BYTES_PER_ELEMENT;
+  const bv = validateBufferView(gltf, buffers, acc.bufferView);
+  const relativeOffset = byteInteger(acc.byteOffset === undefined ? 0 : acc.byteOffset, 'accessor byteOffset');
+  const offset = (bv.byteOffset ?? 0) + relativeOffset;
+  // Matrix columns with byte/short components are padded to four bytes.
+  const columns = acc.type.startsWith('MAT') ? Number(acc.type.slice(3)) : 1;
+  const rows = count / columns;
+  const columnBytes = columns > 1 ? Math.ceil(rows * componentBytes / 4) * 4 : count * componentBytes;
+  const elemBytes = columnBytes * columns;
+  const byteStride = bv.byteStride === undefined ? elemBytes : bv.byteStride;
+  if (byteStride < elemBytes || byteStride % componentBytes !== 0
+      || relativeOffset % componentBytes !== 0 || offset % componentBytes !== 0
+      || (columns > 1 && offset % 4 !== 0)
+      || (vertexAttribute && (relativeOffset % 4 !== 0 || offset % 4 !== 0 || byteStride % 4 !== 0))) {
+    throw new Error(`glTF accessor ${idx}: invalid stride or alignment`);
+  }
+  // Final matrix-column padding need not be present at the end of a view.
+  const lastElementBytes = (columns - 1) * columnBytes + rows * componentBytes;
+  const extent = (acc.count - 1) * byteStride + lastElementBytes;
+  if (!Number.isSafeInteger(extent) || !Number.isSafeInteger(acc.count * count)
+      || relativeOffset > bv.byteLength || extent > bv.byteLength - relativeOffset) {
+    throw new Error(`glTF accessor ${idx}: range exceeds bufferView byteLength`);
+  }
+  const buf = buffers[bv.buffer];
+  if (byteStride === componentBytes * count) return new Ctor(buf, offset, acc.count * count);
+
+  // Interleaved (or padded matrix): copy only this accessor's components.
   const out = new Ctor(acc.count * count);
-  const elemBytes = Ctor.BYTES_PER_ELEMENT * count;
   for (let i = 0; i < acc.count; i += 1) {
-    const src = new Ctor(buf, offset + i * byteStride, count);
-    out.set(src, i * count);
+    for (let col = 0; col < columns; col += 1) {
+      const src = new Ctor(buf, offset + i * byteStride + col * columnBytes, rows);
+      out.set(src, i * count + col * rows);
+    }
   }
   return out;
 }
@@ -401,30 +451,84 @@ const CHUNK_BIN  = 0x004E4942;
  * Split a GLB ArrayBuffer into { json: object, bin: ArrayBuffer|null }.
  */
 function parseGlb(ab) {
+  if (!(ab instanceof ArrayBuffer) || ab.byteLength < 12) throw new Error('GLB header is truncated');
   const view = new DataView(ab);
   if (view.getUint32(0, true) !== GLB_MAGIC) throw new Error('not a GLB file (bad magic)');
   const version = view.getUint32(4, true);
   if (version !== 2) throw new Error(`unsupported GLB version ${version}`);
+  const total = view.getUint32(8, true);
+  if (total !== ab.byteLength || total % 4 !== 0) throw new Error('GLB total length is invalid');
 
   let offset = 12;
   let json = null;
   let bin = null;
-
-  while (offset < ab.byteLength) {
+  let chunkIndex = 0;
+  let seenJson = false;
+  while (offset < total) {
+    if (total - offset < 8) throw new Error('GLB chunk header is truncated');
     const chunkLength = view.getUint32(offset, true);
-    const chunkType   = view.getUint32(offset + 4, true);
+    const chunkType = view.getUint32(offset + 4, true);
     offset += 8;
-    const chunkData = ab.slice(offset, offset + chunkLength);
-    offset += chunkLength;
-
+    if (chunkLength % 4 !== 0 || chunkLength > total - offset) throw new Error('GLB chunk bounds or alignment are invalid');
+    if (chunkIndex === 0 && chunkType !== CHUNK_JSON) throw new Error('GLB first chunk must be JSON');
     if (chunkType === CHUNK_JSON) {
-      json = JSON.parse(new TextDecoder().decode(chunkData));
+      if (seenJson) throw new Error('GLB has duplicate JSON chunks');
+      seenJson = true;
+      json = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(ab, offset, chunkLength)));
     } else if (chunkType === CHUNK_BIN) {
-      bin = chunkData;
+      if (bin !== null) throw new Error('GLB has duplicate BIN chunks');
+      if (chunkIndex !== 1) throw new Error('GLB BIN chunk must follow JSON');
+      bin = ab.slice(offset, offset + chunkLength);
+    }
+    offset += chunkLength;
+    chunkIndex += 1;
+  }
+  if (!json || typeof json !== 'object' || Array.isArray(json)) throw new Error('GLB has no valid JSON chunk');
+  return { json, bin };
+}
+
+/** Validate the entire node forest, not just the selected scene, iteratively. */
+function validateGraph(gltf) {
+  const nodes = gltf.nodes === undefined ? [] : gltf.nodes;
+  const meshes = gltf.meshes === undefined ? [] : gltf.meshes;
+  const scenes = gltf.scenes === undefined ? [] : gltf.scenes;
+  if (!Array.isArray(nodes) || !Array.isArray(meshes) || !Array.isArray(scenes)) {
+    throw new Error('glTF: invalid nodes, meshes or scenes');
+  }
+  const parents = new Array(nodes.length).fill(0);
+  for (let ni = 0; ni < nodes.length; ni += 1) {
+    const node = reference(nodes, ni, 'node');
+    if (node.mesh !== undefined) reference(meshes, node.mesh, 'mesh');
+    const children = node.children === undefined ? [] : node.children;
+    if (!Array.isArray(children)) throw new Error(`glTF node ${ni}: invalid children`);
+    for (const child of children) {
+      reference(nodes, child, 'node');
+      if (++parents[child] > 1) throw new Error(`glTF node ${child}: multiple parents`);
     }
   }
-  if (!json) throw new Error('GLB has no JSON chunk');
-  return { json, bin };
+  // Kahn's algorithm detects disconnected cycles without recursive DFS.
+  const queue = [];
+  for (let ni = 0; ni < nodes.length; ni += 1) if (parents[ni] === 0) queue.push(ni);
+  const remaining = parents.slice();
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    for (const child of nodes[queue[cursor]].children ?? []) {
+      if (--remaining[child] === 0) queue.push(child);
+    }
+  }
+  if (queue.length !== nodes.length) throw new Error('glTF node graph contains a cycle');
+  for (let si = 0; si < scenes.length; si += 1) {
+    const scene = reference(scenes, si, 'scene');
+    const roots = scene.nodes === undefined ? [] : scene.nodes;
+    if (!Array.isArray(roots)) throw new Error(`glTF scene ${si}: invalid nodes`);
+    const seen = new Set();
+    for (const root of roots) {
+      reference(nodes, root, 'scene node');
+      if (seen.has(root) || parents[root] !== 0) throw new Error(`glTF scene ${si}: duplicate or non-root node`);
+      seen.add(root);
+    }
+  }
+  if (gltf.scene !== undefined) reference(scenes, gltf.scene, 'scene');
+  return scenes.length ? scenes[gltf.scene ?? 0].nodes ?? [] : [];
 }
 
 // ------------------------------------------------------------------ main
@@ -471,8 +575,15 @@ export async function loadGltf(source, isGlb = false) {
     }
   }
 
+  if (!gltf || typeof gltf !== 'object' || Array.isArray(gltf)) throw new Error('glTF: invalid document');
+  const roots = validateGraph(gltf);
+
   // ---- buffers
-  const bufferPromises = (gltf.buffers || []).map((buf, i) => {
+  const defs = gltf.buffers ?? [];
+  if (!Array.isArray(defs)) throw new Error('glTF: invalid buffers');
+  const bufferPromises = defs.map((buf, i) => {
+    reference(defs, i, 'buffer');
+    byteInteger(buf.byteLength, 'buffer byteLength', 1);
     if (!buf.uri) {
       // GLB buffer: index 0 always maps to the binary chunk
       if (i === 0 && binChunk) return Promise.resolve(binChunk);
@@ -482,19 +593,22 @@ export async function loadGltf(source, isGlb = false) {
     return fetchBuffer(buf.uri, baseUrl);
   });
   const buffers = await Promise.all(bufferPromises);
+  for (let i = 0; i < buffers.length; i += 1) {
+    if (buffers[i].byteLength < defs[i].byteLength) throw new Error(`glTF buffer ${i}: truncated byteLength`);
+    if (i === 0 && !defs[i].uri && buffers[i].byteLength - defs[i].byteLength > 3) {
+      throw new Error('glTF: GLB BIN length exceeds buffer byteLength padding');
+    }
+  }
+  const views = gltf.bufferViews ?? [];
+  if (!Array.isArray(views)) throw new Error('glTF: invalid bufferViews');
+  for (let i = 0; i < views.length; i += 1) validateBufferView(gltf, buffers, i);
 
-  // ---- walk nodes → world transforms (breadth-first)
+  // ---- walk nodes → world transforms (breadth-first, O(nodes + edges))
   const nodeCount = (gltf.nodes || []).length;
   const worldMatrices = new Array(nodeCount).fill(null);
-
-  // Identify roots from the default scene (or scene 0)
-  const sceneIdx = gltf.scene ?? 0;
-  const scene = (gltf.scenes || [])[sceneIdx] || { nodes: [] };
-  const roots = scene.nodes || [];
-
   const queue = roots.map((ni) => ({ ni, parent: null }));
-  while (queue.length) {
-    const { ni, parent } = queue.shift();
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const { ni, parent } = queue[cursor];
     const node = gltf.nodes[ni];
     let local;
     if (node.matrix) {
@@ -522,21 +636,29 @@ export async function loadGltf(source, isGlb = false) {
       if (mode !== 4) continue;
 
       // Positions are required
-      if (prim.attributes.POSITION == null) continue;
-      const posRaw = readAccessor(gltf, buffers, prim.attributes.POSITION);
+      if (prim.attributes?.POSITION == null) continue;
+      const posRaw = readAccessor(gltf, buffers, prim.attributes.POSITION, true);
+      if (gltf.accessors[prim.attributes.POSITION].type !== 'VEC3') throw new Error('glTF: POSITION must be VEC3');
       const positions = posRaw instanceof Float32Array ? posRaw : new Float32Array(posRaw);
 
-      // Indices
+      // Validate index representation and values before conversion or normals.
       let indices = null;
       if (prim.indices != null) {
+        const acc = reference(gltf.accessors, prim.indices, 'index accessor');
+        if (acc.type !== 'SCALAR' || ![5121, 5123, 5125].includes(acc.componentType) || acc.normalized) {
+          throw new Error('glTF: indices must be unsigned integer SCALAR values');
+        }
         const raw = readAccessor(gltf, buffers, prim.indices);
+        for (const index of raw) {
+          if (index >= positions.length / 3) throw new Error('glTF: index exceeds POSITION vertex count');
+        }
         indices = raw instanceof Uint32Array ? raw : new Uint32Array(raw);
       }
 
       // Normals — use accessor if present, otherwise generate flat normals
       let normals;
       if (prim.attributes.NORMAL != null) {
-        const raw = readAccessor(gltf, buffers, prim.attributes.NORMAL);
+        const raw = readAccessor(gltf, buffers, prim.attributes.NORMAL, true);
         normals = raw instanceof Float32Array ? raw : new Float32Array(raw);
       } else {
         normals = generateFlatNormals(positions, indices);
@@ -546,7 +668,7 @@ export async function loadGltf(source, isGlb = false) {
       // texture of the mesh (the renderer falls back to material factors).
       let uvs = null;
       if (prim.attributes.TEXCOORD_0 != null) {
-        const raw = readAccessor(gltf, buffers, prim.attributes.TEXCOORD_0);
+        const raw = readAccessor(gltf, buffers, prim.attributes.TEXCOORD_0, true);
         uvs = raw instanceof Float32Array ? raw : new Float32Array(raw);
         if (uvs.length !== (positions.length / 3) * 2) uvs = null;
       }
@@ -623,50 +745,44 @@ export async function loadGltf(source, isGlb = false) {
  */
 export function uploadMesh(gl, mesh, attribLocs) {
   const vao = gl.createVertexArray();
-  gl.bindVertexArray(vao);
-
-  const posBuf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, mesh.positions, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(attribLocs.position);
-  gl.vertexAttribPointer(attribLocs.position, 3, gl.FLOAT, false, 0, 0);
-
-  const normBuf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, normBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, mesh.normals, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(attribLocs.normal);
-  gl.vertexAttribPointer(attribLocs.normal, 3, gl.FLOAT, false, 0, 0);
-
-  const buffers = [posBuf, normBuf];
-  if (mesh.uvs && attribLocs.uv != null) {
-    const uvBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, mesh.uvs, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(attribLocs.uv);
-    gl.vertexAttribPointer(attribLocs.uv, 2, gl.FLOAT, false, 0, 0);
-    buffers.push(uvBuf);
+  if (!vao) throw new Error('mesh upload: could not allocate VAO');
+  const buffers = [];
+  const uploadBuffer = (target, data) => {
+    const buffer = gl.createBuffer();
+    if (!buffer) throw new Error('mesh upload: could not allocate buffer');
+    // Register ownership before any GL call that can fail.
+    buffers.push(buffer);
+    gl.bindBuffer(target, buffer);
+    gl.bufferData(target, data, gl.STATIC_DRAW);
+    if (gl.getError) {
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR) throw new Error(`mesh upload: GL error ${error}`);
+    }
+  };
+  const attribute = (data, location, size) => {
+    uploadBuffer(gl.ARRAY_BUFFER, data);
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+  };
+  try {
+    gl.bindVertexArray(vao);
+    attribute(mesh.positions, attribLocs.position, 3);
+    attribute(mesh.normals, attribLocs.normal, 3);
+    if (mesh.uvs && attribLocs.uv != null) attribute(mesh.uvs, attribLocs.uv, 2);
+    if (mesh.tangents && mesh.tangents.length === mesh.positions.length / 3 * 4 && attribLocs.tangent != null) {
+      attribute(mesh.tangents, attribLocs.tangent, 4);
+    }
+    if (mesh.indices) uploadBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices);
+    gl.bindVertexArray(null);
+    if (gl.getError && gl.getError() !== gl.NO_ERROR) throw new Error('mesh upload: attribute setup failed');
+    return { vao, buffers, count: mesh.indices ? mesh.indices.length : mesh.positions.length / 3, indexed: !!mesh.indices };
+  } catch (error) {
+    try {
+      gl.bindVertexArray(null);
+    } finally {
+      for (const buffer of buffers) gl.deleteBuffer(buffer);
+      gl.deleteVertexArray(vao);
+    }
+    throw error;
   }
-  if (mesh.tangents && mesh.tangents.length === mesh.positions.length / 3 * 4 && attribLocs.tangent != null) {
-    const tanBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, tanBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, mesh.tangents, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(attribLocs.tangent);
-    gl.vertexAttribPointer(attribLocs.tangent, 4, gl.FLOAT, false, 0, 0);
-    buffers.push(tanBuf);
-  }
-  let count, indexed;
-  if (mesh.indices) {
-    const idxBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
-    buffers.push(idxBuf);
-    count = mesh.indices.length;
-    indexed = true;
-  } else {
-    count = mesh.positions.length / 3;
-    indexed = false;
-  }
-
-  gl.bindVertexArray(null);
-  return { vao, buffers, count, indexed };
 }

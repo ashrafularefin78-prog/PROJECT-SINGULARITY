@@ -117,7 +117,7 @@ const initial = closure(initialRoots);
 
 // Deferred roots: every dynamic edge out of the initial set, plus the worker the
 // sandbox spawns on demand. Everything reachable from those is deferred too.
-const deferredRoots = ['src/runtime/worker.js'];
+const deferredRoots = ['src/runtime/worker.js', 'src/runtime/clang-worker.js'];
 for (const rel of initial) {
   const loaded = load(rel);
   if (!loaded) continue;

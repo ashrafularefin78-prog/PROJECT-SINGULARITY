@@ -334,8 +334,29 @@ async function kdfChain(chainKey) {
 
 const headerAad = (h) => TEXT.encode(`Singularity|DR|v1|${h.dh}|${h.pn}|${h.n}`);
 
+// Reserve the queue synchronously, before any asynchronous state access. A
+// rejected operation must not poison later operations on the same instance.
+function enqueue(instance, operation) {
+  const result = instance._queue.then(operation);
+  instance._queue = result.catch(() => {});
+  return result;
+}
+
+function validateCounter(n, name) {
+  if (!Number.isSafeInteger(n) || n < 0) {
+    throw new Error(`${name} must be a nonnegative safe integer`);
+  }
+}
+
+// Cryptographic state only: never replace the live instance's operation queue.
+const RATCHET_STATE = [
+  'rootKey', 'dhSelf', 'dhRemote', 'ckSend', 'ckRecv',
+  'nSend', 'nRecv', 'pn', 'skipped', 'usedMessageKeys',
+];
+
 export class Ratchet {
   constructor() {
+    this._queue = Promise.resolve();
     this.rootKey = null;
     this.dhSelf = null;
     this.dhRemote = null;
@@ -368,41 +389,58 @@ export class Ratchet {
     return r;
   }
 
-  async encrypt(plaintext) {
-    if (!this.ckSend) throw new Error('ratchet has no sending chain yet');
-    const [next, messageKey] = await kdfChain(this.ckSend);
-    this.ckSend = next;
-    const header = { dh: b64(await exportDhPublic(this.dhSelf)), pn: this.pn, n: this.nSend };
-    const data = typeof plaintext === 'string' ? TEXT.encode(plaintext) : plaintext;
-    const ct = await aeadEncrypt(messageKey, data, headerAad(header));
-    this.nSend += 1;
-    return { header, ct: b64(ct) };
+  encrypt(plaintext) {
+    return enqueue(this, async () => {
+      if (!this.ckSend) throw new Error('ratchet has no sending chain yet');
+      const [next, messageKey] = await kdfChain(this.ckSend);
+      this.ckSend = next;
+      const header = { dh: b64(await exportDhPublic(this.dhSelf)), pn: this.pn, n: this.nSend };
+      // The key is consumed even if encryption fails; do not reuse its counter.
+      this.nSend += 1;
+      const data = typeof plaintext === 'string' ? TEXT.encode(plaintext) : plaintext;
+      const ct = await aeadEncrypt(messageKey, data, headerAad(header));
+      return { header, ct: b64(ct) };
+    });
   }
 
-  async decrypt(message) {
-    const { header } = message;
-    const key = `${header.dh}:${header.n}`;
-    if (this.usedMessageKeys.has(key)) throw new Error('message key already used (replay)');
+  decrypt(message) {
+    return enqueue(this, async () => {
+      const { header } = message;
+      validateCounter(header.n, 'n');
+      validateCounter(header.pn, 'pn');
 
-    let messageKey = this.skipped.get(key);
-    if (messageKey) {
-      this.skipped.delete(key);
-    } else {
-      // A new remote ratchet key means a new DH ratchet step is due.
-      if (!this.ckRecv || header.dh !== (await this._remoteB64())) {
-        await this._skipMessageKeys(header.pn);
-        await this._dhRatchet(header.dh);
+      // Keys are only replaced, never mutated. Collections must be cloned so
+      // failed authentication cannot consume skipped keys or record a replay.
+      const staged = new Ratchet();
+      for (const field of RATCHET_STATE) staged[field] = this[field];
+      staged.skipped = new Map(this.skipped);
+      staged.usedMessageKeys = new Set(this.usedMessageKeys);
+
+      const key = `${header.dh}:${header.n}`;
+      if (staged.usedMessageKeys.has(key)) throw new Error('message key already used (replay)');
+
+      let messageKey = staged.skipped.get(key);
+      if (messageKey) {
+        staged.skipped.delete(key);
+      } else {
+        // A new remote ratchet key means a new DH ratchet step is due.
+        if (!staged.ckRecv || header.dh !== (await staged._remoteB64())) {
+          await staged._skipMessageKeys(header.pn);
+          await staged._dhRatchet(header.dh);
+        }
+        if (header.n < staged.nRecv) throw new Error('message key unavailable (old counter)');
+        await staged._skipMessageKeys(header.n);
+        const [next, mk] = await kdfChain(staged.ckRecv);
+        staged.ckRecv = next;
+        staged.nRecv += 1;
+        messageKey = mk;
       }
-      await this._skipMessageKeys(header.n);
-      const [next, mk] = await kdfChain(this.ckRecv);
-      this.ckRecv = next;
-      this.nRecv += 1;
-      messageKey = mk;
-    }
 
-    const plaintext = await aeadDecrypt(messageKey, unb64(message.ct), headerAad(header));
-    this.usedMessageKeys.add(key);
-    return plaintext;
+      const plaintext = await aeadDecrypt(messageKey, unb64(message.ct), headerAad(header));
+      staged.usedMessageKeys.add(key);
+      for (const field of RATCHET_STATE) this[field] = staged[field];
+      return plaintext;
+    });
   }
 
   async _remoteB64() {
@@ -469,6 +507,7 @@ export function formatSafetyNumber(digits) {
  */
 export class SenderChain {
   constructor(chainKey, n = 0) {
+    this._queue = Promise.resolve();
     this.chainKey = chainKey;
     this.n = n;
     this.skipped = new Map();
@@ -483,33 +522,38 @@ export class SenderChain {
    * Receiving side: return the key for message number `n`, parking the keys of
    * any messages we jumped over so out-of-order delivery still decrypts.
    */
-  async keyFor(n) {
-    const parked = this.skipped.get(n);
-    if (parked) {
-      this.skipped.delete(n);
-      return parked;
-    }
-    if (n < this.n) throw new Error(`message key ${n} was already used (replay?)`);
-    if (n - this.n > MAX_SKIP) throw new Error('too many skipped group messages');
-    while (this.n < n) {
+  keyFor(n) {
+    return enqueue(this, async () => {
+      validateCounter(n, 'n');
+      const parked = this.skipped.get(n);
+      if (parked) {
+        this.skipped.delete(n);
+        return parked;
+      }
+      if (n < this.n) throw new Error(`message key ${n} was already used (replay?)`);
+      if (n - this.n > MAX_SKIP) throw new Error('too many skipped group messages');
+      while (this.n < n) {
+        const [next, mk] = await kdfChain(this.chainKey);
+        this.chainKey = next;
+        this.skipped.set(this.n, mk);
+        this.n += 1;
+      }
       const [next, mk] = await kdfChain(this.chainKey);
       this.chainKey = next;
-      this.skipped.set(this.n, mk);
       this.n += 1;
-    }
-    const [next, mk] = await kdfChain(this.chainKey);
-    this.chainKey = next;
-    this.n += 1;
-    return mk;
+      return mk;
+    });
   }
 
   /** Sending side: consume the next key in the chain. */
-  async next() {
-    const [next, mk] = await kdfChain(this.chainKey);
-    this.chainKey = next;
-    const n = this.n;
-    this.n += 1;
-    return { n, messageKey: mk };
+  next() {
+    return enqueue(this, async () => {
+      const [next, mk] = await kdfChain(this.chainKey);
+      this.chainKey = next;
+      const n = this.n;
+      this.n += 1;
+      return { n, messageKey: mk };
+    });
   }
 }
 
@@ -565,29 +609,37 @@ export class GroupSender {
 /** Receiving half: keeps one advancing chain per sender in the current epoch. */
 export class GroupReceiver {
   constructor(epochSecret, groupId, epochId) {
+    this._queue = Promise.resolve();
     this.epochSecret = epochSecret;
     this.groupId = groupId;
     this.epochId = epochId;
     this.chains = new Map();
   }
 
-  async decrypt(message) {
-    if (message.epochId !== this.epochId) throw new Error('message from a different epoch');
-    if (message.groupId !== this.groupId) throw new Error('message from a different group');
-    let chain = this.chains.get(message.senderId);
-    if (!chain) {
-      chain = await SenderChain.create(this.epochSecret, message.senderId);
+  decrypt(message) {
+    return enqueue(this, async () => {
+      validateCounter(message.n, 'n');
+      if (message.epochId !== this.epochId) throw new Error('message from a different epoch');
+      if (message.groupId !== this.groupId) throw new Error('message from a different group');
+      const existing = this.chains.get(message.senderId);
+      let chain;
+      if (existing) {
+        chain = new SenderChain(existing.chainKey, existing.n);
+        chain.skipped = new Map(existing.skipped);
+      } else {
+        chain = await SenderChain.create(this.epochSecret, message.senderId);
+      }
+      const messageKey = await chain.keyFor(message.n);
+      const material = await hkdf(messageKey, new Uint8Array(32), 'Singularity|AEAD|v1', 44);
+      const key = await subtle().importKey('raw', material.slice(0, 32), 'AES-GCM', false, ['decrypt']);
+      const pt = await subtle().decrypt(
+        { name: 'AES-GCM', iv: material.slice(32, 44), additionalData: groupAad(message) },
+        key,
+        unb64(message.ct),
+      );
       this.chains.set(message.senderId, chain);
-    }
-    const messageKey = await chain.keyFor(message.n);
-    const material = await hkdf(messageKey, new Uint8Array(32), 'Singularity|AEAD|v1', 44);
-    const key = await subtle().importKey('raw', material.slice(0, 32), 'AES-GCM', false, ['decrypt']);
-    const pt = await subtle().decrypt(
-      { name: 'AES-GCM', iv: material.slice(32, 44), additionalData: groupAad(message) },
-      key,
-      unb64(message.ct),
-    );
-    return new Uint8Array(pt);
+      return new Uint8Array(pt);
+    });
   }
 }
 

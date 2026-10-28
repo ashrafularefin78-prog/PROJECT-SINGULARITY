@@ -76,10 +76,10 @@ T2.1 immediately after T1.5.
 These are worth attempting only after Horizon 2, and each may end in a written
 "no" - which is a result if it is measured.
 
-1. **WASM backend for the C subset.** Compile the existing AST to a module with
-   `WebAssembly.Module` and run it beside the interpreter, keeping the
-   interpreter as the semantic reference. Gate: identical output on the whole
-   corpus, and a speedup number that is measured, not asserted.
+1. **Modernize the bundled WASI toolchain.** Real Clang 8.0.1/WASM compilation
+   now ships beside the interpreter. A newer toolchain is a separate upgrade:
+   preserve local compilation, validate licenses and syscall capabilities, and
+   measure standards compatibility, startup cost and memory before replacing it.
 2. **Relay fleet with WebTransport.** A second transport beside the HTTP relay,
    with datagrams for presence and streams for envelopes. Gate: chaos run against
    two nodes with WebTransport enabled, zero lost or duplicated envelopes.

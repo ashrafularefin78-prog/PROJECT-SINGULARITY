@@ -3,7 +3,7 @@
  *
  * Three layers, each with a job:
  *   ops   : append-only CRDT op log (crash safety: we never rewrite history)
- *   docs  : compacted snapshots so replay does not grow without bound
+ *   docs  : text recovery snapshots; causal history remains in ops
  *   files : large binary payloads (encrypted file transfer frames)
  *   meta  : small key/value state (identity, room, schema bookkeeping)
  *
@@ -126,21 +126,29 @@ class Store {
     return this._req(tx.objectStore('ops').index('byDoc').count(docId));
   }
 
-  /** Replace the op log with a snapshot: bounded storage, no data loss. */
   async compact(docId, snapshotText) {
+    // Text cannot replace character identities referenced by later operations.
+    return this.saveDoc(docId, snapshotText);
+  }
+
+  async replaceOps(docId, replacement, snapshotText) {
     if (this.memory) {
       for (const [seq, row] of this.memory.ops) if (row.docId === docId) this.memory.ops.delete(seq);
-      this.memory.docs.set(docId, { id: docId, text: snapshotText, at: Date.now() });
-      return true;
+      await this.appendOps(docId, replacement);
+      await this.saveDoc(docId, snapshotText);
+      return replacement.length;
     }
     const tx = this._tx(['ops', 'docs'], 'readwrite');
-    const index = tx.objectStore('ops').index('byDoc');
-    const keys = await this._req(index.getAllKeys(docId));
+    const done = this._done(tx);
     const ops = tx.objectStore('ops');
-    for (const key of keys) ops.delete(key);
-    tx.objectStore('docs').put({ id: docId, text: snapshotText, at: Date.now() });
-    await this._done(tx);
-    return true;
+    const request = ops.index('byDoc').getAllKeys(docId);
+    request.onsuccess = () => {
+      for (const key of request.result) ops.delete(key);
+      for (const op of replacement) ops.add({ docId, op, at: Date.now() });
+      tx.objectStore('docs').put({ id: docId, text: snapshotText, at: Date.now() });
+    };
+    await done;
+    return replacement.length;
   }
 
   // ------------------------------------------------------------------ docs

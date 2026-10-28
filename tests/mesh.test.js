@@ -348,6 +348,155 @@ test('M5 relay carrier: a base URL is an origin, so routes are never doubled', a
   assertEquals(bare.activeUrl, '');
 });
 
+test('M5 relay carrier: 429 backpressure retries the same sealed entry and can deliver', async () => {
+  for (const urls of [['http://node.test'], ['http://busy.test', 'http://standby.test']]) {
+    const calls = [];
+    let seals = 0;
+    let entry;
+    const carrier = new RelayCarrier({
+      peerId: 'alice',
+      urls,
+      seal: async (payload) => {
+        seals += 1;
+        return stubSeal(payload);
+      },
+      open: stubOpen,
+      fetchImpl: async (url, init) => {
+        calls.push({ url: String(url), body: init.body });
+        const queued = [...carrier.outbox.values()][0];
+        assert(queued, 'backpressure must not remove the queued frame');
+        if (calls.length === 1) entry = queued;
+        else assertEquals(queued, entry, 'retry retains the original entry reference');
+        return new Response(JSON.stringify(calls.length === 1 ? { ok: false, error: 'mailbox full' } : { ok: true }), {
+          status: calls.length === 1 ? 429 : 200,
+        });
+      },
+    });
+    const result = await carrier.post('bob', { kind: 'ops', n: 7 });
+    assertEquals(result.delivered, true, 'only the eventual 200 acknowledgement delivers');
+    assertEquals(result.queued, false);
+    assertEquals(calls.length, 2, 'backpressure gets a bounded retry');
+    assertEquals(calls[1].url, `${urls[1] || urls[0]}/relay/post`, 'retry uses the next available node');
+    assertEquals(calls[0].body, calls[1].body, 'failover reuses the sealed wire bytes');
+    const wire = JSON.parse(calls[0].body);
+    assertEquals(Object.keys(wire).sort().join(','), 'ct,from,header,to', 'wire contains only sealed routing fields');
+    assertEquals(wire.to, 'bob');
+    assertEquals(wire.from, 'alice');
+    assertEquals(JSON.parse(wire.ct).id, result.id, 'message id stays inside the seal');
+    assertEquals(seals, 1, 'retry never reseals');
+    assertEquals(carrier.stats.acked, 1);
+    assertEquals(carrier.stats.reposted, 1);
+    assertEquals(carrier.outbox.size, 0);
+  }
+});
+
+test('M5 relay carrier: exhausted 429 retries remain queued with an error', async () => {
+  for (const urls of [['http://node.test'], ['http://one.test', 'http://two.test']]) {
+    let calls = 0;
+    let up = false;
+    const bodies = [];
+    const carrier = new RelayCarrier({
+      peerId: 'alice',
+      urls,
+      seal: stubSeal,
+      open: stubOpen,
+      fetchImpl: async (_url, init) => {
+        calls += 1;
+        bodies.push(init.body);
+        return new Response(JSON.stringify(up ? { ok: true } : { ok: false, error: 'mailbox full' }), { status: up ? 200 : 429 });
+      },
+    });
+    const result = await carrier.post('*', { kind: 'ops' });
+    assertEquals(calls, urls.length + 1, 'retry budget is bounded by the fleet size');
+    assertEquals(result.delivered, false);
+    assertEquals(result.queued, true, 'exhausted backpressure does not drop ciphertext');
+    assert(result.error && result.error.includes('429'), 'backpressure error is surfaced');
+    assertEquals(carrier.stats.lastError, result.error);
+    assertEquals(carrier.stats.acked, 0);
+    assertEquals(carrier.outbox.size, 1);
+    const entry = carrier.outbox.get(result.id);
+    const retry = await carrier.flush();
+    assertEquals(retry.ok, false);
+    assert(retry.error.includes('429'));
+    assertEquals(calls, 2 * (urls.length + 1), 'each flush is independently bounded');
+    assertEquals(carrier.outbox.get(result.id), entry, 'continuous backpressure retains the entry');
+    up = true;
+    assertEquals((await carrier.flush()).ok, true, 'a later flush can still deliver');
+    assertEquals(carrier.outbox.size, 0);
+    assertEquals(carrier.stats.acked, 1);
+    for (const body of bodies) assertEquals(body, bodies[0], 'all retries preserve ciphertext');
+  }
+});
+
+for (const [status, reason] of [[400, 'invalid envelope'], [413, 'envelope too large']]) {
+  test(`M5 relay carrier: ${status} rejection is terminal, not delivery`, async () => {
+    let calls = 0;
+    const carrier = new RelayCarrier({
+      peerId: 'alice',
+      urls: ['http://primary.test', 'http://standby.test'],
+      seal: stubSeal,
+      open: stubOpen,
+      fetchImpl: async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ ok: false, error: reason }), { status });
+      },
+    });
+    const result = await carrier.post('*', { kind: 'ops' });
+    assertEquals(result.delivered, false, 'removal after rejection is not acknowledgement');
+    assertEquals(result.queued, false, 'terminal rejection removes the entry');
+    assert(result.error && result.error.includes(String(status)) && result.error.includes(reason), 'rejection reason is surfaced');
+    assertEquals(carrier.stats.lastError, result.error);
+    assertEquals(carrier.stats.acked, 0);
+    assertEquals(carrier.stats.failovers, 0, 'protocol errors never rotate');
+    assertEquals(carrier.outbox.size, 0);
+    await carrier.flush();
+    assertEquals(calls, 1, 'rejected bytes are never retried');
+  });
+}
+
+test('M5 relay carrier: delivery requires both status 200 and json.ok', async () => {
+  for (const [status, json] of [[200, { ok: false }], [202, { ok: true }], [200, null]]) {
+    const carrier = new RelayCarrier({
+      peerId: 'alice',
+      urls: ['http://node.test'],
+      seal: stubSeal,
+      open: stubOpen,
+      fetchImpl: async () => new Response(JSON.stringify(json), { status }),
+    });
+    const result = await carrier.post('*', { kind: 'ops' });
+    assertEquals(result.delivered, false, 'HTTP success alone is not the node acknowledgement');
+    assertEquals(result.queued, true);
+    assert(result.error, 'missing acknowledgement is surfaced');
+    assertEquals(carrier.outbox.size, 1);
+    assertEquals(carrier.stats.acked, 0);
+  }
+});
+
+test('M5 relay carrier: a shared flush reports each entry own outcome', async () => {
+  let busy = true;
+  const carrier = new RelayCarrier({
+    peerId: 'alice',
+    urls: ['http://node.test'],
+    seal: stubSeal,
+    open: stubOpen,
+    fetchImpl: async (_url, init) => {
+      const id = JSON.parse(JSON.parse(init.body).ct).id;
+      const status = busy ? 429 : id === 'alice#1' ? 400 : 200;
+      return new Response(JSON.stringify({ ok: status === 200, error: status === 400 ? 'invalid envelope' : 'busy' }), { status });
+    },
+  });
+  const first = await carrier.post('*', { kind: 'ops', n: 1 });
+  assertEquals(first.queued, true);
+  busy = false;
+  const second = await carrier.post('*', { kind: 'ops', n: 2 });
+  assertEquals(second.delivered, true, 'another entry rejection cannot hide this acknowledgement');
+  assertEquals(second.queued, false);
+  assertEquals(second.error, undefined);
+  assertEquals(carrier.stats.acked, 1, 'only the second entry was acknowledged');
+  assertEquals(carrier.outbox.size, 0);
+  assert(carrier.stats.lastError.includes('400'), 'the other entry rejection remains surfaced');
+});
+
 test('M5 relay carrier: an unreachable fleet queues the frame instead of dropping it', async () => {
   let up = false;
   const node = stubNode();

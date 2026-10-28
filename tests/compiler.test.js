@@ -1,6 +1,8 @@
 import { test, assert, assertEquals } from './harness.js';
 import { tokenize } from '../src/runtime/lexer.js';
 import { interpret } from '../src/runtime/interpreter.js';
+import { validateProject } from '../src/runtime/clang.js';
+import { assertThrows } from './harness.js';
 
 const run = (src, opts) => interpret(src, opts);
 const ok = (src, opts) => {
@@ -217,4 +219,149 @@ int main() {
   return 0;
 }`);
   assertEquals(r.output, 'before\n');
+});
+
+const wasmRun = async (source, options = {}) => {
+  if (typeof document === 'undefined') {
+    const { readFile } = await import('node:fs/promises');
+    const { compileAndRun } = await import('../src/runtime/clang.js');
+    return compileAndRun(source, { ...options, fetchAsset: async url => new Response(await readFile(url)) });
+  }
+  const { Sandbox } = await import('../src/runtime/sandbox.js');
+  return new Sandbox({ backend: 'clang', timeLimitMs: 4000 }).run(source, options);
+};
+
+test('M2: intercepted empty toolchain assets fail with an actionable diagnostic', async () => {
+  const { compileAndRun } = await import('../src/runtime/clang.js');
+  const phases = [];
+  const result = await compileAndRun('int main(void) { return 0; }', {
+    fetchAsset: async url => url.pathname.endsWith('/manifest.json')
+      ? new Response(JSON.stringify({ files: {} }))
+      : new Response(null, { status: 204, statusText: 'Intercepted by the IDM Advanced Integration' }),
+    onStatus: status => phases.push(status.phase),
+  });
+  assert(!result.ok);
+  assertEquals(result.error.stage, 'Toolchain');
+  assert(/toolchain asset (?:memfs\.wasm|clang\.wasm|lld\.wasm|sysroot\.tar) unavailable/.test(result.error.message), result.error.message);
+  assert(/HTTP 204: Intercepted by the IDM Advanced Integration; empty body/.test(result.error.message), result.error.message);
+  assertEquals(result.output, '');
+  assertEquals(phases.join(','), 'loading');
+});
+
+test('M2: WebAssembly C compiles real headers, variadic functions and goto', async () => {
+  const r = await wasmRun(`#include <stdio.h>
+#include <stdarg.h>
+int sum(int count, ...) {
+  va_list args; va_start(args, count);
+  int result = 0;
+  for (int i = 0; i < count; ++i) result += va_arg(args, int);
+  va_end(args); return result;
+}
+int main(void) {
+  int a, b;
+  if (scanf("%d %d", &a, &b) != 2) goto fail;
+  printf("%d\\n", sum(3, a, b, 5));
+  return 0;
+fail: return 2;
+}`, { stdin: '12\n34\n', standard: 'c11' });
+  assert(r.ok, r.error?.message);
+  assertEquals(r.output, '51\n');
+  assertEquals(r.exitCode, 0);
+});
+
+test('M2: WebAssembly C++ supports templates, classes, STL and cin/cout', async () => {
+  const r = await wasmRun(`#include <iostream>
+#include <vector>
+#include <algorithm>
+template<class T> class Box { public: T value; Box(T v) : value(v) {} };
+int main() {
+  std::vector<int> v{3, 1, 2};
+  std::sort(v.begin(), v.end());
+  int n = 0; std::cin >> n;
+  Box<int> box(n);
+  for (auto x : v) std::cout << x << ' ';
+  std::cout << box.value << '\\n';
+}`, { language: 'cpp', standard: 'c++17', stdin: '9\n' });
+  assert(r.ok, r.error?.message);
+  assertEquals(r.output, '1 2 3 9\n');
+});
+
+test('M2: WebAssembly links extra source files and custom headers', async () => {
+  const r = await wasmRun('#include "helper.h"\n#include <stdio.h>\nint main(void) { printf("%d\\n", twice(21)); }', {
+    files: { 'helper.h': 'int twice(int);', 'helper.c': '#include "helper.h"\nint twice(int n) { return n * 2; }' },
+  });
+  assert(r.ok, r.error?.message);
+  assertEquals(r.output, '42\n');
+});
+
+test('M2: WebAssembly reports compiler positions and unresolved symbols', async () => {
+  const syntax = await wasmRun('int main(void) {\n  int x = ;\n  return 0;\n}');
+  assert(!syntax.ok);
+  assertEquals(syntax.error.stage, 'Compile');
+  assertEquals(syntax.error.line, 2);
+  assertEquals(syntax.error.col, 11);
+  const link = await wasmRun('int missing(void); int main(void) { return missing(); }');
+  assert(!link.ok);
+  assertEquals(link.error.stage, 'Link');
+  assert(/missing/.test(link.error.message), link.error.message);
+});
+
+test('M2: WebAssembly preserves nonzero exits and traps', async () => {
+  const exit = await wasmRun('int main(void) { return 7; }');
+  assert(!exit.ok);
+  assertEquals(exit.exitCode, 7);
+  const trap = await wasmRun('int main(void) { __builtin_trap(); }');
+  assert(!trap.ok);
+  assertEquals(trap.error.stage, 'Runtime');
+});
+
+test('M2: WebAssembly termination preserves explicitly flushed stdout', async () => {
+  const r = await wasmRun('#include <stdio.h>\nint main(void) { printf("before"); fflush(stdout); for (;;) {} }', { timeLimitMs: 150 });
+  assert(r.killed);
+  assert(/Execution stopped/.test(r.error.message), r.error.message);
+  assertEquals(r.output, 'before');
+}, { needs: 'dom' });
+
+test('M2: sandbox restart and stale kill handles cannot stop a later run', async () => {
+  const { Sandbox } = await import('../src/runtime/sandbox.js');
+  const sandbox = new Sandbox({ timeLimitMs: 4000 });
+  const first = sandbox.start('int main(void) { while(1) {} }');
+  const second = sandbox.start('int main(void) { printf("second"); return 0; }');
+  first.kill();
+  const [a, b] = await Promise.all([first.promise, second.promise]);
+  assert(a.killed);
+  assert(b.ok, b.error?.message);
+  assertEquals(b.output, 'second');
+}, { needs: 'dom' });
+
+test('M2: project boundaries reject unsafe names, sizes and standards', () => {
+  const source = 'int main(void) { return 0; }';
+  for (const language of ['constructor', '__proto__', 'javascript']) assertThrows(() => validateProject(source, { language }));
+  for (const name of ['../escape.h', '/absolute.c', 'folder\\\\file.h', 'main.c', 'main.cpp', '.hidden.h']) {
+    assertThrows(() => validateProject(source, { files: { [name]: '' } }));
+  }
+  assertThrows(() => validateProject(source, { standard: 'c++23' }));
+  assertThrows(() => validateProject('x'.repeat(1024 * 1024 + 1)));
+  assertThrows(() => validateProject(source, { stdin: 'x'.repeat(1024 * 1024 + 1) }));
+  assertThrows(() => validateProject(source, { files: Object.fromEntries(Array.from({ length: 33 }, (_, i) => [`f${i}.h`, ''])) }));
+  assertThrows(() => validateProject(source, { maxHeapBytes: 1 }));
+  assertEquals(validateProject(source, { files: { 'valid.h': '' } }).language, 'c');
+});
+
+test('M2: generated WebAssembly cannot open even its compiler input files', async () => {
+  const result = await wasmRun('#include <stdio.h>\nint main(void) { FILE *f = fopen("/project/main.c", "r"); puts(f ? "unexpected" : "denied"); return f ? 1 : 0; }');
+  assert(result.ok, result.error?.message);
+  assertEquals(result.output, 'denied\n');
+});
+
+test('M2: WebAssembly output is bounded without losing streamed text', async () => {
+  const result = await wasmRun('#include <stdio.h>\nint main(void) { for (int i = 0; i < 1100000; ++i) putchar(65); }');
+  assert(!result.ok);
+  assertEquals(result.error.stage, 'Runtime');
+  assert(/output limit exceeded/.test(result.error.message), result.error.message);
+  assert(result.output.length > 0 && result.output.length <= 1024 * 1024);
+  const writes = await wasmRun('#include <stdio.h>\nint main(void) { setbuf(stdout, NULL); for (int i = 0; i < 5000; ++i) putchar(65); }');
+  assert(!writes.ok);
+  assert(/4096 writes/.test(writes.error.message), writes.error.message);
+  assertEquals(writes.output.length, 4096);
 });

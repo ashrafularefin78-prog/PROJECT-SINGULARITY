@@ -340,9 +340,9 @@ function makeTexturedGltf({ withUvs = true, normalScale = 2.5, warn = null } = {
   const idxView  = view(indices);
   const imgView0 = view(png0);
   const imgView1 = view(png1);
-  const acc = (viewIdx, type, count) => {
+  const acc = (viewIdx, type, count, componentType = 5126) => {
     const idx = accessors.length;
-    accessors.push({ bufferView: viewIdx, byteOffset: 0, componentType: 5126, type, count });
+    accessors.push({ bufferView: viewIdx, byteOffset: 0, componentType, type, count });
     return idx;
   };
 
@@ -355,7 +355,7 @@ function makeTexturedGltf({ withUvs = true, normalScale = 2.5, warn = null } = {
     scenes: [{ nodes: [0] }],
     nodes: [{ mesh: 0 }],
     meshes: [{
-      primitives: [{ attributes, indices: acc(idxView, 'SCALAR', 3), mode: 4, material: 0 }],
+      primitives: [{ attributes, indices: acc(idxView, 'SCALAR', 3, 5123), mode: 4, material: 0 }],
     }],
     accessors,
     bufferViews,
@@ -457,4 +457,168 @@ test('M3: computeTangents skips degenerate UV triangles and stays finite', () =>
   // Vertex 3 (only touched by the healthy triangle) carries the exact frame.
   const tl = Math.hypot(tangents[12], tangents[13], tangents[14]);
   assert(Math.abs(tl - 1) < 1e-5, `skipped triangle's neighbour still gets a unit tangent (got ${tl})`);
+});
+
+// ---------------------------------------------------------------- validation regressions
+
+function triangleDocument() {
+  return JSON.parse(atob(makeTriangleGltf().split(',')[1]));
+}
+
+function documentUri(json) {
+  return `data:model/gltf+json;base64,${btoa(JSON.stringify(json))}`;
+}
+
+async function rejectsGltf(source, pattern, label) {
+  let error;
+  try { await loadGltf(source); } catch (caught) { error = caught; }
+  assert(error && !(error instanceof RangeError) && pattern.test(error.message),
+    `${label}: expected explicit validation error, got ${error?.message || 'success'}`);
+}
+
+test('M3: accessor validation rejects malformed metadata and bufferView spills before allocation', async () => {
+  const cases = [
+    ['zero count', (g) => { g.accessors[0].count = 0; }, /count/],
+    ['negative count', (g) => { g.accessors[0].count = -1; }, /count/],
+    ['fractional count', (g) => { g.accessors[0].count = 1.5; }, /count/],
+    ['huge count', (g) => { g.accessors[0].count = Number.MAX_SAFE_INTEGER; }, /range/],
+    ['unknown type', (g) => { g.accessors[0].type = 'BAD'; }, /unknown type/],
+    ['prototype type', (g) => { g.accessors[0].type = 'toString'; }, /unknown type/],
+    ['unknown component', (g) => { g.accessors[0].componentType = 5124; }, /componentType/],
+    ['string component', (g) => { g.accessors[0].componentType = '5126'; }, /componentType/],
+    ['missing accessor', (g) => { g.meshes[0].primitives[0].attributes.POSITION = 99; }, /accessor reference/],
+    ['fractional accessor', (g) => { g.meshes[0].primitives[0].attributes.POSITION = 0.5; }, /accessor reference/],
+    ['missing view', (g) => { g.accessors[0].bufferView = 99; }, /bufferView reference/],
+    ['missing buffer', (g) => { g.bufferViews[0].buffer = 99; }, /buffer reference/],
+    ['truncated buffer', (g) => { g.buffers[0].byteLength += 4; }, /truncated/],
+    ['declared buffer spill', (g) => { g.buffers[0].byteLength = 36; }, /buffer byteLength/],
+    ['view spill', (g) => { g.bufferViews[0].byteLength = 100; }, /buffer byteLength/],
+    ['accessor spill within backing buffer', (g) => { g.bufferViews[0].byteLength = 32; }, /bufferView byteLength/],
+    ['negative view offset', (g) => { g.bufferViews[0].byteOffset = -4; }, /byteOffset/],
+    ['fractional view length', (g) => { g.bufferViews[0].byteLength = 35.5; }, /byteLength/],
+    ['zero view length', (g) => { g.bufferViews[0].byteLength = 0; }, /byteLength/],
+    ['negative accessor offset', (g) => { g.accessors[0].byteOffset = -4; }, /byteOffset/],
+    ['fractional accessor offset', (g) => { g.accessors[0].byteOffset = 0.5; }, /byteOffset/],
+    ['misaligned accessor', (g) => { g.accessors[0].byteOffset = 2; }, /alignment/],
+    ['misaligned view', (g) => { g.bufferViews[0].byteOffset = 2; }, /alignment/],
+    ['offset past view', (g) => { g.accessors[0].byteOffset = 40; }, /bufferView byteLength/],
+    ['zero stride', (g) => { g.bufferViews[0].byteStride = 0; }, /byteStride/],
+    ['small stride', (g) => { g.bufferViews[0].byteStride = 8; }, /stride/],
+    ['fractional stride', (g) => { g.bufferViews[0].byteStride = 12.5; }, /byteStride/],
+    ['unaligned stride', (g) => { g.bufferViews[0].byteStride = 14; }, /byteStride/],
+    ['oversized stride', (g) => { g.bufferViews[0].byteStride = 256; }, /byteStride/],
+    ['interleaved spill', (g) => { g.bufferViews[0].byteStride = 16; }, /bufferView byteLength/],
+  ];
+  for (const [label, mutate, pattern] of cases) {
+    const g = triangleDocument();
+    mutate(g);
+    await rejectsGltf(documentUri(g), pattern, label);
+  }
+});
+
+test('M3: valid interleaved positions and normals honour view and accessor offsets', async () => {
+  const g = triangleDocument();
+  const packed = new Float32Array([99, 0,0,0, 0,0,1, 1,0,0, 0,0,1, 0,1,0, 0,0,1]);
+  g.buffers = [{ uri: `data:application/octet-stream;base64,${btoa(String.fromCharCode(...new Uint8Array(packed.buffer)))}`, byteLength: packed.byteLength }];
+  g.bufferViews = [{ buffer: 0, byteOffset: 4, byteLength: 72, byteStride: 24 }];
+  g.accessors = [
+    { bufferView: 0, componentType: 5126, type: 'VEC3', count: 3 },
+    { bufferView: 0, byteOffset: 12, componentType: 5126, type: 'VEC3', count: 3 },
+  ];
+  g.meshes[0].primitives[0] = { attributes: { POSITION: 0, NORMAL: 1 } };
+  const [mesh] = await loadGltf(documentUri(g));
+  assertEquals(Array.from(mesh.positions).join(','), '0,0,0,1,0,0,0,1,0');
+  assertEquals(Array.from(mesh.normals).join(','), '0,0,1,0,0,1,0,0,1');
+  g.bufferViews[0].byteLength -= 4;
+  await rejectsGltf(documentUri(g), /bufferView byteLength/, 'last interleaved normal exceeds own view');
+});
+
+test('M3: index accessors require unsigned scalars and indices within POSITION', async () => {
+  const g = triangleDocument();
+  const bytes = Uint8Array.from(atob(g.buffers[0].uri.split(',')[1]), (c) => c.charCodeAt(0));
+  new DataView(bytes.buffer).setUint16(40, 3, true);
+  g.buffers[0].uri = `data:application/octet-stream;base64,${btoa(String.fromCharCode(...bytes))}`;
+  await rejectsGltf(documentUri(g), /index exceeds POSITION/, 'index equal to vertex count');
+  for (const componentType of [5120, 5122, 5126]) {
+    const bad = triangleDocument();
+    bad.accessors[1].componentType = componentType;
+    await rejectsGltf(documentUri(bad), /unsigned integer SCALAR/, 'invalid index component');
+  }
+  g.accessors[1].type = 'VEC3';
+  await rejectsGltf(documentUri(g), /unsigned integer SCALAR/, 'invalid index type');
+});
+
+function appendGlbChunk(glb, chunk) {
+  const out = new Uint8Array(glb.byteLength + chunk.byteLength);
+  out.set(new Uint8Array(glb));
+  out.set(new Uint8Array(chunk), glb.byteLength);
+  new DataView(out.buffer).setUint32(8, out.byteLength, true);
+  return out.buffer;
+}
+
+test('M3: GLB rejects short headers, declared length mismatches and malformed chunks', async () => {
+  for (let n = 0; n < 12; n += 1) await rejectsGltf(new ArrayBuffer(n), /header is truncated/, `header length ${n}`);
+  const empty = { asset: { version: '2.0' } };
+  const glb = makeGlb(empty);
+  for (const delta of [-4, 4]) {
+    const bad = glb.slice(0);
+    new DataView(bad).setUint32(8, bad.byteLength + delta, true);
+    await rejectsGltf(bad, /total length/, 'declared total mismatch');
+  }
+  await rejectsGltf(appendGlbChunk(glb, new ArrayBuffer(4)), /chunk header/, 'trailing short chunk header');
+  for (const length of [glb.byteLength, new DataView(glb).getUint32(12, true) - 1]) {
+    const bad = glb.slice(0);
+    new DataView(bad).setUint32(12, length, true);
+    await rejectsGltf(bad, /chunk bounds or alignment/, 'overrun or unaligned chunk');
+  }
+  await rejectsGltf(appendGlbChunk(glb, glb.slice(12)), /duplicate JSON/, 'duplicate JSON');
+  const withBin = makeGlb(empty, new ArrayBuffer(4));
+  await rejectsGltf(appendGlbChunk(withBin, withBin.slice(glb.byteLength)), /duplicate BIN/, 'duplicate BIN');
+  const reordered = withBin.slice(0);
+  new DataView(reordered).setUint32(16, 0x004E4942, true);
+  await rejectsGltf(reordered, /first chunk must be JSON/, 'BIN before JSON');
+  const unknown = new ArrayBuffer(8);
+  new DataView(unknown).setUint32(4, 0x12345678, true);
+  assertEquals((await loadGltf(appendGlbChunk(glb, unknown))).length, 0, 'unknown trailing chunk is allowed');
+  await rejectsGltf(appendGlbChunk(appendGlbChunk(glb, unknown), withBin.slice(glb.byteLength)), /BIN chunk must follow JSON/, 'BIN after unknown chunk');
+});
+
+test('M3: node validation rejects cycles and shared parents even outside the selected scene', async () => {
+  const cases = [
+    ['self cycle', (g) => { g.nodes[0].children = [0]; }, /cycle/],
+    ['reachable cycle', (g) => { g.nodes.push({ children: [0] }); g.nodes[0].children = [1]; }, /cycle/],
+    ['disconnected cycle', (g) => { g.nodes.push({ children: [2] }, { children: [1] }); }, /cycle/],
+    ['disconnected shared child', (g) => { g.nodes.push({ children: [3] }, { children: [3] }, {}); }, /multiple parents/],
+    ['duplicate child', (g) => { g.nodes.push({}); g.nodes[0].children = [1, 1]; }, /multiple parents/],
+    ['missing child', (g) => { g.nodes[0].children = [99]; }, /node reference/],
+    ['fractional child', (g) => { g.nodes[0].children = [0.5]; }, /node reference/],
+    ['missing mesh', (g) => { g.nodes[0].mesh = 99; }, /mesh reference/],
+    ['null mesh', (g) => { g.nodes[0].mesh = null; }, /mesh reference/],
+    ['null children', (g) => { g.nodes[0].children = null; }, /invalid children/],
+    ['missing default scene', (g) => { g.scene = 99; }, /scene reference/],
+    ['fractional scene', (g) => { g.scene = 0.5; }, /scene reference/],
+    ['invalid unselected scene', (g) => { g.scenes.push({ nodes: [-1] }); }, /scene node reference/],
+    ['duplicate scene root', (g) => { g.scenes[0].nodes = [0, 0]; }, /duplicate or non-root/],
+    ['child scene root', (g) => { g.nodes.push({ children: [0] }); }, /duplicate or non-root/],
+  ];
+  for (const [label, mutate, pattern] of cases) {
+    const g = triangleDocument();
+    mutate(g);
+    await rejectsGltf(documentUri(g), pattern, label);
+  }
+});
+
+test('M3: scene traversal preserves transforms and disconnected mesh compatibility', async () => {
+  const g = triangleDocument();
+  g.nodes = [{ translation: [1, 2, 3], children: [1] }, { mesh: 0, translation: [4, 5, 6] }, { mesh: 0, translation: [99, 99, 99] }];
+  const meshes = await loadGltf(documentUri(g));
+  assertEquals(meshes.length, 2);
+  assertEquals(Array.from(meshes[0].worldMatrix.slice(12, 15)).join(','), '5,7,9');
+  assertEquals(Array.from(meshes[1].worldMatrix.slice(12, 15)).join(','), '0,0,0');
+});
+
+test('M3: deep node forests validate and traverse without recursive stack growth', async () => {
+  const g = { asset: { version: '2.0' }, scenes: [{ nodes: [0] }], nodes: [] };
+  for (let i = 0; i < 20000; i += 1) g.nodes.push(i === 19999 ? {} : { children: [i + 1] });
+  assertEquals((await loadGltf(documentUri(g))).length, 0);
 });

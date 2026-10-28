@@ -1,20 +1,21 @@
 # Project Singularity
 
 [![Live demo](https://img.shields.io/badge/live_demo-GitHub_Pages-6ea8fe)](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/)
-[![Tests](https://img.shields.io/badge/tests-282_across_24_suites-57d68d)](#verify-it)
-[![Runtime dependencies](https://img.shields.io/badge/runtime_dependencies-0-b39ddb)](#technologies)
+[![Tests](https://img.shields.io/badge/tests-338_across_24_suites-57d68d)](#verify-it)
+[![npm dependencies](https://img.shields.io/badge/npm_dependencies-0-b39ddb)](#technologies)
 [![License](https://img.shields.io/badge/license-MIT-8399b0)](LICENSE)
 
 ## Overview
 
 An attempt at *The Impossible Website Challenge*: one page that behaves like an
 operating system, a collaborative workspace, a game engine and a secure
-messenger at once - with **zero runtime dependencies** and no framework in the
-shipped bundle.
+messenger at once - with no framework or npm dependencies in the shipped bundle.
+The C/C++ compiler optionally loads a self-hosted WebAssembly toolchain.
 
-Everything is hand-written against browser APIs: the CRDT, the C front end, the
-renderer, the crypto composition, the storage layer, the WebRTC mesh and the DOM
-code. There is no bundler, no transpiler, and no file in `src/` imported from npm.
+The CRDT, lightweight C interpreter, renderer, crypto composition, storage layer,
+WebRTC mesh and DOM code are hand-written against browser APIs. Broad C/C++
+compilation uses third-party Clang and standard-library assets, not the subset
+interpreter. There is no bundler or transpiler.
 
 ## At a glance
 
@@ -24,8 +25,8 @@ code. There is no bundler, no transpiler, and no file in `src/` imported from np
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
 | Repository signals | **0 stars · 0 forks · 40 commits · 1 author · 2 tagged releases (v0.1.0, v1.0.0)** (snapshot 21 Oct 2026; GitHub is the live source) |
-| Tests | **282 across 24 suites**, runnable in the browser from the site itself |
-| Runtime dependencies | **0** - no framework, no bundler, no npm package in the shipped bundle |
+| Tests | **338 across 24 suites**, runnable in the browser from the site itself |
+| Dependencies | **0 npm packages**; optional self-hosted WebAssembly C/C++ compiler and libraries |
 | Modules | 8 scored (3 full, 5 partial - each partial says exactly where it stops) plus M9 SINGU AI, unscored |
 | Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
 | License | MIT |
@@ -74,6 +75,15 @@ recorded from the running app by `node tools/demo.js`. No narration: the script
 in [docs/DEMO.md](docs/DEMO.md) is burned in as captions, beat by beat, and
 `docs/reports/demo.json` lists which beats performed their interaction.
 
+**Compiler:** open M2, choose C or C++, paste source, optionally select extra source/header
+files and supply stdin, then compile and run. The first WebAssembly run loads about
+18.4 MiB of compressed same-origin assets; subsequent runs can use the offline cache.
+Source stays on the device. The bundled Clang 8.0.1 supports C through C11 and C++
+through C++17 without exceptions, host files, networking or threads. The 32 MiB
+program cap is separate from compiler working memory. Third-party licenses and
+uncompressed integrity hashes are in `assets/toolchain/`. Choose the interpreter
+for small C-subset examples without loading the toolchain.
+
 **Live deployment:** <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/>
 - the canonical URL, and the only one this project publishes. GitHub Pages cannot
 send response headers, so what arrives there is the CSP carried as a `<meta>` tag
@@ -120,7 +130,7 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**282 tests across 24 suites** (~4 s in a real browser, of which 25 need it). Each
+**338 tests across 24 suites** (real compiler tests also load the local toolchain; unavailable capabilities are explicit skips). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
 runner for environments that have it (it reports those 25 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
@@ -130,24 +140,25 @@ real WebGL2 context, IndexedDB or RTCPeerConnection, none of which Node provides
 ```bash
 node tools/browser-run.js                                        # this working tree
 node tools/browser-run.js --url=https://<site>/tests/browser.html  # a deployment
+npm run test:ui                                                  # real app workflows
 ```
 
 | Suite | Tests | Covers |
 |-------|-------|--------|
-| `rga.test.js` | 23 | CRDT convergence, causality, idempotence, undo/redo replication, cursor-walk parity, tombstone collection, op-log trimming |
+| `rga.test.js` | 26 | CRDT convergence, causality, idempotence, undo/redo replication, cursor-walk parity, tombstone collection, op-log trimming |
 | `history.test.js` | 9 | undo/redo history, op-log retention and snapshot compaction |
-| `crypto.test.js` | 6 | X3DH, Double Ratchet, signed-bundle enforcement, replay/tamper rejection, groups, file AEAD, passphrase-sealed keys |
-| `compiler.test.js` | 19 | lexer/parser/interpreter, diagnostics with line+column, resource budgets |
+| `crypto.test.js` | 18 | X3DH, Double Ratchet, signed-bundle enforcement, replay/tamper rejection, groups, file AEAD, passphrase-sealed keys |
+| `compiler.test.js` | 30 | interpreter and real C/C++ compilation, STL, stdin, extra files, diagnostics, runtime isolation, output limits and worker cancellation |
 | `lang.test.js` | 23 | the full language surface: ternary, switch, structs, casts, the malloc family, scanf, and the heap's failure modes |
 | `stdlib.test.js` | 51 | `<string.h>`, `<ctype.h>`, `<math.h>`, the preprocessor (`#define`, function-like macros, `__VA_ARGS__`), `typedef`, two-dimensional arrays, function pointers, unions, enums, prototypes, `sprintf`, `qsort`, `fgets` - including the fail-closed cases |
-| `storage.test.js` | 8 | IndexedDB round-trip, compaction, file frames, v1 -> v2 migration |
+| `storage.test.js` | 12 | IndexedDB reopen, causal history retention, empty documents, atomic history replacement, file frames and migrations |
 | `opfs.test.js` | 4 | document-id allowlist, batch ordering, atomic replacement and unavailable-OPFS fallback |
-| `mesh.test.js` | 13 | presence, room isolation, pruning, ciphertext-only relay, ingress flood control, and the browser relay carrier: a sealed round trip through the node's contract, outbox failover across a dead node, sealed-frame-id dedupe, queue-then-flush, base-URL semantics |
+| `mesh.test.js` | 19 | presence, room isolation, pruning, ciphertext-only relay, ingress flood control, and the browser relay carrier: a sealed round trip through the node's contract, outbox failover across a dead node, sealed-frame-id dedupe, queue-then-flush, base-URL semantics |
 | `topology.test.js` | 7 | deterministic mesh/tree plan, fan-out bound and loop-free forwarding |
 | `webrtc.test.js` | 7 | signaling-code validation, rejected and self-pasted codes, a real data channel between two carriers |
 | `stream.test.js` | 6 | streaming file AEAD: irregular chunks, frame order, final flag and lazy decryption |
-| `renderer.test.js` | 13 | 3D maths, real WebGL2 initialisation, a rendered frame, and async texture decode with GL error check |
-| `gltf.test.js` | 16 | glTF 2.0 loader: JSON and GLB binary parsing, accessor materialisation, flat-normal generation, PBR material extraction, TRS node hierarchy, non-triangle rejection, mikkelsen tangents, texture/image/sampler resolution, UV-absent degradation |
+| `renderer.test.js` | 19 | 3D maths, real WebGL2 initialisation, a rendered frame, and async texture decode with GL error check |
+| `gltf.test.js` | 23 | glTF 2.0 loader: JSON and GLB binary parsing, accessor materialisation, flat-normal generation, PBR material extraction, TRS node hierarchy, non-triangle rejection, mikkelsen tangents, texture/image/sampler resolution, UV-absent degradation |
 | `hdr.test.js` | 5 | Radiance HDR decoding, peak/mean probe and SH reconstruction error |
 | `env.test.js` | 12 | procedural sky: SH basis, irradiance convolution, cube layouts, GGX prefilter determinism and roughness variation |
 | `fuzz.test.js` | 11 | seeded fuzzing of the C front end, the CRDT, the ciphertext decoders and the signaling parser |
@@ -156,13 +167,12 @@ node tools/browser-run.js --url=https://<site>/tests/browser.html  # a deploymen
 | `hud.test.js` | 1 | the crypto module imports in Node without a DOM |
 | `constellation.test.js` | 9 | module orbit model, state derivation, text alternative, paint and teardown |
 | `a11y.test.js` | 9 | contrast, accessible names, audit rules, focus order and the parallel text tree |
-| `sw.test.js` | 3 | precache manifest, import-graph coverage and cache version |
+| `sw.test.js` | 10 | shell import graph, lazy toolchain caching, scope-owned caches, source/build versions and Node/Python delivery boundaries |
 | `singu.test.js` | 15 | SINGU AI: catalogue breadth, brief matching, knob binding, review/diagnostics, and every generated pattern compiled and run |
 
-Number check: the 24 suites hold 282 tests. In the browser 281 pass and one
-Node-only import probe is skipped; the Node runner reports **257 pass + 25
-browser-only skips**, because those 25 need a canvas, WebGL2, IndexedDB, OPFS,
-WebCrypto or a peer connection.
+Number check: the 24 suites hold 338 tests. Browser eligibility: 331 tests; 7 Node-only checks are skipped.
+The Node runner reports **311 pass + 27 browser-only skips**. Capability skips cover
+DOM, WebGL2, IndexedDB and OPFS; they are not passes. Both runners report failures explicitly.
 
 ## Technologies
 
@@ -197,7 +207,7 @@ the project.
 | M1 Collaborative editor | **Full** | Own RGA CRDT, live cursors, per-user undo, offline merge, cursor-indexed lookups (20k sequential appends visit zero nodes), watermark-bounded tombstone collection and op-log trimming. Interior tombstones are kept by design. The retained op log is also a second execution path: the M1 temporal core replays any prefix into a fresh replica, fingerprints the visible state (character ids, order and text) and proves that forward, reversed and shuffled merges agree. |
 | M4 End-to-end encryption | **Full** | X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD. The signed prekey bundle is verified *inside* the handshake, before any key material exists. |
 | M6 Offline-first storage | **Full** | IndexedDB op log, snapshots, quota, migrations, and a service worker whose paths are scope-relative - offline is verified by stopping the server and reloading under `/PROJECT-SINGULARITY/`. |
-| M2 In-browser C runtime | **Partial** | Real compiler for a C subset + worker sandbox + terminal + kill switch. Includes ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked lists), casts, do/while, `malloc`/`calloc`/`realloc`/`free`/`memcpy`/`memset` over a bounds-checked arena, `scanf`/`sscanf`, plus the library surface student C actually uses: `<string.h>` (`strcpy`, `strcat`, `strcmp`, `strncpy`, `strchr`), `<ctype.h>` (`toupper`, `isdigit`, `isalpha`), `<math.h>` (`sqrt`, `pow`, `fabs`), `#define` constants, function-like macros (`#`, `##`, `__VA_ARGS__`), `typedef`, `int m[2][3]`, function pointers and unions. The bounds-checked arena fails closed - an overflowing `strcpy` is an error, never silent corruption. *Still not clang/TCC in WASM; no variadic user functions; a struct tag is not usable as a type name without a `typedef`.* |
+| M2 In-browser C/C++ runtime | **Partial** | Self-hosted Clang 8.0.1/WASI compilation plus a separate lightweight C-subset interpreter, worker sandbox, terminal and kill switch. Includes ternary, switch/fall-through, structs (nested, arrays, by value, heap-linked lists), casts, do/while, `malloc`/`calloc`/`realloc`/`free`/`memcpy`/`memset` over a bounds-checked arena, `scanf`/`sscanf`, plus the library surface student C actually uses: `<string.h>` (`strcpy`, `strcat`, `strcmp`, `strncpy`, `strchr`), `<ctype.h>` (`toupper`, `isdigit`, `isalpha`), `<math.h>` (`sqrt`, `pow`, `fabs`), `#define` constants, function-like macros (`#`, `##`, `__VA_ARGS__`), `typedef`, `int m[2][3]`, function pointers and unions. The bounds-checked arena fails closed - an overflowing `strcpy` is an error, never silent corruption. The separate WebAssembly mode uses real Clang and C/C++ standard libraries, supports extra source/header files and runs locally in a killable worker. The interpreter remains a C subset. WebAssembly programs have no host filesystem, networking, native GUI or thread access; C++ exceptions, arbitrary native libraries and standards beyond C11/C++17 are unavailable. |
 | M3 3D engine | **Partial** | WebGL2 instancing to 100k, a real PCF shadow map, 1M GPU particles, and physically based shading (Cook-Torrance GGX/Smith/Schlick, Reinhard tonemap). A glTF 2.0 loader (`src/graphics/gltf.js`) parses JSON and GLB binary, materialises accessors, images, samplers and textures, flattens TRS node hierarchy into world-space transforms, computes mikkelsen tangents, generates flat normals when absent; the M3 panel fetches `assets/models/singularity-core.glb` (generated by `tools/make-sample-glb.py`), uploads each primitive and draws it through the same BRDF, sampling SRGB8_ALPHA8 base-colour and RGBA8 normal maps from the file. 16 tests cover the full parsing surface including mikkelsen tangents and texture/image/sampler resolution. *No skeletal animation, no WebGPU.* A measured HDRI probe ships in the M3 panel: peak, mean and SH reconstruction error against the analytic source. |
 | M5 Peer mesh | **Partial** | Three carriers into one mesh: BroadcastChannel for tabs, WebRTC data channels for separate machines (copy-pasted invite/answer codes with no server; STUN on by default; ICE restart on `disconnected` after 2 s with `iceRestart:true`, completed by `acceptRestartAnswer()` without tearing down the data channel), and a ciphertext relay carrier (`src/collab/relay.js`) for peers that share neither: frames are sealed with an HKDF room key, queued in a sender outbox, re-posted to the next node in a URL list when a node stops answering, and deduplicated by sealed frame id at the receiver. The node (`tools/relay.js`) implements the same envelope contract; it was driven at 1,000 clients, killed mid-backlog (`SIGKILL`, 20,000 pending, all replayed from the log, 256 ms outage), and killed for good in a failover run where the dead node's whole backlog was re-posted from the client outboxes to a standby node — 0 lost, 0 duplicated. The app-to-node path itself runs in a real browser under the shipped CSP (`tools/relay-e2e.js`). [LOAD_CHAOS.md](docs/LOAD_CHAOS.md), section 12. *No bundled TURN relay, so symmetric NAT on both ends still needs one; the node is a dev-server mount today, not a deployment.* |
 | M7 Accessibility | **Partial** | Semantics, keyboard model, live regions, text alternative tree, motion/contrast/scale/RTL/visual-effects preferences. A real **NVDA 2026.2** pass (Windows Edge) announced all eight panel headings, read the M3 canvas text alternative, and read Bangla/Arabic editor text with the right language tags; it found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. **17/17 steps**, artifact in [`docs/reports/nvda-session.md`](docs/reports/nvda-session.md). VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain unvalidated. |
@@ -236,11 +246,16 @@ Note: the reviewer's latest independent tally is **803 / 1000** (M1 87, M2 74, M
 
 The brief's ladder asks two different questions, so this README answers both:
 
+The payload below is re-measured from the current import graph after the final
+persistence corrections. Lighthouse, LCP, soak, load/chaos and security figures
+remain **historical evidence** under their archived conditions, not new runs of
+this build. No score increase, fresh audit or device guarantee is claimed.
+
 | Reading | Answer | Why |
 |---------|--------|-----|
 | Points band | **Past the Gold ceiling** (450-750) | Arithmetic on the reviewer's marks: 803 sits 53 points above the old Gold band; the self-assessment (785) sits 35 above it. The points column is not the grade; the requirement ladder below is, and the reviewer still tiers this build Silver. |
 | Tier by requirement | **Silver** | The reviewer's tally tiers at Silver: M1, M2, M4 and M6 are full or near-full (the four the brief's Silver row asks for) with real integration between them; Gold still needs the partial four (M3, M5, M7, M8) to reach full. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (**120.0 KiB gzip JS cold load vs 170 KB budget — met**; M2, M3, M4 and the WebRTC half of M5 now fetch their module graph on first open, and the **110.6 KiB gzip** deferred graph is reported separately rather than counted as cold; the seven decorative modules the review named were also deleted outright for −25 KiB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop and mobile **95 / 100 / 100 / 100**); the **full 60-minute memory soak** ends with a smaller heap than it started with (1.10 → 1.53 MiB after GC, and fewer nodes and less reachable memory at minute 60 than at minute 10); and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (**122.2 KiB gzip JS cold load vs 170 KB budget — met**; 26.9 KiB gzip CSS brings the initial 15 files (14 JS + stylesheet) to **149.1 KiB gzip / 482.5 KiB raw**; `src/app.js` is 235.3 KiB raw / 73.9 KiB gzip; M2, M3, M4, M9 SINGU AI and the WebRTC/relay half of M5 fetch their module graph on demand, and the **18-file, 119.9 KiB gzip JS** deferred graph plus the separate **approximately 18.4 MiB compressed toolchain asset set** are reported separately rather than counted as cold; the seven decorative modules the review named were also deleted outright for −25 KiB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop and mobile **95 / 100 / 100 / 100**); the historical **full 60-minute memory soak** records 1.10 → 1.53 MiB after GC, with fewer nodes and less reachable memory in the minute-60 snapshot than at minute 10; and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -264,7 +279,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (24 suites, 282 tests, fuzzer included)
+tests/                  browser test suite (24 suites, 338 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
@@ -332,12 +347,12 @@ docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
 | **Shipped** | M1 temporal core | The retained op log is replayable: prefix rewind, a structural digest, and an order-independence proof that re-runs the CRDT contract in the browser. |
 | **Shipped** | M4 end-to-end encryption | Full: X3DH, Double Ratchet, streaming file AEAD and key verification. |
 | **Shipped** | M6 offline-first storage | Full: op log, snapshots, migrations, service worker and server-stopped recovery. |
-| **In progress** | M2 C runtime | Declared partial: no clang-to-WASM backend and no variadic user functions yet. |
-| **In progress** | M3 3D engine | Declared partial: no measured HDRI probe, no skeletal animation or WebGPU path yet. glTF base-colour and normal-map sampling is now implemented. |
+| **Shipped** | M2 C/C++ runtime | Real Clang/WASI compilation, standard libraries, headers, multiple sources and stdin; restricted to the bundled C11/C++17 toolchain without OS APIs or exceptions. |
+| **In progress** | M3 3D engine | Declared partial: HDR diffuse lighting is shipped; HDR specular prefiltering, skeletal animation and WebGPU are not. glTF base-colour and normal-map sampling is now implemented. |
 | **In progress** | M5 transport | Declared partial: the relay is a local dev node and no TURN server is bundled. |
 | **In progress** | M7 accessibility | Declared partial: the NVDA 2026.2 pass is recorded (17/17 steps, real speech log); VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still pending. |
 | **In progress** | M8 hardening | Delivered mostly honest — what is here is measured, not claimed; the +3 integrity/tamper work is now in the build pipeline and tested. |
-| **Planned** | WASM backend for M2 | Compile C to WebAssembly in the worker and keep the interpreter as the fallback. |
+| **Shipped** | WASM backend for M2 | Clang and lld compile C/C++ locally; the interpreter remains an explicitly selectable lightweight mode. |
 | **Planned** | WebGPU renderer path | A second backend behind the same engine API, with WebGL2 kept for compatibility. |
 | **Planned** | OPFS and SharedArrayBuffer pooling | Faster cold start and cross-tab memory sharing where COOP/COEP allow it. |
 | **Planned** | Hosted relay and TURN | So peer tests are not confined to one machine or one NAT. |
@@ -351,8 +366,8 @@ The sequenced version of this table, with gates and a research horizon, is
 
 **Ashraful Arefin** - Computer Science & Engineering student. Interested in artificial
 intelligence, software engineering, cybersecurity and open source development. This is
-a solo build: every module, test, report and measurement in the repository was written
-from scratch against the platform's own APIs.
+a solo build: the shell and application modules are written against the platform's
+own APIs; the real compiler mode bundles third-party Clang/WASI assets with notices.
 
 - GitHub: [ashrafularefin78-prog](https://github.com/ashrafularefin78-prog)
 - Project: [PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY)
@@ -363,7 +378,7 @@ from scratch against the platform's own APIs.
 
 Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the setup,
 the test gates every change must pass, and the two constraints that shape each
-patch: zero runtime dependencies, and the strict CSP / Trusted Types policy.
+patch: a framework-free shell with self-hosted toolchain assets, and the strict CSP / Trusted Types policy.
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) applies to every interaction in this
 repository, and [CHANGELOG.md](CHANGELOG.md) records what each pass changed.
 Bug reports and feature requests have templates; the pull-request template

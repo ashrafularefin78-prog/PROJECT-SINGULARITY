@@ -1,4 +1,4 @@
-import { test, assert, assertEquals } from './harness.js';
+import { test, assert, assertEquals, assertThrows } from './harness.js';
 import {
   cross3,
   identity,
@@ -12,7 +12,7 @@ import {
   transformPoint,
 } from '../src/graphics/math.js';
 import { MAX_INSTANCES, MAX_PARTICLES, Renderer } from '../src/graphics/renderer.js';
-import { loadGltf } from '../src/graphics/gltf.js';
+import { loadGltf, uploadMesh } from '../src/graphics/gltf.js';
 
 test('M3: identity leaves a point untouched and multiply respects order', () => {
   const id = identity();
@@ -125,6 +125,7 @@ test('M3: the renderer initialises, instances and describes the scene', () => {
   renderer.detachModel();
   renderer.frame(64); // stats() reflect the last drawn frame, so draw one after detaching
   assertEquals(renderer.stats().modelMeshes, 0, 'detachModel must release the model');
+  renderer.dispose();
 }, NEEDS_GL);
 
 test('M3: instance and particle counts are clamped to the engine limits', () => {
@@ -147,6 +148,7 @@ test('M3: shadows can be toggled and the camera orbits within limits', () => {
   const stats = renderer.stats();
   assert(stats.camera.elevation <= 1.35, 'elevation must clamp');
   assert(stats.camera.distance >= 14, 'distance must clamp');
+  renderer.dispose();
 }, NEEDS_GL);
 
 test('M3: a missing WebGL2 context fails loudly instead of silently', () => {
@@ -185,7 +187,7 @@ async function waitForTextures(renderer, count, timeoutMs = 10000) {
 }
 
 test('M3: the shipped GLB decodes both material textures and draws without GL errors', async () => {
-  const res = await fetch('/assets/models/singularity-core.glb');
+  const res = await fetch(new URL('../assets/models/singularity-core.glb', import.meta.url));
   assert(res.ok, 'the sample GLB must be reachable from the served tree');
   const meshes = await loadGltf(await res.arrayBuffer(), true);
   assertEquals(meshes.length, 3, 'core + ring + shard');
@@ -210,6 +212,7 @@ test('M3: the shipped GLB decodes both material textures and draws without GL er
   renderer.detachModel();
   renderer.frame(32);
   assertEquals(renderer.stats().modelTextures, 0, 'detachModel released the textures');
+  renderer.dispose();
 }, NEEDS_GL);
 
 test('M3: attachModel decodes canvas-rendered textures for a synthetic textured mesh', async () => {
@@ -258,4 +261,239 @@ test('M3: attachModel decodes canvas-rendered textures for a synthetic textured 
   renderer.detachModel();
   renderer.frame(32);
   assertEquals(renderer.stats().modelTextures, 0, 'detached cleanly');
+  renderer.dispose();
 }, NEEDS_GL);
+
+// ---------------------------------------------------------------- owned resources / failure injection (also run in Node)
+
+function trackedGL() {
+  const live = new Map();
+  const created = new Map();
+  const deleted = new Map();
+  const gl = {
+    NO_ERROR: 0,
+    OUT_OF_MEMORY: 0x0505,
+    bufferDataCalls: 0,
+    createBufferCalls: 0,
+    texImageCalls: 0,
+    boundVao: null,
+    error: 0,
+    getError() { const error = this.error; this.error = 0; return error; },
+    getParameter: () => 4096,
+    getExtension: () => null,
+    getShaderParameter() { return !this.failCompile; },
+    getProgramParameter() { return !this.failLink; },
+    getShaderInfoLog: () => 'injected compile failure',
+    getProgramInfoLog: () => 'injected link failure',
+    getUniformLocation: (_program, name) => name,
+    checkFramebufferStatus() { return this.FRAMEBUFFER_COMPLETE; },
+    bindVertexArray(vao) { this.boundVao = vao; },
+    bufferData() {
+      this.bufferDataCalls += 1;
+      if (this.bufferDataCalls === this.failBufferDataAt) throw new Error('injected buffer upload failure');
+      if (this.bufferDataCalls === this.errorBufferDataAt) this.error = this.OUT_OF_MEMORY;
+    },
+    texImage2D() {
+      this.texImageCalls += 1;
+      if (this.texImageCalls === this.failTexImageAt) throw new Error('injected texture upload failure');
+    },
+  };
+  for (const kind of ['Buffer', 'VertexArray', 'Texture', 'Program', 'Framebuffer', 'Shader', 'Query']) {
+    live.set(kind, new Set());
+    created.set(kind, 0);
+    deleted.set(kind, 0);
+    gl[`create${kind}`] = () => {
+      if (kind === 'Buffer' && ++gl.createBufferCalls === gl.failCreateBufferAt) return null;
+      const handle = { kind, id: created.get(kind) + 1 };
+      created.set(kind, handle.id);
+      live.get(kind).add(handle);
+      return handle;
+    };
+    gl[`delete${kind}`] = (handle) => {
+      assert(live.get(kind).delete(handle), `${kind} must be owned and deleted exactly once`);
+      deleted.set(kind, deleted.get(kind) + 1);
+    };
+  }
+  for (const name of ['bindBuffer', 'enableVertexAttribArray', 'vertexAttribPointer', 'vertexAttribDivisor',
+    'shaderSource', 'compileShader', 'attachShader', 'linkProgram', 'useProgram', 'uniform1i',
+    'bindTexture', 'texParameteri', 'generateMipmap', 'bindFramebuffer', 'framebufferTexture2D',
+    'enable', 'cullFace']) gl[name] = () => {};
+  let constant = 100;
+  const context = new Proxy(gl, {
+    get(target, name) {
+      if (typeof name === 'string' && /^[A-Z][A-Z0-9_]*$/.test(name) && !(name in target)) target[name] = constant++;
+      return target[name];
+    },
+  });
+  return { gl: context, live, created, deleted, total: () => [...live.values()].reduce((n, set) => n + set.size, 0) };
+}
+
+function syntheticMesh(textured = false) {
+  const sampler = { wrapS: 10497, wrapT: 10497, magFilter: 9729, minFilter: 9729 };
+  const texture = { bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png', sampler };
+  return {
+    positions: new Float32Array([0,0,0, 1,0,0, 0,1,0]),
+    normals: new Float32Array([0,0,1, 0,0,1, 0,0,1]),
+    uvs: new Float32Array([0,0, 1,0, 0,1]),
+    tangents: new Float32Array([1,0,0,1, 1,0,0,1, 1,0,0,1]),
+    indices: new Uint32Array([0,1,2]),
+    worldMatrix: identity(),
+    material: { baseColor: [1,1,1,1], metallic: 0.2, roughness: 0.5, doubleSided: false,
+      ...(textured ? { baseColorTexture: texture, normalTexture: texture } : {}) },
+  };
+}
+
+function trackedRenderer(resources, initialise = false) {
+  const canvas = { width: 64, height: 64, getContext: () => resources.gl,
+    getBoundingClientRect: () => ({ width: 64, height: 64 }) };
+  const renderer = new Renderer(canvas);
+  if (initialise) renderer.init();
+  else renderer.gl = resources.gl;
+  return renderer;
+}
+
+test('M3: uploadMesh rolls back every partial buffer upload and null allocation', () => {
+  for (const mode of ['failBufferDataAt', 'failCreateBufferAt', 'errorBufferDataAt']) {
+    for (let failAt = 1; failAt <= 5; failAt += 1) {
+      const resources = trackedGL();
+      resources.gl[mode] = failAt;
+      assertThrows(() => uploadMesh(resources.gl, syntheticMesh(), { position: 0, normal: 1, uv: 2, tangent: 3 }), `${mode} ${failAt} must fail`);
+      assertEquals(resources.total(), 0, `${mode} ${failAt} leaked GPU resources`);
+      assertEquals(resources.gl.boundVao, null, 'rollback unbinds the VAO');
+    }
+  }
+  const resources = trackedGL();
+  resources.gl.createVertexArray = () => null;
+  assertThrows(() => uploadMesh(resources.gl, syntheticMesh(), { position: 0, normal: 1 }));
+  assertEquals(resources.total(), 0, 'failed VAO allocation creates no buffers');
+});
+
+test('M3: attachModel rolls back staged meshes and retains the previous committed model', () => {
+  const resources = trackedGL();
+  const renderer = trackedRenderer(resources);
+  renderer.attachModel([syntheticMesh()]);
+  const previous = renderer.model;
+  const generation = renderer.modelGeneration;
+  const baseline = resources.total();
+  resources.gl.failBufferDataAt = resources.gl.bufferDataCalls + 8; // first mesh complete, second mesh UV fails
+  assertThrows(() => renderer.attachModel([syntheticMesh(), syntheticMesh()]));
+  assertEquals(renderer.model, previous, 'failed replacement preserves the old model');
+  assertEquals(renderer.modelGeneration, generation, 'old texture generation stays valid');
+  assertEquals(resources.total(), baseline, 'staged and partially uploaded resources released');
+  assertEquals(previous.meshes[0].dropped, false, 'previous model still drawable');
+  const badMaterial = syntheticMesh();
+  badMaterial.material = null;
+  assertThrows(() => renderer.attachModel([syntheticMesh(), badMaterial]));
+  assertEquals(resources.total(), baseline, 'JS record failure rolls back earlier uploads');
+  renderer.attachModel([syntheticMesh()]);
+  assertEquals(previous.meshes[0].dropped, true, 'successful replacement releases the old model');
+  assertEquals(resources.total(), baseline);
+  renderer.detachModel();
+  renderer.detachModel();
+  assertEquals(resources.total(), 0, 'detach releases only the committed model once');
+  renderer.dispose();
+});
+
+test('M3: dispose accounts for all renderer resources and stops animation idempotently', async () => {
+  const resources = trackedGL();
+  const renderer = trackedRenderer(resources, true);
+  const originalBitmap = globalThis.createImageBitmap;
+  const originalRequest = globalThis.requestAnimationFrame;
+  const originalCancel = globalThis.cancelAnimationFrame;
+  let closed = 0;
+  let requests = 0;
+  const cancelled = [];
+  try {
+    globalThis.createImageBitmap = async () => ({ close: () => { closed += 1; } });
+    globalThis.requestAnimationFrame = () => { requests += 1; return 0; };
+    globalThis.cancelAnimationFrame = (id) => { cancelled.push(id); };
+    renderer.attachModel([syntheticMesh(true)]);
+    await Promise.resolve();
+    assertEquals(closed, 2, 'both decoded bitmaps closed');
+    assertEquals(resources.live.get('Texture').size, 6, 'environment, shadow and two model textures');
+    assert(renderer.groundVbo && renderer.particleVbo, 'ground and particle buffer handles retained');
+    assertEquals(resources.live.get('Buffer').size, 10);
+    assertEquals(resources.live.get('VertexArray').size, 4);
+    assertEquals(resources.live.get('Program').size, 6);
+    assertEquals(resources.live.get('Framebuffer').size, 1);
+    assertEquals(resources.live.get('Shader').size, 0, 'linked shaders already deleted');
+    assertEquals(resources.created.get('Query'), 0, 'renderer does not allocate timer queries');
+    renderer.start();
+    renderer.dispose();
+    renderer.dispose();
+    renderer.stop();
+    renderer.start();
+    renderer.frame(16);
+    assertEquals(resources.total(), 0, 'every owned GPU resource released');
+    for (const [kind, count] of resources.created) assertEquals(resources.deleted.get(kind), count, `${kind} create/delete accounting`);
+    assertEquals(requests, 1, 'disposed renderer cannot restart animation');
+    assertEquals(cancelled.join(','), '0', 'even RAF ID zero cancelled exactly once');
+    assertEquals(renderer.running, false);
+    assertEquals(renderer.gl, null);
+    assertEquals(renderer.model, null);
+    assertThrows(() => renderer.init(), 'disposed renderer cannot reinitialise');
+    assertThrows(() => renderer.attachModel([syntheticMesh()]));
+  } finally {
+    renderer.dispose();
+    globalThis.createImageBitmap = originalBitmap;
+    globalThis.requestAnimationFrame = originalRequest;
+    globalThis.cancelAnimationFrame = originalCancel;
+  }
+});
+
+test('M3: late model bitmap decodes after disposal close without allocating textures', async () => {
+  const resources = trackedGL();
+  const renderer = trackedRenderer(resources);
+  const originalBitmap = globalThis.createImageBitmap;
+  const pending = [];
+  let closed = 0;
+  try {
+    globalThis.createImageBitmap = () => new Promise((resolve) => pending.push(resolve));
+    renderer.attachModel([syntheticMesh(true)]);
+    renderer.dispose();
+    for (const resolve of pending) resolve({ close: () => { closed += 1; } });
+    await Promise.resolve();
+    assertEquals(closed, 2);
+    assertEquals(resources.created.get('Texture'), 0, 'no late texture allocations');
+    assertEquals(resources.total(), 0);
+  } finally {
+    renderer.dispose();
+    globalThis.createImageBitmap = originalBitmap;
+  }
+});
+
+test('M3: failed asynchronous texture uploads delete partial textures and close bitmaps', async () => {
+  const resources = trackedGL();
+  const renderer = trackedRenderer(resources);
+  const originalBitmap = globalThis.createImageBitmap;
+  let closed = 0;
+  try {
+    globalThis.createImageBitmap = async () => ({ close: () => { closed += 1; } });
+    resources.gl.failTexImageAt = 1;
+    renderer.attachModel([syntheticMesh(true)]);
+    await Promise.resolve();
+    assertEquals(closed, 2);
+    assertEquals(resources.live.get('Texture').size, 1, 'failed base texture released, normal texture retained');
+    assertEquals(Object.keys(renderer.model.meshes[0].textures).join(','), 'normalTexture');
+    renderer.dispose();
+    assertEquals(resources.total(), 0);
+  } finally {
+    renderer.dispose();
+    globalThis.createImageBitmap = originalBitmap;
+  }
+});
+
+test('M3: initialisation failures release partially built geometry, textures and shader programs', () => {
+  for (const mode of ['buffer', 'texture', 'compile', 'link']) {
+    const resources = trackedGL();
+    if (mode === 'buffer') resources.gl.failBufferDataAt = 3; // ground after cube
+    if (mode === 'texture') resources.gl.failTexImageAt = 1; // first environment cube
+    if (mode === 'compile') resources.gl.failCompile = true;
+    if (mode === 'link') resources.gl.failLink = true;
+    const renderer = trackedRenderer(resources);
+    renderer.gl = null;
+    assertThrows(() => renderer.init(), `injected ${mode} init failure`);
+    renderer.dispose();
+    assertEquals(resources.total(), 0, `${mode} initialisation leaked resources`);
+  }
+});

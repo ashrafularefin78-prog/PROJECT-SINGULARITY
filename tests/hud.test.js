@@ -6,4 +6,4 @@ function smokeM8() {
   });
 }
 
-test('M8: crypto worker can be imported in Node without DOM', smokeM8, { needs: 'none' });
+test('M8: crypto worker can be imported in Node without DOM', smokeM8, { needs: 'node' });

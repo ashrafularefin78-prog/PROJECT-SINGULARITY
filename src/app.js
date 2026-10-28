@@ -11,7 +11,7 @@
  *   M7 (this file + CSS) accessibility, i18n/RTL, reduced motion
  *   M8 src/security/*    Trusted Types, strict CSP, fail-closed surfaces
  *
- * No runtime dependencies. All DOM is built with createElement/textContent -
+ * No npm dependencies. All DOM is built with createElement/textContent -
  * there is no innerHTML anywhere except a deliberate, caught security probe.
  *
  * Heavy subsystems are imported on demand: the first visit to M2, M3, M4 or the
@@ -61,6 +61,7 @@ const state = {
   sandbox: null,
   singu: null,
   renderer: null,
+  engineTimers: [],
   doc: null,
   ghosts: [],
   cursors: new Map(),
@@ -89,7 +90,7 @@ const state = {
 const PANELS = [
   { id: 'dashboard', label: 'M0 Dashboard', render: renderDashboard },
   { id: 'editor', label: 'M1 Editor', render: renderEditor },
-  { id: 'compiler', label: 'M2 C Runtime', render: renderCompiler, preload: () => import('./runtime/sandbox.js') },
+  { id: 'compiler', label: 'M2 C/C++ Runtime', render: renderCompiler, preload: () => import('./runtime/sandbox.js') },
   {
     id: 'engine',
     label: 'M3 3D Engine',
@@ -429,18 +430,32 @@ function broadcastOps(ops) {
   if (!state.offline && state.mesh) state.mesh.send('ops', { doc: DOC_ID, ops });
 }
 
-async function persist(ops) {
-  if (!state.store || !ops.length) return;
-  // The OPFS mirror is written first: it is the crash-safety tier, and a batch
-  // that reached one store but not the other is recoverable from either.
-  if (state.opfs) await state.opfs.appendBatch(DOC_ID, ops);
-  try {
-    await state.store.appendOps(DOC_ID, ops);
-    state.doc.persisted += ops.length;
-    updateDocMeta();
-  } catch (err) {
-    console.warn('[storage] append failed', err);
-  }
+let persistence = Promise.resolve();
+const pendingBatches = [];
+
+function persist(ops) {
+  if (!state.store || !ops.length) return persistence;
+  pendingBatches.push({ ops, doc: editorState() });
+  persistence = persistence.catch(() => {}).then(async () => {
+    while (pendingBatches.length) {
+      const { ops, doc } = pendingBatches[0];
+      if (state.opfs) await state.opfs.appendBatch(DOC_ID, ops);
+      await state.store.appendOps(DOC_ID, ops);
+      pendingBatches.shift();
+      doc.persisted += ops.length;
+      if (state.doc === doc) updateDocMeta();
+    }
+  });
+  persistence.catch(err => console.warn('[storage] append failed', err));
+  return persistence;
+}
+
+async function flushPersistence() {
+  let pending;
+  do {
+    pending = persistence;
+    await pending;
+  } while (pending !== persistence);
 }
 
 function integrateOps(ops, origin = 'remote') {
@@ -551,8 +566,8 @@ async function recoverFromOpfs() {
   if (mirrored.ops.length) {
     const rga = new RGA(state.peerId);
     rga.merge(mirrored.ops);
-    if (rga.stats().visible > 0 && rga.stats().buffered === 0) {
-      return { text: rga.text(), from: `${mirrored.batches}-batch write-ahead log` };
+    if (rga.stats().buffered === 0) {
+      return { text: rga.text(), ops: mirrored.ops, from: `${mirrored.batches}-batch write-ahead log` };
     }
   }
   const snap = await state.opfs.readSnapshot(DOC_ID);
@@ -580,24 +595,23 @@ async function loadDocument() {
     // Damaged log: some ops referenced characters that were never persisted.
     // Keep whatever text still reconstructs, then rewrite a self-contained log
     // so the next load is clean. Never silently drop the user's text.
-    const text = rga.text() || (snapshot && snapshot.text) || WELCOME;
+    const text = rga.stats().visible > 0 ? rga.text() : snapshot?.text ?? '';
     console.warn(`[storage] op log damaged: ${buffered} of ${ops.length} ops referenced missing characters. Rebuilding a self-contained log from ${text.length} recovered characters.`);
     const fresh = new RGA(state.peerId);
     const seedOps = fresh.localInsert(0, text);
-    await state.store.compact(DOC_ID, text);
-    const persisted = await state.store.appendOps(DOC_ID, seedOps);
+    const persisted = await state.store.replaceOps(DOC_ID, seedOps, text);
     state.doc = { rga: fresh, text, rev: 0, persisted, recovered: true };
     return state.doc;
   }
 
-  if (rga.stats().visible === 0) {
-    // IndexedDB produced nothing: try the OPFS mirror before falling back to
-    // the welcome document. This is the tier that survives a database reset.
-    const mirrored = await recoverFromOpfs();
-    const text = (snapshot && snapshot.text) || (mirrored && mirrored.text) || WELCOME;
+  if (ops.length === 0) {
+    const mirrored = snapshot ? null : await recoverFromOpfs();
+    const text = snapshot?.text ?? mirrored?.text ?? WELCOME;
     if (mirrored) logBoot(`document recovered from OPFS ${mirrored.from} · ${text.length} chars`);
-    const seedOps = rga.localInsert(0, text);
+    const seedOps = mirrored?.ops ?? rga.localInsert(0, text);
+    if (mirrored?.ops) rga.merge(seedOps);
     const persisted = await state.store.appendOps(DOC_ID, seedOps);
+    await state.store.saveDoc(DOC_ID, text);
     state.doc = { rga, text, rev: 0, persisted, recovered: false };
     return state.doc;
   }
@@ -905,7 +919,7 @@ function addGhost() {
     const text = ` ${WORD_BANK[Math.floor(Math.random() * WORD_BANK.length)]}`;
     const at = Math.floor(Math.random() * (ghost.rga.stats().visible + 1));
     const ops = ghost.rga.localInsert(at, text);
-    integrateOps(ops, 'local');
+    integrateOps(ops);
     broadcastOps(ops);
     state.cursors.set(ghost.id, { name: id, index: at, color: ghost.color });
     renderCursors();
@@ -944,6 +958,7 @@ function renderPeers() {
 // ----------------------------------------------------------------- M2 runtime
 
 const SAMPLE_C = `#include <stdio.h>
+#include <stdlib.h>
 
 /* Project Singularity - M2 sandbox demo.
    Runs inside a Web Worker with a step budget, a heap cap and a wall-clock
@@ -1010,24 +1025,100 @@ const INFINITE_C = `int main(void) {
 }
 `;
 
+const SAMPLE_CPP = `#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <numeric>
+
+template <typename T>
+class Values {
+  std::vector<T> data;
+public:
+  Values(std::initializer_list<T> values) : data(values) {}
+  T sum() const { return std::accumulate(data.begin(), data.end(), T{}); }
+};
+
+int main() {
+  Values<int> values{1, 4, 9, 16, 25};
+  std::cout << "squares sum = " << values.sum() << '\\n';
+  std::vector<int> numbers{5, 2, 8, 1};
+  std::sort(numbers.begin(), numbers.end());
+  for (auto n : numbers) std::cout << n << ' ';
+  std::cout << '\\n';
+  int a = 0, b = 0;
+  if (std::cin >> a >> b) std::cout << "input sum = " << a + b << '\\n';
+}
+`;
+
 async function renderCompiler(root) {
-  // The interpreter, parser, lexer and preprocessor live in the worker's graph,
-  // so nothing here is fetched until this panel is opened for the first time.
   const { Sandbox } = await import('./runtime/sandbox.js');
+  if (!root.isConnected) return;
+  let closed = false;
+  let runVersion = 0;
+  let filesVersion = 0;
   if (!state.sandbox) state.sandbox = new Sandbox({ timeLimitMs: 4000 });
-  const source = el('textarea', { class: 'editor mono tall no-gutter', spellcheck: 'false', 'aria-label': 'C source code' });
+  const source = el('textarea', { class: 'editor mono tall no-gutter', spellcheck: 'false', 'aria-label': 'C or C++ source code' });
   source.value = state.cSource ?? SAMPLE_C;
   state.cSource = source.value;
+  source.addEventListener('input', () => { cancelRun(); state.cSource = source.value; });
 
-  const stdin = el('input', { type: 'text', value: '12 34 hello from stdin' });
+  const mode = el('select', { 'aria-label': 'Compiler mode' }, [
+    el('option', { value: 'c', text: 'C · Clang / WebAssembly' }),
+    el('option', { value: 'cpp', text: 'C++ · Clang / WebAssembly' }),
+    el('option', { value: 'interpreter', text: 'C subset · lightweight interpreter' }),
+  ]);
+  mode.value = state.cMode ?? 'c';
+  const standard = el('select', { 'aria-label': 'Language standard' });
+  const updateStandard = () => {
+    state.cMode = mode.value;
+    clear(standard);
+    const standards = mode.value === 'cpp' ? ['c++98', 'c++11', 'c++14', 'c++17'] : ['c89', 'c99', 'c11', 'gnu11'];
+    for (const value of standards) standard.appendChild(el('option', { value, text: value.toUpperCase() }));
+    standard.value = state.cStandards?.[mode.value] ?? (mode.value === 'cpp' ? 'c++17' : 'c11');
+    standard.disabled = mode.value === 'interpreter';
+  };
+  mode.addEventListener('change', updateStandard);
+  standard.addEventListener('change', () => {
+    state.cStandards = { ...state.cStandards, [mode.value]: standard.value };
+  });
+  updateStandard();
+
+  const filesInput = el('input', { type: 'file', multiple: true, accept: '.c,.cc,.cpp,.cxx,.h,.hh,.hpp,.hxx,.inc', 'aria-label': 'Additional source and header files' });
+  const filesMeta = el('div', { class: 'small dim', text: Object.keys(state.cFiles ?? {}).join(', ') || 'No extra files. The editor is main.c or main.cpp.' });
+  const clearFiles = button('Clear extra files', () => {
+    filesVersion += 1;
+    state.cFiles = {};
+    filesInput.value = '';
+    filesMeta.textContent = 'No extra files. The editor is main.c or main.cpp.';
+  });
+  filesInput.addEventListener('change', async () => {
+    const version = ++filesVersion;
+    const files = [...filesInput.files];
+    if (files.length > 32 || files.reduce((size, file) => size + file.size, 0) > 4 * 1024 * 1024 || files.some(file => file.size > 1024 * 1024)) {
+      filesMeta.textContent = 'Limit: 32 files, 1 MiB per file, 4 MiB total.';
+      return;
+    }
+    if (new Set(files.map(file => file.name)).size !== files.length || files.some(file => file.name === 'main.c' || file.name === 'main.cpp')) {
+      filesMeta.textContent = 'Extra filenames must be unique; main.c and main.cpp are reserved for the editor.';
+      return;
+    }
+    const loaded = Object.fromEntries(await Promise.all(files.map(async file => [file.name, await file.text()])));
+    if (closed || version !== filesVersion) return;
+    state.cFiles = loaded;
+    filesMeta.textContent = Object.keys(loaded).join(', ') || 'No extra files. The editor is main.c or main.cpp.';
+  });
+
+  const stdin = el('textarea', { rows: '3', 'aria-label': 'Standard input', spellcheck: 'false' });
+  stdin.value = state.cStdin ?? '12 34 hello from stdin';
+  stdin.addEventListener('input', () => { state.cStdin = stdin.value; });
   const output = el('pre', { class: 'terminal', role: 'log', 'aria-live': 'polite', 'aria-label': 'Program output' });
   refs.terminal = output;
   const terminalShell = el('div', { class: 'terminal-shell' }, [
     el('div', { class: 'terminal-head' }, [
       termDots(),
-      el('span', { text: 'runtime · web worker' }),
+      el('span', { text: 'runtime · isolated web worker' }),
       el('span', { class: 'spacer' }),
-      el('span', { text: 'step + heap + depth budgets' }),
+      el('span', { text: 'local compilation · kill switch' }),
     ]),
     output,
   ]);
@@ -1042,48 +1133,84 @@ async function renderCompiler(root) {
     output.appendChild(el('span', { class: cls, text }));
   };
 
+  const cancelRun = () => {
+    runVersion += 1;
+    handle?.kill();
+    handle = null;
+    killBtn.disabled = true;
+    runBtn.disabled = false;
+    mode.disabled = false;
+    standard.disabled = mode.value === 'interpreter';
+  };
+
   const run = async () => {
-    state.cSource = source.value;
+    if (closed || runBtn.disabled) return;
+    const version = ++runVersion;
+    const runSource = source.value;
+    const runFiles = { ...state.cFiles };
+    state.cSource = runSource;
+    state.cStdin = stdin.value;
     clear(output);
     clear(diagnostic);
     meta.textContent = 'compiling in worker…';
     killBtn.disabled = false;
+    runBtn.disabled = true;
+    mode.disabled = true;
+    standard.disabled = true;
     const started = performance.now();
-    handle = state.sandbox.start(source.value, {
+    const native = mode.value !== 'interpreter';
+    handle = state.sandbox.start(runSource, {
+      backend: native ? 'clang' : 'interpreter',
+      language: mode.value === 'cpp' ? 'cpp' : 'c',
+      standard: standard.value,
+      files: native ? runFiles : {},
       stdin: stdin.value,
-      onOutput: (text) => append(text),
+      onStatus: (status) => { if (!closed && version === runVersion) meta.textContent = status.text; },
+      onOutput: (text) => { if (!closed && version === runVersion) append(text); },
     });
     const result = await handle.promise;
+    if (closed || version !== runVersion) return;
     handle = null;
     killBtn.disabled = true;
+    runBtn.disabled = false;
+    mode.disabled = false;
+    standard.disabled = mode.value === 'interpreter';
     if (result.output && !output.textContent) append(result.output);
-    meta.textContent = `exit ${result.ok ? '0' : '1'} · ${Math.round(result.ms ?? performance.now() - started)} ms · ${result.steps ?? 0} interpreter steps · ${completedSteps(result)}`;
+    const elapsed = Math.round(result.ms ?? performance.now() - started);
+    meta.textContent = native
+      ? `${result.killed ? 'terminated' : `exit ${result.exitCode ?? (result.ok ? 0 : 1)}`} · ${elapsed} ms · Clang → WebAssembly · 32 MiB program memory cap`
+      : `exit ${result.ok ? '0' : '1'} · ${elapsed} ms · ${result.steps ?? 0} interpreter steps · ${completedSteps(result)}`;
+    if (result.diagnostics) diagnostic.appendChild(el('pre', { class: 'mono small', text: result.diagnostics }));
     if (result.error) {
-      diagnostic.appendChild(el('p', { class: 'bad mono', text: `${result.error.stage} error · line ${result.error.line}, column ${result.error.col}: ${result.error.message}` }));
-      const src = state.cSource.split('\n');
+      diagnostic.appendChild(el('p', { class: 'bad mono', text: `${result.error.stage} error · ${result.error.file ? `${result.error.file} · ` : ''}line ${result.error.line}, column ${result.error.col}: ${result.error.message}` }));
+      const src = (runFiles[result.error.file] ?? runSource).split('\n');
       const lineText = src[result.error.line - 1] ?? '';
-      diagnostic.appendChild(el('pre', { class: 'mono small', text: `${String(result.error.line).padStart(3)} | ${lineText}\n    | ${' '.repeat(Math.max(0, result.error.col - 1))}^` }));
+      diagnostic.appendChild(el('pre', { class: 'mono small', text: `${String(result.error.line).padStart(3)} | ${lineText}\n    | ${' '.repeat(Math.max(0, Math.min(1024, result.error.col - 1)))}^` }));
       if (budgetFailure(result)) diagnostic.appendChild(el('p', { class: 'warn small', text: 'Stopped by a resource budget. The page never froze: user code only ever runs off the main thread, and the worker can be terminated in a single frame.' }));
     }
   };
+  const runBtn = button('Compile & run', run, 'primary');
+  disposePanel = () => { closed = true; filesVersion += 1; cancelRun(); };
 
   root.appendChild(
     el('div', { class: 'panel' }, [
-      moduleHead('M2', 'In-browser C compiler and runtime', 'A hand-written C front end (lexer → parser → interpreter) compiled here in the page and executed inside a Web Worker. Budgets are explicit and deterministic: every statement costs one step, allocations are charged to a heap cap, and the worker can be terminated mid-loop in a single frame.'),
-      note('Scope, stated plainly: this is a real compiler and runtime for a C subset, not clang/TCC compiled to WebAssembly. Supported today: functions and recursion, arrays and strings, pointers, structs (including nesting, pass-by-value and heap-linked lists), ternary, switch with fall-through, do/while, casts, the malloc/calloc/realloc/free family with a bounds-checked 16 MiB arena, and printf/scanf/sscanf/memcpy/memset/strlen. Not supported, and not faked: the preprocessor beyond #include, function prototypes, typedef, unions, variadic user functions, separate compilation and long double. Declared as partial in the scorecard.', 'warn'),
+      moduleHead('M2', 'In-browser C and C++ compiler', 'Clang compiles C and C++ to WebAssembly locally inside a killable Web Worker. Source code is never sent to a compilation server. The lightweight C-subset interpreter remains available as a separate mode.'),
+      note('WebAssembly mode uses a self-hosted Clang toolchain and real C/C++ standard-library headers and libraries, loaded only when you run it. Programs have a 32 MiB memory cap and a 4-second execution limit; compilation has its own 120-second limit. Output is capped at 1 MiB and 4,096 runtime writes. This is not an operating system: host files, networking, GUI APIs, threads and arbitrary native libraries are unavailable. The bundled Clang 8.0.1 supports C through C11 and C++ through C++17; C++ exceptions and newer standards are unavailable. Compiler working memory is separate from the program cap. The interpreter still supports only its documented C subset; it does not run C++.', 'warn'),
       el('div', { class: 'grid two' }, [
-        card('Source', [source,          el('div', { class: 'row mt-10' }, [
-          button('Compile & run', run, 'primary'),
+        card('Source', [el('div', { class: 'row' }, [field('Compiler', mode), field('Standard', standard)]), source, el('div', { class: 'row mt-10' }, [
+          runBtn,
           killBtn,
-          button('Load hello/loops sample', () => {
-            source.value = SAMPLE_C;
+          button('Load language sample', () => {
+            cancelRun();
+            source.value = mode.value === 'cpp' ? SAMPLE_CPP : SAMPLE_C;
             state.cSource = source.value;
           }),
           button('Load infinite loop', () => {
+            cancelRun();
             source.value = INFINITE_C;
             state.cSource = source.value;
           }),
-        ])]),
+        ]), field('Extra source/header files (WebAssembly mode only)', filesInput), filesMeta, clearFiles]),
         card('Terminal, diagnostics and budgets', [
           field('Standard input (stdin)', stdin),
           el('div', { class: 'my-10' }, [terminalShell]),
@@ -1119,6 +1246,16 @@ async function renderEngine(root) {
     import('./graphics/renderer.js'),
     import('./graphics/gltf.js'),
   ]);
+  if (!root.isConnected) return;
+  let closed = false;
+  let renderer = null;
+  disposePanel = () => {
+    closed = true;
+    for (const timer of state.engineTimers || []) clearInterval(timer);
+    state.engineTimers = [];
+    renderer?.dispose();
+    if (state.renderer === renderer) state.renderer = null;
+  };
   const canvas = el('canvas', {
     id: 'scene',
     width: 960,
@@ -1196,18 +1333,9 @@ async function renderEngine(root) {
   setTimeout(() => {
     // A render whose panel was swapped away before this task ran has no canvas
     // in the document; starting a loop on it would be invisible but not free.
-    if (!canvas.isConnected) return;
-    // Re-entering the panel builds a fresh canvas, so the previous engine (and
-    // its animation loop and timers) must be disposed of first or it would keep
-    // rendering into a detached canvas forever.
-    if (state.renderer) {
-      state.renderer.stop();
-      state.renderer = null;
-    }
-    for (const handle of state.engineTimers || []) clearInterval(handle);
-    state.engineTimers = [];
+    if (closed || !canvas.isConnected) return;
     try {
-      const renderer = new Renderer(canvas, { instances: 20000, particles: 150000, shadows: true });
+      renderer = new Renderer(canvas, { instances: 20000, particles: 150000, shadows: true });
       state.renderer = renderer;
       renderer.init();
       renderer.start();
@@ -1233,9 +1361,11 @@ async function renderEngine(root) {
           updateStats();
         })
         .catch((err) => {
-          modelStatus.textContent = `sample model failed to load: ${err.message}`;
+          if (!closed) modelStatus.textContent = `sample model failed to load: ${err.message}`;
         });
     } catch (err) {
+      renderer?.dispose();
+      if (state.renderer === renderer) state.renderer = null;
       overlay.textContent = `engine unavailable: ${err.message}`;
       clear(statsBox);
       statsBox.appendChild(el('p', { class: 'bad', text: `M3 could not start: ${err.message}` }));
@@ -1332,16 +1462,18 @@ async function renderEngine(root) {
         el('div', { class: 'row mt-10' }, [
           button('Load + measure the probe', async () => {
             const { parseRadianceHDR, probeIrradianceError, probePeak, probeSH } = await import('./graphics/hdr.js');
+            if (closed) return;
             probeStatus.className = 'small warn';
             probeStatus.textContent = 'decoding the probe…';
             try {
               const res = await fetch('assets/probes/singularity-sky.hdr');
               if (!res.ok) throw new Error(`probe fetch failed: ${res.status}`);
               const probe = parseRadianceHDR(new Uint8Array(await res.arrayBuffer()));
+              if (closed) return;
               const coeffs = probeSH(probe, 4096);
               const error = probeIrradianceError(probe, coeffs);
               const peak = probePeak(probe);
-              const applied = state.renderer ? state.renderer.applyProbeIrradiance(coeffs) : false;
+              const applied = renderer ? renderer.applyProbeIrradiance(coeffs) : false;
               probeStatus.className = `small ${applied ? 'ok' : 'warn'}`;
               probeStatus.textContent = `${applied ? 'Diffuse irradiance cube rebuilt from the probe' : 'Measured, but no live renderer to apply it to'}. The specular cube stays procedural and the panel says so.`;
               clear(probeReadout);
@@ -1352,12 +1484,13 @@ async function renderEngine(root) {
                 el('div', { text: `L00          ${coeffs[0].toFixed(3)} ${coeffs[1].toFixed(3)} ${coeffs[2].toFixed(3)}` }),
               );
             } catch (err) {
+              if (closed) return;
               probeStatus.className = 'small bad';
               probeStatus.textContent = `Probe failed: ${err.message}`;
             }
           }),
           button('Back to procedural sky', () => {
-            const ok = state.renderer ? state.renderer.resetProceduralIrradiance() : false;
+            const ok = renderer ? renderer.resetProceduralIrradiance() : false;
             probeStatus.className = `small ${ok ? 'ok' : 'warn'}`;
             probeStatus.textContent = ok ? 'Diffuse irradiance cube rebuilt from the procedural sky.' : 'No live renderer to reset.';
             clear(probeReadout);
@@ -2301,6 +2434,7 @@ function renderOffline(root) {
           quotaBar.appendChild(el('p', { class: granted ? 'ok' : 'warn', text: `Persistent storage ${granted ? 'granted' : 'not granted'} — the origin will ${granted ? 'be protected from eviction' : 'use best-effort eviction'}.` }));
         }),
         button('Write an OPFS snapshot now', async () => {
+          await flushPersistence();
           const ok = state.opfs ? await state.opfs.writeSnapshot(DOC_ID, doc.rga.text(), doc.rga.log.length) : false;
           quotaBar.appendChild(
             el('p', { class: ok ? 'ok' : 'warn', text: ok ? `OPFS snapshot written: ${doc.rga.text().length} characters.` : 'OPFS snapshot failed: the mirror is not available in this browser.' }),
@@ -2308,6 +2442,7 @@ function renderOffline(root) {
         }),
         button('Compact: snapshot + reclaim memory', async () => {
           const before = await store.countOps(DOC_ID);
+          await flushPersistence();
           await store.compact(DOC_ID, doc.rga.text());
           const after = await store.countOps(DOC_ID);
           const itemsBefore = doc.rga.stats().items;
@@ -2326,7 +2461,7 @@ function renderOffline(root) {
           if (state.opfs) await state.opfs.writeSnapshot(DOC_ID, doc.rga.text(), doc.rga.log.length);
           const stats = doc.rga.stats();
           quotaBar.appendChild(
-            el('p', { class: 'ok', text: `Compacted: ${before} ops → ${after} ops; snapshot of ${doc.rga.text().length} characters kept.` }),
+            el('p', { class: 'ok', text: `Snapshot saved: ${doc.rga.text().length} characters; ${after} durable ops retained (previously ${before}) to preserve character identities.` }),
           );
           quotaBar.appendChild(
             el('p', { class: 'ok', text: `Reclaimed: ${reclaimed} tombstone(s) collected (${itemsBefore} → ${stats.items} items), ${dropped} op(s) dropped from the in-memory log, ${seenBefore - stats.seen} fingerprint(s) pruned.` }),
@@ -2826,7 +2961,7 @@ function deckReading(previousOps) {
       `heap ${memory ? `${(memory.usedJSHeapSize / 1048576).toFixed(1)} MiB` : 'n/a'}`,
       `payload ${state.perf.gzip ? `${Math.round(state.perf.gzip.bytes / 1024)} KiB gzip of 170 KB` : 'measuring'}`,
       `effects ${resolveFx()}`,
-      `tests ${TEST_TOTALS.total} green · ${TEST_TOTALS.suites} suites`,
+      `tests ${TEST_TOTALS.browser} green · ${TEST_TOTALS.suites} suites`,
       'backslash opens the module dial',
     ],
   };
@@ -3182,7 +3317,9 @@ function onGlobalKey(event) {
   // Backslash opens the module dial: eight modules on a ring, arrows to turn,
   // Enter to jump. It is the keyboard equivalent of the tab strip, one key away
   // from wherever the focus happens to be.
-  if (key === '\\' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+  const editing = event.target instanceof Element &&
+    (event.target.matches('input, textarea, select') || event.target.isContentEditable);
+  if (key === '\\' && !event.ctrlKey && !event.metaKey && !event.altKey && !editing && !event.isComposing) {
     if (state.hud) {
       event.preventDefault();
       if (state.hud.dialOpen()) state.hud.closeDial();
@@ -3232,9 +3369,10 @@ function setPref(key, value) {
 async function compactNow() {
   const doc = editorState();
   const before = await state.store.countOps(DOC_ID);
+  await flushPersistence();
   await state.store.compact(DOC_ID, doc.rga.text());
   const after = await state.store.countOps(DOC_ID);
-  toast(`Compacted ${before} ops -> ${after}, ${doc.rga.text().length}-character snapshot intact.`, 'ok');
+  toast(`Saved ${doc.rga.text().length}-character snapshot; ${after} durable ops retained (previously ${before}).`, 'ok');
   if (state.activePanel === 'offline') renderPanel('offline');
 }
 
@@ -3267,11 +3405,11 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 282, suites: 24 };
+const TEST_TOTALS = { total: 338, suites: 24, browser: 331, nodeOnly: 7 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
-  { id: 'M2', title: 'In-browser C compiler and runtime', status: 'partial', points: 74, note: 'A real lexer/parser/interpreter in a worker over a bounds-checked arena, with a step budget, heap cap, kill switch and line+column diagnostics; the preprocessor, structs, function pointers and the student stdlib surface all work. Not clang/TCC in WASM; no variadic user functions.' },
+  { id: 'M2', title: 'In-browser C/C++ compiler and runtime', status: 'partial', points: 74, note: 'Self-hosted Clang 8.0.1/WASI compiles C/C++ and standard libraries locally in a killable worker, with headers, multiple sources, stdin and diagnostics. The lightweight C-subset interpreter keeps deterministic budgets. No OS APIs, threads, exceptions or standards beyond C11/C++17; compiler assets and memory overhead are explicit.' },
   { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 84, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by a procedural-sky image-based environment, a glTF 2.0 loader with mikkelsen tangents sampling the stored model through the same BRDF, and a real HDRI probe (peak, mean and SH reconstruction error against the analytic source, shown in the panel). No skeletal animation, no WebGPU.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 82, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD over WebCrypto; the signed prekey bundle is verified inside the handshake, and identity keys are sealed to a passphrase (PBKDF2 600k) in IndexedDB. No audited key storage.' },
   { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 78, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. No bundled TURN, so symmetric NAT on both ends still needs one.' },
@@ -3290,7 +3428,7 @@ const MODULE_STATUS = [
  * than building a new one, which is why switching tabs and coming back cannot
  * cost a repaint of the hero or shift anything below it. */
 const HERO_LEDE =
-  'One website that behaves like an operating system, a collaborative workspace, a game engine and a secure messenger at once - with zero runtime dependencies and no framework in the shipped bundle. Everything below runs in your browser right now.';
+  'One website that behaves like an operating system, a collaborative workspace, a game engine and a secure messenger at once - with no npm dependencies and an optional WebAssembly C/C++ toolchain and no framework in the shipped bundle. Everything below runs in your browser right now.';
 
 function adoptHero(score, band) {
   let hero = refs.hero || document.getElementById('hero');
@@ -3320,8 +3458,8 @@ function adoptHero(score, band) {
     // numbers actually differ (a stale deploy, or a document without the hero).
     const labels = [
       '8 MODULES',
-      '0 RUNTIME DEPS',
-      `${TEST_TOTALS.total} tests GREEN`,
+      '0 NPM DEPS',
+      `${TEST_TOTALS.browser} tests GREEN`,
       'MIT OPEN SOURCE',
       'TRUSTED TYPES ENFORCED',
     ];
@@ -3329,8 +3467,8 @@ function adoptHero(score, band) {
     if (current.join('\n') !== labels.join('\n')) {
       badges.replaceChildren(
         chip('8 MODULES', 'accent'),
-        chip('0 RUNTIME DEPS', 'ok'),
-        chip(`${TEST_TOTALS.total} tests GREEN`, 'ok'),
+        chip('0 NPM DEPS', 'ok'),
+        chip(`${TEST_TOTALS.browser} tests GREEN`, 'ok'),
         chip('MIT OPEN SOURCE', 'ok'),
         chip('TRUSTED TYPES ENFORCED', 'ok'),
       );
@@ -3377,7 +3515,7 @@ const FEATURE_ICONS = {
 
 const FEATURES = [
   { mod: '1', icon: 'text', title: 'Real-time collaboration', text: 'An RGA sequence CRDT with convergence and causality proven by property tests, replicated per-user undo, and cursors that converge the same way the text does. No Yjs, no OT server.' },
-  { mod: '2', icon: 'code', title: 'C runtime in a worker', text: 'A compiler front end and a sandboxed interpreter with step, heap, depth and wall-clock budgets, a live call stack, and a kill switch that terminates a runaway program.' },
+  { mod: '2', icon: 'code', title: 'C/C++ runtime in a worker', text: 'Local Clang/WebAssembly compilation with real headers and libraries, plus a lightweight C-subset interpreter. Separate compile/run limits and a kill switch keep runaway programs off the main thread.' },
   { mod: '3', icon: 'cube', title: 'Hand-written 3D engine', text: 'WebGL2 instancing to 100k objects, PCF shadow maps, a million GPU particles, Cook-Torrance PBR lit by a procedural image-based sky and a real glTF 2.0 loader - no three.js anywhere.' },
   { mod: '4', icon: 'shield', title: 'End-to-end encryption', text: 'X3DH agreement and a Double Ratchet composed from WebCrypto primitives, plus a streaming AEAD path for file transfer, with a verified prekey bundle.' },
   { mod: '5', icon: 'mesh', title: 'Peer mesh and relay', text: 'Tabs find each other over BroadcastChannel, machines over WebRTC data channels, and a ciphertext-only relay with an outbox keeps messages moving through failure.' },
@@ -3390,13 +3528,13 @@ const ROADMAP = [
   { state: 'done', what: 'M1 - Collaborative editor', detail: '87/100. Full: convergence, causality, undo replication, tombstone GC - all under property tests.' },
   { state: 'done', what: 'M4 - Secure communication', detail: 'Full: X3DH, Double Ratchet, streaming file AEAD, key verification.' },
   { state: 'done', what: 'M6 - Offline-first', detail: 'Full: op log, snapshots, migrations, service worker, server-stopped recovery.' },
-  { state: 'done', what: 'The suite', detail: `${TEST_TOTALS.total} tests in ${TEST_TOTALS.suites} suites, runnable in your browser from this site.` },
-  { state: 'active', what: 'M2 - Runtime (74/100)', detail: 'Declared partial: no clang-to-WASM backend yet and no variadic user functions. Next: a real WASM compilation path.' },
-  { state: 'active', what: 'M3 - Engine (84/100)', detail: 'Declared partial: no measured HDRI probe, no skeletal animation, and no WebGPU path yet. glTF base-colour and normal-map sampling is now implemented.' },
+  { state: 'done', what: 'The suite', detail: `${TEST_TOTALS.total} registered tests in ${TEST_TOTALS.suites} suites: ${TEST_TOTALS.browser} browser tests and ${TEST_TOTALS.nodeOnly} Node-only checks.` },
+  { state: 'done', what: 'M2 - Runtime (74/100)', detail: 'Clang/WASI C/C++ compilation runs locally alongside the interpreter. Still partial: old standards, no OS APIs, threads or C++ exceptions.' },
+  { state: 'active', what: 'M3 - Engine (84/100)', detail: 'Declared partial: HDR diffuse lighting is shipped; HDR specular prefiltering, skeletal animation and WebGPU are not. glTF base-colour and normal-map sampling is now implemented.' },
   { state: 'active', what: 'M5 - Transport (78/100)', detail: 'Declared partial: the relay runs as a local dev node; no bundled TURN server for symmetric NATs.' },
   { state: 'active', what: 'M7 - Accessibility (66/100)', detail: 'Evidence-backed score: semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass announced all eight panel headings, read the M3 canvas description and read Bangla/Arabic text with the right language tags. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain; 83 structural, 66 evidence-backed, and the reviewer\'s mark is the current ceiling.' },
   { state: 'active', what: 'M8 - Hardening (72/100)', detail: 'Declared partial: no third-party red-team pass. The OWASP ZAP baseline ran (spider + active scan) and its report is archived: 0 High, 0 Medium, 0 Low.' },
-  { state: 'planned', what: 'WASM backend for M2', detail: 'Compile C to WebAssembly in the worker and keep the interpreter as the fallback.' },
+  { state: 'done', what: 'WASM backend for M2', detail: 'Clang and lld compile C/C++ with a self-hosted WASI sysroot; the interpreter remains a selectable lightweight mode.' },
   { state: 'planned', what: 'WebGPU renderer path', detail: 'A second backend behind the same engine API, with the WebGL2 path kept for compatibility.' },
   { state: 'planned', what: 'OPFS and SharedArrayBuffer pooling', detail: 'Faster cold start and cross-tab memory sharing where COOP/COEP allow it.' },
   { state: 'planned', what: 'Relay deployment and NAT traversal', detail: 'A hosted relay node and a TURN story, so peer tests are not confined to one machine.' },
@@ -3486,8 +3624,8 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '282', label: 'tests - 24 suites', hint: 'run them from this page' },
-  { value: '0', label: 'runtime dependencies', hint: 'no npm, no framework' },
+  { value: '338', label: 'tests - 24 suites', hint: 'run them from this page' },
+  { value: '0', label: 'npm dependencies', hint: 'optional self-hosted WASM toolchain' },
 ];
 
 /* The engineering case study: one decision record per module. It is written
@@ -3509,18 +3647,18 @@ const CASE_STUDIES = [
     problem: 'Two tabs must converge on the same document without a server, a framework or a CRDT library.',
     decision: 'Give every character a Lamport-stamped id and an origin. Merges are commutative and idempotent, undo is scoped to the local user, and text is indexed from the last cursor instead of rescanning the document.',
     tradeoff: 'Interior tombstones are kept because future operations can still name them, so the replicated state is larger than the visible text. The op log is bounded with a snapshot fallback for catch-up.',
-    evidence: '20 CRDT tests cover convergence, causality, undo replication, cursor parity, tombstone collection and log trimming. 20k sequential appends stay under 200k node visits; a per-append rescan would be roughly 250M. 87/100.',
+    evidence: 'CRDT regressions cover convergence, causality, deterministic delete/undo, effect clocks, cursor parity, tombstone collection and log trimming. 20k sequential appends stay under 200k node visits; a per-append rescan would be roughly 250M. 87/100.',
   },
   {
     id: 'compiler',
     mod: 'M2',
-    title: 'C runtime in a worker',
-    decisionLine: 'A hand-written C front end and interpreter inside a budgeted, killable worker.',
+    title: 'C/C++ runtime in a worker',
+    decisionLine: 'Self-hosted Clang/WebAssembly plus a lightweight, budgeted C-subset interpreter.',
     status: 'partial',
     score: moduleMeta('M2').points,
-    problem: 'Run student C in the browser without shipping clang, TCC or a WASM build pipeline.',
-    decision: 'A lexer, parser and interpreter run in a Web Worker with step, heap, depth and wall-clock budgets. The heap is a bounds-checked arena; diagnostics carry line and column; a kill switch ends runaway programs.',
-    tradeoff: 'It is a C subset, not clang: no variadic user functions, no full preprocessor, and a struct tag needs a typedef before it is a type name. An interpreter is slower than native code or WASM.',
+    problem: 'Compile real C and C++ locally without sending source to a server, while keeping the page responsive.',
+    decision: 'Clang 8.0.1 and lld compile against a self-hosted WASI sysroot inside a disposable worker. Generated programs get restricted console, clock and random capabilities. The hand-written interpreter separately keeps step, heap and depth budgets.',
+    tradeoff: 'About 18.4 MiB of compressed toolchain assets on first compile, compiler memory overhead, and older C/C++ standards. Native APIs, threads and C++ exceptions are unavailable. The interpreter is explicitly a C subset.',
     evidence: '19 compiler, 21 language and 51 stdlib tests, plus fuzzing. An overflowing strcpy fails closed rather than corrupting the heap. 74/100.',
   },
   {
@@ -3532,7 +3670,7 @@ const CASE_STUDIES = [
     score: moduleMeta('M3').points,
     problem: 'Provide a real 3D scene on a strict JavaScript budget and a WebGL2-only compatibility target.',
     decision: 'Instanced draws with vertex-shader animation, a depth-only PCF shadow pass, particles generated from gl_VertexID, and a physically based shader lit by two real sources: a shadowed directional sun and an image-based sky built from a deterministic procedural environment (band-2 SH diffuse irradiance cube, roughness-LOD specular cube). A glTF 2.0 loader parses JSON and GLB into the same pipeline, materialises images/samplers/textures, computes mikkelsen tangents, and uploads SRGB8_ALPHA8 base-colour and RGBA8 normal maps.',
-    tradeoff: 'No measured HDRI probe (the sky is procedural, not photographed), no skeletal animation or WebGPU path yet. Normals are generated flat when absent, and the material model is deliberately narrow.',
+    tradeoff: 'The measured HDR probe drives diffuse irradiance only; specular light remains procedural. No skeletal animation or WebGPU path yet. Normals are generated flat when absent, and the material model is deliberately narrow.',
     evidence: '11 renderer, 16 glTF and 9 environment tests. 100k instances and 1M particles in 4 draw calls; 60 FPS at defaults and 58 at maximum on the measured machine. 84/100.',
   },
   {
@@ -3557,7 +3695,7 @@ const CASE_STUDIES = [
     problem: 'Peers must collaborate without a signaling server, a TURN fleet or a trusted relay.',
     decision: 'Three carriers feed one mesh: BroadcastChannel for tabs, WebRTC data channels with copy-paste invite and answer codes for machines, and a ciphertext relay with an HKDF room key, sender outbox, URL failover and sealed-frame-id dedupe.',
     tradeoff: 'Copy-paste signaling is not seamless, and a symmetric NAT on both ends still needs a TURN server. The relay is a dev-node contract today, not a deployed fleet.',
-    evidence: '13 mesh and 7 WebRTC tests. 1,000 relay clients, 50k envelopes, 0 lost; a SIGKILL replay of 20k accepted envelopes, 0 lost, 256 ms outage; two-node failover with 0 lost and 0 duplicated. 78/100.',
+    evidence: 'Mesh and WebRTC regressions include retryable backpressure and terminal rejection. 1,000 relay clients, 50k envelopes, 0 lost; a SIGKILL replay of 20k accepted envelopes, 0 lost, 256 ms outage; two-node failover with 0 lost and 0 duplicated. 78/100.',
   },
   {
     id: 'offline',
@@ -3568,7 +3706,7 @@ const CASE_STUDIES = [
     score: moduleMeta('M6').points,
     problem: 'The app must keep working when the network disappears and survive a reload.',
     decision: 'An IndexedDB op log plus compacted snapshots, versioned migrations and a service worker. Compaction uses a watermark and keeps a snapshot fallback for peers catching up.',
-    tradeoff: 'The browser owns quota and can evict storage. Compaction trades history for size, and there is no cloud sync: this is local-first, not multi-device backup.',
+    tradeoff: 'The browser owns quota and can evict storage. Text snapshots retain durable causal history, so the log can grow; in-memory trimming is separate. There is no cloud sync: this is local-first, not multi-device backup.',
     evidence: '8 storage tests cover round-trip, compaction, file frames and v1 to v2 migration. Offline was verified with the server stopped; a 60-minute soak ends with a smaller heap than it started. 85/100.',
   },
   {
@@ -3612,7 +3750,7 @@ function briefBlock() {
     row(
       'What',
       'An operating system living in a browser tab.',
-      'One page that behaves like an operating system, a collaborative workspace, a game engine and a secure messenger at once - hand-written against browser APIs, with zero runtime dependencies and no framework in the shipped bundle.',
+      'One page that behaves like an operating system, a collaborative workspace, a game engine and a secure messenger at once - hand-written against browser APIs, with no npm dependencies and an optional WebAssembly C/C++ toolchain and no framework in the shipped bundle.',
     ),
     row(
       'Why',
@@ -3651,7 +3789,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '282 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '338 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -4016,7 +4154,7 @@ function renderDashboard(root) {
       adoptHero(score, band),
       el('div', { class: 'stats' }, [
         statCard('Honest score', `${score} / 1000`, `points band: ${band} · requirement column: ${achieved}`),
-        statCard('Automated tests', String(TEST_TOTALS.total), `${TEST_TOTALS.suites} suites, all green, runnable from the site`),
+        statCard('Automated tests', String(TEST_TOTALS.total), `${TEST_TOTALS.suites} suites, ${TEST_TOTALS.browser} browser tests, ${TEST_TOTALS.nodeOnly} Node-only checks`),
         statCard('Runtime dependencies', '0', 'no bundler, no npm packages, no node_modules'),
         statCard('Modules working', `${full} full · ${MODULE_STATUS.length - full} partial`, 'nothing claimed that is not there'),
       ]),
@@ -4024,7 +4162,7 @@ function renderDashboard(root) {
       card('What this is, why it exists, who it is for', [briefBlock()]),
       caseStudyCard(),
       card('Contributing & changelog', [
-        el('p', { class: 'small dim', text: 'The project is open to contributions. The guide covers setup, the test gates every change must pass, and the two constraints (zero runtime dependencies, strict CSP / Trusted Types). The changelog is shown below so recent changes are visible without leaving the app.' }),
+        el('p', { class: 'small dim', text: 'The project is open to contributions. The guide covers setup, the test gates every change must pass, and the two constraints (no npm dependencies and an optional WebAssembly C/C++ toolchain, strict CSP / Trusted Types). The changelog is shown below so recent changes are visible without leaving the app.' }),
         el('div', { class: 'row gap-8 mt-8' }, [
           el('a', { href: 'CONTRIBUTING.md', target: '_blank', rel: 'noopener', text: 'Contributing guide' }),
           el('a', { href: 'CHANGELOG.md', target: '_blank', rel: 'noopener', text: 'Full changelog' }),
@@ -4260,6 +4398,7 @@ function renderTabs() {
  * bumped by a newer switch makes the older render drop its result instead of
  * painting over the panel the user actually asked for. */
 let panelToken = 0;
+let disposePanel = null;
 
 async function renderPanel(id) {
   const token = ++panelToken;
@@ -4273,7 +4412,8 @@ async function renderPanel(id) {
   // Leaving M3 must stop the render loop: an animation running for an
   // invisible panel is pure battery burn. The constellation's loop is the same
   // bargain, so it stops with its panel.
-  if (id !== 'engine' && state.renderer) state.renderer.stop();
+  disposePanel?.();
+  disposePanel = null;
   if (id !== 'dashboard') stopConstellation();
 
   // Fetch the panel's module graph *before* touching the DOM. That keeps a slow
@@ -4488,7 +4628,7 @@ async function boot() {
       if (tab) tab.focus();
     },
     facts: () => [
-      'runtime dependencies 0',
+      'npm dependencies 0 · optional WASM toolchain',
       'modules 8 · 3 full · 5 partial',
       `trusted types ${trustedTypesActive() ? 'enforced' : 'off'}`,
       `cross-origin isolated ${globalThis.crossOriginIsolated ? 'yes' : 'no'}`,
@@ -4540,7 +4680,7 @@ async function boot() {
   addEventListener('offline', updateChips);
   addEventListener('beforeunload', () => state.mesh && state.mesh.close());
 
-  refs.footer.textContent = `zero-dependency build · TT ${trustedTypesActive() ? 'enforced' : 'off'} · COOP/COEP ${globalThis.crossOriginIsolated ? 'on' : 'off'} · ${state.peerId}`;
+  refs.footer.textContent = `framework-free shell · local WASM toolchain · TT ${trustedTypesActive() ? 'enforced' : 'off'} · COOP/COEP ${globalThis.crossOriginIsolated ? 'on' : 'off'} · ${state.peerId}`;
 }
 
 /**
@@ -4550,13 +4690,12 @@ async function boot() {
  * newcomer cannot catch up from the log, so the sync response carries the
  * snapshot instead and the receiver rebuilds from it and re-seeds a fresh log.
  */
-async function adoptSnapshot(text) {
-  if (!text) return;
-  const fresh = new RGA(state.peerId);
-  const seedOps = fresh.localInsert(0, text);
-  await state.store.compact(DOC_ID, text);
-  const persisted = await state.store.appendOps(DOC_ID, seedOps);
-  state.doc = { rga: fresh, text, rev: state.doc ? state.doc.rev : 0, persisted, recovered: false };
+function adoptSnapshot(text) {
+  const doc = editorState();
+  if (typeof text !== 'string' || doc.rga.stats().items !== 0) return;
+  const seedOps = doc.rga.localInsert(0, text);
+  doc.text = doc.rga.text();
+  persist(seedOps);
   applyRemoteToTextarea();
   updateDocMeta();
   logBoot(`adopted a ${text.length}-character snapshot from a peer whose op log had been trimmed`);
@@ -4581,7 +4720,7 @@ function onMeshMessage(kind, payload, from) {
       text: state.doc.rga.logTrimmed ? state.doc.rga.text() : null,
     });
   } else if (kind === 'sync-response' && payload.doc === DOC_ID && payload.to === state.peerId) {
-    if (payload.text && state.doc.rga.log.length === 0) adoptSnapshot(payload.text);
+    if (typeof payload.text === 'string' && state.doc.rga.log.length === 0) adoptSnapshot(payload.text);
     else integrateOps(payload.ops);
   } else if (kind === 'cursor') {
     if (typeof payload.clock === 'number') state.peerClocks.set(from, payload.clock);
@@ -4644,6 +4783,9 @@ export async function waitForBoot() {
  */
 async function renderAssistant(root) {
   const singu = await import('./assistant/singu.js');
+  if (!root.isConnected) return;
+  let closed = false;
+  let runVersion = 0;
   const levels = singu.LEVELS;
   const recipes = singu.RECIPES;
 
@@ -4660,7 +4802,9 @@ async function renderAssistant(root) {
   });
   source.value = session.code;
   source.addEventListener('input', () => {
+    cancelRun();
     session.code = source.value;
+    status.textContent = 'source edited · build to check';
   });
 
   const brief = el('div', { class: 'singu-brief' });
@@ -4755,6 +4899,7 @@ async function renderAssistant(root) {
   };
 
   const generate = () => {
+    cancelRun();
     const result = singu.generate(prompt.value, { level: session.level });
     session.result = result;
     session.prompt = result.prompt;
@@ -4779,10 +4924,25 @@ async function renderAssistant(root) {
   };
 
   let handle = null;
-  const killBtn = button('Kill', () => handle && handle.kill(), 'danger');
+  const killBtn = button('Kill', () => {
+    if (handle) handle.kill();
+    else { cancelRun(); status.textContent = 'terminated before sandbox start'; }
+  }, 'danger');
   killBtn.disabled = true;
 
+  const cancelRun = () => {
+    runVersion += 1;
+    handle?.kill();
+    handle = null;
+    killBtn.disabled = true;
+    runBtn.disabled = false;
+  };
+
   const run = async () => {
+    if (closed || runBtn.disabled) return;
+    const version = ++runVersion;
+    const runSource = source.value;
+    runBtn.disabled = true;
     const report = inspect();
     if (report.issues.length) {
       status.textContent = `${report.issues.length} structural issue(s) - running anyway so the compiler can be specific`;
@@ -4792,11 +4952,14 @@ async function renderAssistant(root) {
     clear(output);
     killBtn.disabled = false;
     const { Sandbox } = await import('./runtime/sandbox.js');
+    if (closed || version !== runVersion) return;
     if (!state.singu.sandbox) state.singu.sandbox = new Sandbox({ timeLimitMs: 3000 });
-    handle = state.singu.sandbox.start(source.value, {});
+    handle = state.singu.sandbox.start(runSource, {});
     const result = await handle.promise;
+    if (closed || version !== runVersion) return;
     handle = null;
     killBtn.disabled = true;
+    runBtn.disabled = false;
     output.textContent = result.output || '(no output)';
     if (result.error) {
       for (const item of singu.diagnose(result.error)) {
@@ -4812,6 +4975,9 @@ async function renderAssistant(root) {
       ? `exit 0 · ${ms} ms · ${steps} steps · ${result.heapBytes ?? 0} heap bytes`
       : `exit 1 · ${ms} ms · ${steps} steps${result.killed ? ' · terminated' : ''}`;
   };
+
+  const runBtn = button('Build & run', run, 'primary');
+  disposePanel = () => { closed = true; cancelRun(); };
 
   const copyBtn = button('Copy C', async () => {
     try {
@@ -4879,11 +5045,12 @@ async function renderAssistant(root) {
       card('Generated C', [
         source,
         el('div', { class: 'row tight mt-10' }, [
-          button('Build & run', run, 'primary'),
+          runBtn,
           killBtn,
           copyBtn,
           button('Send to M2 runtime', () => {
             state.cSource = source.value;
+            state.cMode = 'interpreter';
             renderPanel('compiler');
           }),
         ]),

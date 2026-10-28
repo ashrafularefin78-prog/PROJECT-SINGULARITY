@@ -657,7 +657,7 @@ async function tour(ctx) {
 
   add({
     page: 'a', title: 'Close · what is still missing',
-    text: 'No red-team session, no audited crypto, no TURN relay, no measured HDRI probe, no clang to WASM, no screen-reader pass, and no distributed load rig. Every gap is named in LOAD_CHAOS.md rather than rounded up.',
+    text: 'No independent crypto audit, bundled TURN, HDR specular prefilter, VoiceOver/TalkBack validation or 10,000-browser fleet. Internal red-team, NVDA, relay load/chaos and local Clang evidence exist; the remaining gaps stay explicit.',
     hold: 16,
     act: async () => {
       await a.evaluate(`window.scrollTo({ top: 0, behavior: 'smooth' })`);

@@ -23,6 +23,7 @@ export function capabilities() {
   }
   return {
     dom,
+    node: typeof process !== 'undefined' && !!process.versions?.node,
     webgl2,
     indexeddb: typeof indexedDB !== 'undefined',
     // OPFS needs a document, a secure context and the directory API. Node has

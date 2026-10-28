@@ -17,8 +17,8 @@
  * Deletions
  *   Deletes are tombstones, and the deleted flag is a per-character
  *   last-writer-wins register stamped with its own Lamport timestamp
- *   (`node.dt`). `del`/`undel` are therefore idempotent *and* commutative, which
- *   is what allows undo/redo to be replicated to peers without divergence.
+ *   (`node.dt`), with delete winning equal-time ties. `del`/`undel` are therefore
+ *   idempotent *and* commutative, which allows replicated undo/redo to converge.
  *
  * Properties (enforced by tests/rga.test.js)
  *   - Commutativity : op order never changes the converged text
@@ -170,6 +170,10 @@ export class RGA {
     const fp = op.t + ':' + idKey(op.id) + ':' + (op.ts == null ? 0 : op.ts);
     if (this._seen.has(fp)) return true;
 
+    // Receipt establishes causality even if the referenced item is still missing.
+    this._observe(op.id[0]);
+    if (op.ts != null) this._observe(op.ts);
+
     let resolved;
     if (op.t === 'ins') {
       resolved = this._applyInsert(op);
@@ -183,7 +187,6 @@ export class RGA {
     }
 
     this._seen.add(fp);
-    this._observe(op.id[0]);
     this.log.push(op);
     if (!this._draining) this._drainBuffer();
     return true;
@@ -455,12 +458,12 @@ export class RGA {
     return true;
   }
 
-  /** Last-writer-wins on the deleted flag, keyed by the op's Lamport stamp. */
+  /** Last-writer-wins on the deleted flag; delete wins equal Lamport stamps. */
   _applyDelete(op) {
     const node = this.nodes.get(idKey(op.id));
     if (!node) return false; // item not here yet
     const ts = op.ts == null ? 0 : op.ts;
-    if (ts > node.dt) {
+    if (ts > node.dt || (ts === node.dt && op.t === 'del' && !node.deleted)) {
       node.dt = ts;
       const wantDeleted = op.t === 'del';
       if (node.deleted !== wantDeleted) {

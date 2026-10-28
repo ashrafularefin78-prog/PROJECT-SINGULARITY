@@ -21,10 +21,17 @@
  * All user data lives in IndexedDB and is never touched here, so a cache
  * eviction can never cost anyone a character.
  */
-const VERSION = 'singularity-v10';
+const VERSION = 'singularity-v11';
 
 /** Resolve a shell path against this worker's directory, so subpaths work. */
 const here = (path) => new URL(path, self.location.href).href;
+
+// CacheStorage is origin-wide, not registration-scoped. Include both the
+// worker directory and scope so sibling deployments cannot share or evict it.
+const WORKER_DIRECTORY = new URL('./', self.location.href);
+const SCOPE = new URL(self.registration.scope);
+const CACHE_PREFIX = `singularity-cache:${encodeURIComponent(WORKER_DIRECTORY.href)}:${encodeURIComponent(SCOPE.href)}:`;
+const CACHE_NAME = CACHE_PREFIX + VERSION;
 
 const SHELL = [
   './',
@@ -54,6 +61,10 @@ const SHELL = [
   './src/assistant/singu.js',
   './src/runtime/sandbox.js',
   './src/runtime/worker.js',
+  './src/runtime/clang-worker.js',
+  './src/runtime/clang.js',
+  './src/runtime/wasm-host.js',
+  './assets/toolchain/manifest.json',
   './src/runtime/interpreter.js',
   './src/runtime/parser.js',
   './src/runtime/lexer.js',
@@ -71,7 +82,7 @@ const SHELL_ROOT = here('./');
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(VERSION);
+      const cache = await caches.open(CACHE_NAME);
       // addAll is atomic: if one asset fails, the install fails loudly rather
       // than shipping a half-cached shell that breaks offline later.
       await cache.addAll(SHELL);
@@ -84,7 +95,10 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)));
+      // Unqualified legacy caches have no provable owner; leave them alone.
+      const predecessors = keys.filter((key) => key !== CACHE_NAME && key.startsWith(CACHE_PREFIX)
+        && /^singularity-(?:v\d+|[a-f0-9]{16})$/.test(key.slice(CACHE_PREFIX.length)));
+      await Promise.all(predecessors.map((key) => caches.delete(key)));
       await self.clients.claim();
     })(),
   );
@@ -104,7 +118,7 @@ function cacheKey(request) {
 }
 
 async function networkFirst(request) {
-  const cache = await caches.open(VERSION);
+  const cache = await caches.open(CACHE_NAME);
   try {
     const fresh = await fetch(request);
     if (fresh && fresh.ok && fresh.type === 'basic') cache.put(cacheKey(request), fresh.clone());
@@ -121,7 +135,7 @@ async function networkFirst(request) {
 }
 
 async function cacheFirst(event, request) {
-  const cache = await caches.open(VERSION);
+  const cache = await caches.open(CACHE_NAME);
   const hit = await cache.match(cacheKey(request));
   if (hit) {
     // Refresh in the background; never block a render on the network.
@@ -147,6 +161,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Controlled pages can fetch sibling apps on this origin. Leave those
+  // requests alone instead of storing them in this deployment's cache.
+  const scopePath = SCOPE.pathname.endsWith('/') ? SCOPE.pathname : SCOPE.pathname + '/';
+  if (!url.pathname.startsWith(WORKER_DIRECTORY.pathname)
+      || (url.pathname !== SCOPE.pathname && !url.pathname.startsWith(scopePath))) return;
   // Never intercept the worker itself or Range requests; streaming media and
   // partial reads must go straight to the network.
   if (request.headers.has('range')) return;

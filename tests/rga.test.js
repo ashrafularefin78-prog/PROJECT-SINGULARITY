@@ -1,5 +1,6 @@
 import { test, assert, assertEquals, assertDeepEquals } from './harness.js';
 import { RGA, compareId, CHECKPOINT_STRIDE } from '../src/crdt/rga.js';
+import { stateDigest } from '../src/crdt/history.js';
 
 test('M1: sequential typing reproduces the input exactly', () => {
   const r = new RGA('a');
@@ -151,6 +152,105 @@ test('M1: undo/redo ops replicate so peers converge (LWW delete flag)', () => {
   b.merge(redone);
   assertEquals(a.text(), 'abf');
   assertEquals(b.text(), 'abf');
+});
+
+/** A real delete/undo races a peer's delete and insert at the same effect time. */
+function concurrentDeleteUndo() {
+  const a = new RGA('a');
+  const b = new RGA('b');
+  const seed = a.localInsert(0, 'x');
+  b.merge(seed);
+  const deleted = a.localDelete(0, 1);
+  const undone = a.undo();
+  const insertedA = a.localInsert(1, 'A');
+  const insertedB = b.localInsert(1, 'B');
+  const deletedB = b.localDelete(0, 1);
+  assertEquals(undone[0].ts, deletedB[0].ts, 'undo and peer delete are concurrent');
+  return { a, b, seed, opsA: [...deleted, ...undone, ...insertedA], opsB: [...insertedB, ...deletedB] };
+}
+
+test('M1: two peers converge after delete/undo and concurrent insertion', () => {
+  const { a, b, opsA, opsB } = concurrentDeleteUndo();
+  assertEquals(a.text(), 'xA', 'local undo restored the character');
+  assertEquals(b.text(), 'B', 'the peer deleted it independently');
+  a.merge(opsB);
+  b.merge(opsA);
+  assertEquals(a.text(), 'AB', 'delete wins the equal-time undo');
+  assertEquals(b.text(), a.text(), 'the original peers converge');
+  assertEquals(stateDigest(a), stateDigest(b), 'visible ids and order also converge');
+  assertEquals(a.stats().visible, 2);
+  assertEquals(a.stats().tombstones, 1);
+  assertEquals(b.stats().visible, 2);
+  assertEquals(b.stats().tombstones, 1);
+
+  // A causally later undo still wins: ties alone are delete-wins.
+  const restored = b.undo();
+  assert(restored[0].ts > opsB[1].ts, 'local undo follows the observed effects');
+  a.merge(restored);
+  assertEquals(a.text(), 'xAB');
+  assertEquals(b.text(), a.text());
+  assertEquals(stateDigest(a), stateDigest(b));
+  assertEquals(a.stats().tombstones, 0);
+  assertEquals(b.stats().tombstones, 0);
+});
+
+function* permutations(ops) {
+  if (!ops.length) {
+    yield [];
+    return;
+  }
+  for (let i = 0; i < ops.length; i += 1) {
+    const rest = [...ops.slice(0, i), ...ops.slice(i + 1)];
+    for (const tail of permutations(rest)) yield [ops[i], ...tail];
+  }
+}
+
+test('M1: every delete/undo/insertion permutation has equal text and digest', () => {
+  const { a, b, seed, opsA, opsB } = concurrentDeleteUndo();
+  a.merge(opsB);
+  b.merge(opsA);
+  const digest = stateDigest(b);
+  let count = 0;
+  for (const order of permutations([...seed, ...opsA, ...opsB])) {
+    const replica = new RGA('replay');
+    replica.merge(order);
+    assertEquals(replica.text(), 'AB', `permutation ${count}: delete wins`);
+    assertEquals(stateDigest(replica), digest, `permutation ${count}: equal digest`);
+    assertEquals(replica.stats().buffered, 0, 'all causal dependencies drained');
+    assertEquals(replica.stats().visible, 2);
+    assertEquals(replica.stats().tombstones, 1);
+    assertEquals(replica.nodes.get('1@a').dt, 3, 'equal-time winner retains the wire timestamp');
+    replica.merge(order.slice().reverse());
+    assertEquals(replica.log.length, 6, 'duplicate replay adds no ops');
+    assertEquals(replica.text(), 'AB', 'duplicate replay is idempotent');
+    assertEquals(stateDigest(replica), digest);
+    count += 1;
+  }
+  assertEquals(count, 720, 'all six-operation permutations were checked');
+  assertEquals(stateDigest(a), digest, 'the live peer matches every replay');
+});
+
+test('M1: high remote effect clocks are observed even while causally buffered', () => {
+  for (const t of ['del', 'undel']) {
+    for (const buffered of [false, true]) {
+      const r = new RGA('local');
+      const insert = { t: 'ins', id: [1, 'remote'], o: null, c: 'x' };
+      if (!buffered) r.apply(insert);
+      const effect = { t, id: insert.id, ts: 10000 };
+      assertEquals(r.apply(effect), !buffered);
+      assertEquals(r.clock, 10000, `${t}: observe effect time, not the old item id`);
+      assertEquals(r.stats().buffered, buffered ? 1 : 0);
+      const local = r.localInsert(0, 'Y');
+      assertEquals(local[0].id[0], 10001, 'new insertion exceeds a buffered remote effect');
+      if (buffered) r.apply(insert);
+      assertEquals(r.stats().buffered, 0);
+      const localUndo = r.undo();
+      assertEquals(localUndo[0].ts, 10002, 'new effects also exceed remote effect time');
+      assertEquals(r.text(), t === 'del' ? '' : 'x');
+      r.apply(effect);
+      assertEquals(r.clock, 10002, 'replaying a remote effect cannot rewind the clock');
+    }
+  }
 });
 
 test('M1: concurrent deletes converge regardless of delivery order', () => {

@@ -36,6 +36,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 
@@ -216,29 +217,23 @@ def write_worker(rules):
 
 
 def inject_test_count():
-    """Count tests in tests/*.test.js and inject the total into the built index.html.
-
-    The count is derived from the runner's own files so the hero chip can never
-    drift from the suite it advertises. Counts `test(` calls at the start of a
-    line, matching how the suites define cases.
-    """
-    test_dir = os.path.join(ROOT, "tests")
-    total = 0
-    for name in sorted(os.listdir(test_dir)):
-        if not name.endswith(".test.js"):
-            continue
-        path = os.path.join(test_dir, name)
-        with open(path, "r", encoding="utf-8") as fh:
-            for line in fh:
-                if re.match(r"^\s*test\(", line):
-                    total += 1
-    if total == 0:
-        raise BuildError("no tests found in tests/*.test.js")
+    result = subprocess.run(
+        ["node", os.path.join(ROOT, "tests", "run.js"), "--json"],
+        cwd=ROOT, capture_output=True, text=True, check=True,
+    )
+    counts = json.loads(result.stdout)
+    total = counts["total"] - counts["nodeOnly"]
+    if counts["fail"] or total <= 0:
+        raise BuildError("refusing to publish counts from a failing or empty suite")
     index = os.path.join(DIST, "index.html")
     html = open(index, "r", encoding="utf-8").read()
-    # Replace the hero chip text and the CTA button text.
-    html = re.sub(r"(\d+)\s+TESTS GREEN", f"{total} TESTS GREEN", html)
-    html = re.sub(r"RUN\s+(\d+)\s+TESTS IN THIS BROWSER", f"RUN {total} TESTS IN THIS BROWSER", html)
+    for pattern, replacement in [
+        (r'(id="hero-tests">)\d+( tests GREEN)', rf'\g<1>{total}\g<2>'),
+        (r'(RUN )\d+( tests IN THIS BROWSER)', rf'\g<1>{total}\g<2>'),
+    ]:
+        html, matched = re.subn(pattern, replacement, html)
+        if matched != 1:
+            raise BuildError("test-count injection did not match exactly once")
     with open(index, "w", encoding="utf-8", newline="") as fh:
         fh.write(html)
     return total
@@ -331,7 +326,7 @@ def main():
 
     print(f"# dist/         {summary['files']} files, {summary['distBytes'] / 1024:.1f} KiB raw, "
           f"{summary['distGzipBytes'] / 1024:.1f} KiB gzip")
-    print(f"# tests         {test_count} (injected into index.html from tests/*.test.js)")
+    print(f"# browser tests {test_count} (derived from the runner registry)")
     print(f"# worker        dist-site/worker.js with {rule_count} rule sets inlined from _headers")
     print(f"# service worker cache  {version}")
     for rel, value in hashes.items():

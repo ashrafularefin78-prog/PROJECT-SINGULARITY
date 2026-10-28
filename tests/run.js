@@ -31,6 +31,8 @@ let pass = 0;
 let fail = 0;
 let skip = 0;
 let suites = 0;
+let nodeOnly = 0;
+const suiteTotals = {};
 for (const file of files) {
   suites += 1;
   console.log(`\n# ${file}`);
@@ -42,7 +44,10 @@ for (const file of files) {
     console.error('       ' + (error && error.stack ? error.stack : error));
     continue;
   }
-  const result = await runTests(collect());
+  const tests = collect();
+  suiteTotals[file] = tests.length;
+  nodeOnly += tests.filter((t) => t.needs.includes('node')).length;
+  const result = await runTests(tests);
   pass += result.pass;
   fail += result.fail;
   skip += result.skip;
@@ -50,7 +55,7 @@ for (const file of files) {
 
 console.log = out;
 console.error = err;
-const summary = { pass, fail, skip, total: pass + fail + skip, suites, files: files.length };
+const summary = { pass, fail, skip, total: pass + fail + skip, suites, files: files.length, nodeOnly, suiteTotals };
 if (jsonMode) {
   console.log(JSON.stringify(summary));
 } else {
