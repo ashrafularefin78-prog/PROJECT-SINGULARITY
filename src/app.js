@@ -60,6 +60,7 @@ const state = {
   relay: new CiphertextRelay(),
   sandbox: null,
   singu: null,
+  singuPending: null,
   renderer: null,
   engineTimers: [],
   doc: null,
@@ -3149,6 +3150,33 @@ function paletteCommands() {
     { group: 'Display', name: 'Right-to-left layout', keywords: 'direction rtl arabic', run: () => setPref('dir', 'rtl') },
     { group: 'Verify', name: 'Run the test suite in a new tab', keywords: 'tests green', run: () => window.open('/tests/browser.html', '_blank', 'noopener') },
     { group: 'Verify', name: 'Re-measure the gzip payload', keywords: 'budget 170 kb', run: remeasurePayload },
+    {
+      group: 'SINGU',
+      name: 'Generate C from the current SINGU brief',
+      keywords: 'assistant m9 ai compose build',
+      run: () => {
+        state.singuPending = 'generate';
+        renderPanel('assistant');
+      },
+    },
+    {
+      group: 'SINGU',
+      name: 'Run the SINGU autopilot (check and repair)',
+      keywords: 'assistant m9 verify repair acceptance',
+      run: () => {
+        state.singuPending = 'autopilot';
+        renderPanel('assistant');
+      },
+    },
+    {
+      group: 'SINGU',
+      name: 'Explain the C in the SINGU panel',
+      keywords: 'assistant m9 structure walk parser',
+      run: () => {
+        state.singuPending = 'explain';
+        renderPanel('assistant');
+      },
+    },
   ].filter((command) => !command.when || command.when());
 }
 
@@ -3405,7 +3433,7 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 338, suites: 24, browser: 331, nodeOnly: 7 };
+const TEST_TOTALS = { total: 382, suites: 28, browser: 375, nodeOnly: 7 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
@@ -3624,7 +3652,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '338', label: 'tests - 24 suites', hint: 'run them from this page' },
+  { value: '382', label: 'tests - 28 suites', hint: 'run them from this page' },
   { value: '0', label: 'npm dependencies', hint: 'optional self-hosted WASM toolchain' },
 ];
 
@@ -3789,7 +3817,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '338 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '382 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -4773,24 +4801,33 @@ export async function waitForBoot() {
 // ---------------------------------------------------------------- M9 SINGU AI
 
 /**
- * SINGU AI - a local systems-C engineer.
+ * SINGU AI - a local C engineer with two engines and a verifier.
  *
- * This panel is a thin shell over src/assistant/singu.js: it collects a brief,
- * asks the engine for complete C, shows the plan and hazards, then compiles the
- * result in the same sandboxed worker M2 uses. Nothing here talks to a network,
- * evaluates a string, or writes markup: the engine returns text and the DOM is
- * built with el().
+ * The planner (assistant/planner.js) picks the composer for everyday tasks and
+ * the systems catalogue for low-level patterns; the autopilot (assistant/
+ * autopilot.js) runs the emitted program against built-in expectations and
+ * repairs a short, justified list of mistakes; the explainer walks the parser
+ * AST. This panel only collects a brief and renders text with el(); nothing
+ * talks to a network, evaluates a string, or writes markup.
  */
 async function renderAssistant(root) {
-  const singu = await import('./assistant/singu.js');
+  const [singu, planning, pilot, explainer, composer] = await Promise.all([
+    import('./assistant/singu.js'),
+    import('./assistant/planner.js'),
+    import('./assistant/autopilot.js'),
+    import('./assistant/explain.js'),
+    import('./assistant/compose.js'),
+  ]);
   if (!root.isConnected) return;
+  const { plan, ENGINE_LABELS } = planning;
+  const { COMPOSER_TASKS, FAMILIES } = composer;
   let closed = false;
   let runVersion = 0;
   const levels = singu.LEVELS;
   const recipes = singu.RECIPES;
 
   if (!state.singu) {
-    const starter = singu.generate('a 64-bit bitset with set, clear and count', { level: 'low' });
+    const starter = plan('a 64-bit bitset with set, clear and count', { level: 'low' });
     state.singu = { prompt: starter.prompt, level: 'auto', code: starter.code, result: starter };
   }
   const session = state.singu;
@@ -4804,6 +4841,8 @@ async function renderAssistant(root) {
   source.addEventListener('input', () => {
     cancelRun();
     session.code = source.value;
+    clear(autopilotBox);
+    explainBox.hidden = true;
     status.textContent = 'source edited · build to check';
   });
 
@@ -4811,13 +4850,17 @@ async function renderAssistant(root) {
   const alternativesRow = el('div', { class: 'row tight' });
   const output = el('pre', { class: 'terminal', role: 'log', 'aria-live': 'polite', 'aria-label': 'SINGU sandbox output' });
   const diagnostic = el('div', { class: 'singu-diag' });
+  const autopilotBox = el('div', { class: 'singu-autopilot', role: 'region', 'aria-label': 'Autopilot results' });
+  autopilotBox.hidden = true;
+  const explainBox = el('details', { class: 'singu-catalog mt-12', 'aria-label': 'Program explanation' });
+  explainBox.hidden = true;
   const status = el('p', { class: 'small dim mono', role: 'status', 'aria-live': 'polite', text: 'ready' });
 
   const prompt = el('textarea', {
     class: 'singu-prompt',
     rows: '3',
     'aria-label': 'What should SINGU AI build?',
-    placeholder: 'a lock-free single-producer queue, an arena allocator, a 128-bit bitset...',
+    placeholder: 'a sum and median, a palindrome check, a primes sieve, an arena allocator...',
   });
   prompt.value = session.prompt;
   prompt.addEventListener('input', () => {
@@ -4851,44 +4894,59 @@ async function renderAssistant(root) {
   };
   paintLevels();
 
+  const levelLabelOf = (id) => (levels.find((level) => level.id === id) || {}).label || id;
+
   const paintBrief = (result) => {
     clear(brief);
     clear(alternativesRow);
     if (!result) return;
     const pct = Math.round(result.confidence * 100);
+    const engine = ENGINE_LABELS[result.engine] || result.engine;
     const parts = [
       el('div', { class: 'singu-title-row' }, [
-        el('h3', { text: result.recipe.title }),
-        el('span', {
-          class: `pill ${result.recipe.level === 'expert' ? 'ok' : 'partial'}`,
-          text: result.recipe.levelLabel,
-        }),
+        el('h3', { text: result.title }),
+        el('span', { class: 'pill partial', text: levelLabelOf(result.level) }),
+        el('span', { class: 'pill partial', text: engine }),
       ]),
-      el('p', { class: 'small dim', text: result.recipe.summary }),
+      el('p', { class: 'small dim', text: result.summary }),
       el('div', { class: 'singu-confidence' }, [
         el('progress', { class: 'bar', max: '100', value: String(pct), 'aria-label': `Match confidence ${pct} percent` }),
         el('span', { class: 'small mono', text: `${pct}% match` }),
       ]),
     ];
     if (result.levelOnly) {
-      parts.push(note('No pattern keyword matched; this is the starter for the level you chose. Name a structure (ring buffer, hash table, allocator, register map) for a sharper result.', 'warn'));
+      parts.push(note('No pattern keyword matched; this is the starter for the level you chose. Name a structure (ring buffer, hash table, allocator, register map) or an everyday task (median, palindrome, primes) for a sharper result.', 'warn'));
+    }
+    if (result.steps && result.steps.length) {
+      parts.push(
+        el('h4', { text: 'Steps' }),
+        el('ol', { class: 'singu-plan' }, result.steps.map((step) => el('li', { text: `${step.title} (${levelLabelOf(step.level)})` }))),
+      );
     }
     parts.push(
       el('h4', { text: 'Plan' }),
       el('ol', { class: 'singu-plan' }, result.plan.map((step) => el('li', { text: step }))),
       el('h4', { text: 'Key decisions' }),
-      list(result.recipe.notes.map((text) => ({ text }))),
+      list(result.notes.map((text) => ({ text }))),
       el('h4', { text: 'Hazards in real C' }),
-      list(result.recipe.hazards.map((text) => ({ text, kind: 'partial' }))),
-      el('p', { class: 'small dim', text: `Complexity: ${result.recipe.complexity}` }),
+      list(result.hazards.map((text) => ({ text, kind: 'partial' }))),
     );
+    if (result.complexity) parts.push(el('p', { class: 'small dim', text: `Complexity: ${result.complexity}` }));
+    parts.push(el('h4', { text: 'Acceptance' }));
+    if (result.tests && result.tests.length) {
+      parts.push(list(result.tests.map((test) => ({
+        text: `${test.name}: ${test.expect.length} expected line(s) · ${test.stdin ? `stdin "${test.stdin.replace(/\n/g, ' | ').slice(0, 60)}"` : 'empty stdin'}`,
+      }))));
+    } else {
+      parts.push(note('No built-in expectations for this program; the autopilot checks a clean review, a complete run and balanced heap.'));
+    }
     if (result.alternatives.length) {
-      alternativesRow.append(el('span', { class: 'small dim', text: 'Also in the catalogue:' }));
+      alternativesRow.append(el('span', { class: 'small dim', text: 'Also recognised:' }));
       for (const alt of result.alternatives) {
         alternativesRow.appendChild(button(alt.title, () => {
           session.level = alt.level;
-          prompt.value = alt.defaultPrompt;
-          session.prompt = alt.defaultPrompt;
+          prompt.value = alt.prompt;
+          session.prompt = alt.prompt;
           paintLevels();
           generate();
         }, 'small'));
@@ -4900,15 +4958,19 @@ async function renderAssistant(root) {
 
   const generate = () => {
     cancelRun();
-    const result = singu.generate(prompt.value, { level: session.level });
+    const result = plan(prompt.value, { level: session.level });
     session.result = result;
     session.prompt = result.prompt;
     session.code = result.code;
     source.value = result.code;
     clear(output);
     clear(diagnostic);
+    clear(autopilotBox);
+    autopilotBox.hidden = true;
+    explainBox.hidden = true;
     paintBrief(result);
-    status.textContent = `generated ${result.code.split('\n').length} lines · ${result.recipe.title} · ${Math.round(result.confidence * 100)}% match`;
+    const engine = ENGINE_LABELS[result.engine] || result.engine;
+    status.textContent = `generated ${result.code.split('\n').length} lines · ${result.title} · ${engine} · ${Math.round(result.confidence * 100)}% match`;
   };
 
   const inspect = () => {
@@ -4976,7 +5038,57 @@ async function renderAssistant(root) {
       : `exit 1 · ${ms} ms · ${steps} steps${result.killed ? ' · terminated' : ''}`;
   };
 
+  const runAutopilot = () => {
+    cancelRun();
+    const result = pilot.autopilot({ ...(session.result || {}), code: source.value });
+    if (result.code !== source.value) {
+      source.value = result.code;
+      session.code = result.code;
+    }
+    clear(diagnostic);
+    clear(autopilotBox);
+    autopilotBox.hidden = false;
+    autopilotBox.appendChild(el('h4', { text: 'Autopilot transcript' }));
+    autopilotBox.appendChild(el('ol', { class: 'singu-plan' }, result.transcript.map((line) => el('li', { text: line }))));
+    output.textContent = result.output || '(no output)';
+    for (const check of result.checks.filter((item) => !item.ok)) {
+      diagnostic.appendChild(el('p', { class: 'bad small mono', text: `${check.id}: ${check.detail}` }));
+    }
+    for (const warning of result.warnings.slice(0, 6)) {
+      diagnostic.appendChild(el('p', { class: 'warn small mono', text: `line ${warning.line}: ${warning.text}` }));
+    }
+    for (const item of result.diagnostics || []) {
+      diagnostic.appendChild(el('p', {
+        class: `${item.severity === 'error' ? 'bad' : 'small dim'} mono`,
+        text: `${item.severity === 'error' ? 'error' : 'why'} · line ${item.line}: ${item.text}`,
+      }));
+    }
+    explainBox.hidden = true;
+    const steps = result.runs.reduce((total, item) => total + (item.run.ok ? item.run.steps : 0), 0);
+    status.textContent = result.ok
+      ? `autopilot passed · ${result.checks.length} checks · ${result.repairLog.length} repair(s) · ${steps} steps`
+      : `autopilot stopped · ${result.failure ? `${result.failure.id}: ${result.failure.detail}` : 'a check failed'}`;
+  };
+
+  const runExplain = () => {
+    clear(diagnostic);
+    const result = explainer.explain(source.value);
+    clear(explainBox);
+    explainBox.appendChild(el('summary', { text: 'How this program works' }));
+    explainBox.appendChild(el('ul', { class: 'list' }, result.summary.map((text) => el('li', { text }))));
+    explainBox.hidden = false;
+    explainBox.open = true;
+    if (result.ok) {
+      status.textContent = `explained ${result.stats.functions} function(s) · ${result.stats.loops} loop(s) · ${result.stats.calls.length} distinct call(s)`;
+    } else {
+      status.textContent = 'cannot explain: the source does not parse';
+      diagnostic.appendChild(el('p', { class: 'bad small mono', text: `line ${result.error.line}, column ${result.error.col}: ${result.error.message}` }));
+    }
+  };
+
   const runBtn = button('Build & run', run, 'primary');
+  const autopilotBtn = button('Autopilot', runAutopilot, 'primary');
+  const explainBtn = button('Explain C', runExplain);
   disposePanel = () => { closed = true; cancelRun(); };
 
   const copyBtn = button('Copy C', async () => {
@@ -5010,25 +5122,43 @@ async function renderAssistant(root) {
       }, 'small'))),
   ]));
 
+  const everydayRows = [
+    ['ints', 'Integer arrays'],
+    ['text', 'One line of text'],
+    ['matrix', '3x3 matrices'],
+    ['scalar', 'Single numbers'],
+  ].map(([family, label]) => el('div', { class: 'singu-catalog-row' }, [
+    el('h4', { text: label }),
+    el('p', { class: 'small dim', text: FAMILIES[family].input }),
+    el('div', { class: 'row tight' }, COMPOSER_TASKS.filter((task) => task.family === family).map((task) =>
+      button(task.title, () => {
+        session.level = 'auto';
+        prompt.value = task.defaultPrompt;
+        session.prompt = task.defaultPrompt;
+        paintLevels();
+        generate();
+      }, 'small'))),
+  ]));
+
   const head = el('header', { class: 'mod-head', dataset: { mod: '9' } }, [
     el('span', { class: 'mod-badge', role: 'img', 'aria-label': 'Module M9', text: 'M9' }),
     el('div', {}, [
       el('h1', { class: 'mod-title', text: 'SINGU AI', tabindex: '-1' }),
       el('p', {
         class: 'lede',
-        text: 'A local systems-C engineer: describe a low-level, advanced or expert program and it writes complete, compilable C for the M2 runtime. No model, no API, no network - the knowledge is a reviewed catalogue, and the proof is the sandbox run.',
+        text: 'A local C engineer: describe an everyday task or a systems pattern and it writes complete C for the M2 runtime, then checks the run against expectations it computed separately. No model, no API, no network - the knowledge is a reviewed catalogue and a block composer, and the proof is the sandbox plus the autopilot transcript.',
       }),
       el('div', { class: 'mod-meta' }, [
         el('span', { class: 'pill ok', text: 'offline' }),
         el('span', { class: 'pill partial', text: 'C subset' }),
-        el('span', { class: 'mod-score', text: `${recipes.length} patterns · ${levels.length} levels` }),
+        el('span', { class: 'mod-score', text: `${recipes.length} systems + ${COMPOSER_TASKS.length} everyday · ${levels.length} levels` }),
       ]),
     ]),
   ]);
 
   root.appendChild(el('div', { class: 'panel' }, [
     head,
-    note('What this is, precisely: a deterministic synthesiser over hand-written systems patterns, not an LLM. It matches the brief, binds the size knobs, emits C that only uses the M2 subset, and hands it to the same sandbox as M2. When nothing matches it says so instead of inventing a pattern.'),
+    note('What this is, precisely: a deterministic planner over hand-written blocks and systems patterns, not an LLM. The composer joins everyday steps into one program when the brief asks for several; the catalogue covers ring buffers, allocators and protocols. Every emitted line stays inside the M2 subset. When nothing matches it says so instead of inventing a pattern. Autopilot runs the program, compares the trace with expectations computed in JavaScript, and only applies repairs it can justify.'),
     el('div', { class: 'grid two mt-12' }, [
       card('Brief', [
         el('p', { class: 'small dim', text: 'Preferred level (a strong keyword in the brief still wins)' }),
@@ -5047,6 +5177,8 @@ async function renderAssistant(root) {
         el('div', { class: 'row tight mt-10' }, [
           runBtn,
           killBtn,
+          autopilotBtn,
+          explainBtn,
           copyBtn,
           button('Send to M2 runtime', () => {
             state.cSource = source.value;
@@ -5067,13 +5199,28 @@ async function renderAssistant(root) {
         ]),
         status,
         diagnostic,
+        autopilotBox,
+        explainBox,
       ]),
     ]),
     el('details', { class: 'singu-catalog mt-12' }, [
-      el('summary', { text: `Pattern library - ${recipes.length} programs, ${levels.length} levels` }),
+      el('summary', { text: `Pattern library - ${recipes.length} systems + ${COMPOSER_TASKS.length} everyday programs, ${levels.length} levels` }),
+      el('h4', { text: 'Everyday blocks' }),
+      note('These compose into one program when the brief joins clauses with "and", "then", or a comma; a second input family is reported instead of silently dropped.'),
+      ...everydayRows,
       ...catalogRows,
     ]),
   ]));
 
-  paintBrief(session.result || singu.generate(session.prompt, { level: session.level }));
+  if (!session.result) {
+    session.result = plan(session.prompt, { level: session.level });
+    session.code = session.result.code;
+    source.value = session.code;
+  }
+  paintBrief(session.result);
+  const pending = state.singuPending;
+  state.singuPending = null;
+  if (pending === 'generate') generate();
+  else if (pending === 'autopilot') runAutopilot();
+  else if (pending === 'explain') runExplain();
 }

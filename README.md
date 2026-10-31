@@ -1,7 +1,7 @@
 # Project Singularity
 
 [![Live demo](https://img.shields.io/badge/live_demo-GitHub_Pages-6ea8fe)](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/)
-[![Tests](https://img.shields.io/badge/tests-338_across_24_suites-57d68d)](#verify-it)
+[![Tests](https://img.shields.io/badge/tests-382_across_28_suites-57d68d)](#verify-it)
 [![npm dependencies](https://img.shields.io/badge/npm_dependencies-0-b39ddb)](#technologies)
 [![License](https://img.shields.io/badge/license-MIT-8399b0)](LICENSE)
 
@@ -25,7 +25,7 @@ interpreter. There is no bundler or transpiler.
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
 | Repository signals | **0 stars · 0 forks · 40 commits · 1 author · 2 tagged releases (v0.1.0, v1.0.0)** (snapshot 21 Oct 2026; GitHub is the live source) |
-| Tests | **338 across 24 suites**, runnable in the browser from the site itself |
+| Tests | **382 across 28 suites**, runnable in the browser from the site itself |
 | Dependencies | **0 npm packages**; optional self-hosted WebAssembly C/C++ compiler and libraries |
 | Modules | 8 scored (3 full, 5 partial - each partial says exactly where it stops) plus M9 SINGU AI, unscored |
 | Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
@@ -130,7 +130,7 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**338 tests across 24 suites** (real compiler tests also load the local toolchain; unavailable capabilities are explicit skips). Each
+**382 tests across 28 suites** (real compiler tests also load the local toolchain; unavailable capabilities are explicit skips). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
 runner for environments that have it (it reports those 25 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
@@ -169,9 +169,13 @@ npm run test:ui                                                  # real app work
 | `a11y.test.js` | 9 | contrast, accessible names, audit rules, focus order and the parallel text tree |
 | `sw.test.js` | 10 | shell import graph, lazy toolchain caching, scope-owned caches, source/build versions and Node/Python delivery boundaries |
 | `singu.test.js` | 15 | SINGU AI: catalogue breadth, brief matching, knob binding, review/diagnostics, and every generated pattern compiled and run |
+| `compose.test.js` | 15 | everyday composer: all 47 blocks emit review-clean C and pass their own independently computed acceptance traces |
+| `planner.test.js` | 8 | engine arbitration between composer and systems catalogue, forced choices, level hints and runnable alternatives |
+| `autopilot.test.js` | 13 | verification against acceptance tests, each justified repair, and honest stops for unsafe or unprovable code |
+| `explain.test.js` | 8 | AST walkthrough: entry point, loops, recursion, heap calls, globals, structs, prototypes and parse-error honesty |
 
-Number check: the 24 suites hold 338 tests. Browser eligibility: 331 tests; 7 Node-only checks are skipped.
-The Node runner reports **311 pass + 27 browser-only skips**. Capability skips cover
+Number check: the 28 suites hold 382 tests. Browser eligibility: 375 tests; 7 Node-only checks are skipped.
+The Node runner reports **355 pass + 27 browser-only skips**. Capability skips cover
 DOM, WebGL2, IndexedDB and OPFS; they are not passes. Both runners report failures explicitly.
 
 ## Technologies
@@ -226,16 +230,26 @@ active run is local only). Stated as not done. |
 
 ### M9 - SINGU AI (outside the scored eight)
 
-The page also ships **SINGU AI**, a local systems-C engineer in the M9 tab. It is
-not a language model and makes no network calls: a brief is matched against 15
-hand-written C patterns across three levels (low-level bits and bytes, advanced
-heap structures, expert systems - allocators, pools, wire formats, an SPSC
-queue shape and a register map), the size knob in the brief is bound, and the
-complete program is compiled and run in the same M2 sandbox. `tests/singu.test.js`
-generates all 15 and asserts that each one compiles, runs and prints a trace;
-`review()` and `diagnose()` explain unsafe constructs and sandbox errors in
-plain language. Nothing outside the M2 C subset is emitted, and a brief that
-matches no pattern is reported as a weak match instead of being answered with
+The page also ships **SINGU AI**, a local C engineer in the M9 tab. It is not a
+language model and makes no network calls. Two engines share one brief: the
+**composer** (`compose.js`) joins 47 everyday blocks over integer arrays, text,
+3x3 matrices and scalar N - sums, medians, sorts, searches, palindromes, Caesar
+shifts, run-length encoding, matrix products, primes, factorials and more - into
+one program when the brief asks for several steps, and computes each expected
+output line independently in JavaScript; the **systems catalogue** (`singu.js`)
+keeps 15 hand-written patterns across three levels (low-level bits and bytes,
+advanced heap structures, expert allocators, pools, wire formats, an SPSC queue
+shape and a register map). The **planner** (`planner.js`) picks the stronger
+match, the **autopilot** (`autopilot.js`) runs every acceptance input in the M2
+interpreter, compares the trace with those independent expectations, and applies
+only repairs it can justify - a missing include, a missing semicolon, one
+unmatched brace, an undeclared first use in main, a unique one-edit call typo.
+Anything else stops with the interpreter's own diagnosis. The **explainer**
+(`explain.js`) walks the parser AST and reports functions, loop nesting,
+recursion, heap calls, globals and unsafe constructs. Five suites hold 59 tests
+against that contract, including every emitted program compiled and run in the
+sandbox. Nothing outside the M2 C subset is emitted, and a brief that neither
+engine recognises is reported as a weak match instead of being answered with
 invented code.
 
 ## Where the score lands
@@ -255,7 +269,7 @@ this build. No score increase, fresh audit or device guarantee is claimed.
 |---------|--------|-----|
 | Points band | **Past the Gold ceiling** (450-750) | Arithmetic on the reviewer's marks: 803 sits 53 points above the old Gold band; the self-assessment (785) sits 35 above it. The points column is not the grade; the requirement ladder below is, and the reviewer still tiers this build Silver. |
 | Tier by requirement | **Silver** | The reviewer's tally tiers at Silver: M1, M2, M4 and M6 are full or near-full (the four the brief's Silver row asks for) with real integration between them; Gold still needs the partial four (M3, M5, M7, M8) to reach full. |
-| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (**122.2 KiB gzip JS cold load vs 170 KB budget — met**; 26.9 KiB gzip CSS brings the initial 15 files (14 JS + stylesheet) to **149.1 KiB gzip / 482.5 KiB raw**; `src/app.js` is 235.3 KiB raw / 73.9 KiB gzip; M2, M3, M4, M9 SINGU AI and the WebRTC/relay half of M5 fetch their module graph on demand, and the **18-file, 119.9 KiB gzip JS** deferred graph plus the separate **approximately 18.4 MiB compressed toolchain asset set** are reported separately rather than counted as cold; the seven decorative modules the review named were also deleted outright for −25 KiB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop and mobile **95 / 100 / 100 / 100**); the historical **full 60-minute memory soak** records 1.10 → 1.53 MiB after GC, with fewer nodes and less reachable memory in the minute-60 snapshot than at minute 10; and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
+| Performance budget (100 pts) | **Partly evidenced, not claimable** | Payload (**123.8 KiB gzip JS cold load vs 170 KB budget — met**; 26.9 KiB gzip CSS brings the initial 15 files (14 JS + stylesheet) to **150.7 KiB gzip / 489.2 KiB raw**; `src/app.js` is 241.9 KiB raw / 75.5 KiB gzip; M2, M3, M4, M9 SINGU AI and the WebRTC/relay half of M5 fetch their module graph on demand, and the **22-file, 147.7 KiB gzip JS** deferred graph plus the separate **approximately 18.4 MiB compressed toolchain asset set** are reported separately rather than counted as cold; the seven decorative modules the review named were also deleted outright for −25 KiB), the throttled-4G LCP (774 ms against a 1.5 s target) and the default frame rate (60 FPS) are met; Lighthouse passes in both form factors (desktop and mobile **95 / 100 / 100 / 100**); the historical **full 60-minute memory soak** records 1.10 → 1.53 MiB after GC, with fewer nodes and less reachable memory in the minute-60 snapshot than at minute 10; and the load and chaos rows now carry their smallest honest versions: a **ciphertext relay** driven by **1,000 simulated clients** (50,000 envelopes, all delivered, 0 lost, 0 duplicated, p95 12.2 ms), a **kill-the-node run** (`SIGKILL` with 20,000 accepted envelopes pending, all replayed from the log, 0 lost, 256 ms outage) and a **two-node failover run** (the primary killed for good, the same backlog re-posted from client outboxes to a standby — 0 lost, 0 duplicated — kill to first accepted post **1322 ms**). A 10,000-session rig still does not exist, and two relay processes on one laptop are not a fleet. Every number, and every gap, is in [LOAD_CHAOS.md](docs/LOAD_CHAOS.md). |
 
 Read [docs/PLAN.md](docs/PLAN.md) for the scoping reasoning,
 [docs/LOAD_CHAOS.md](docs/LOAD_CHAOS.md) for the raw measurements and
@@ -268,7 +282,11 @@ index.html              app shell (carries the CSP meta policy)
 styles/app.css          all styling (no framework, no preprocessor)
 src/app.js              the shell that wires the eight modules together
 src/crdt/rga.js         RGA CRDT + maintenance (collect / trimLog)
-src/assistant/singu.js  SINGU AI: pattern catalogue, brief matcher, review, diagnostics
+src/assistant/singu.js  SINGU AI: systems catalogue, review, diagnostics
+src/assistant/compose.js everyday blocks with independently computed expectations
+src/assistant/planner.js one brief, two engines, one normalised plan
+src/assistant/autopilot.js run acceptance tests, repair what is justifiable
+src/assistant/explain.js  AST walkthrough of generated or pasted C
 src/runtime/            C lexer -> parser -> interpreter, worker, sandbox
 src/graphics/           3D maths + WebGL2 renderer (PBR shading) + glTF 2.0 loader
 src/crypto/e2ee.js      X3DH, Double Ratchet, safety numbers, group keys, file AEAD
@@ -279,7 +297,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (24 suites, 338 tests, fuzzer included)
+tests/                  browser test suite (28 suites, 382 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON
@@ -311,9 +329,12 @@ docs/                   PLAN.md, ARCHITECTURE.md, THREAT_MODEL.md,
 - **Write real C.** The M2 sample builds a linked list with `malloc` and `->`,
   switches on a grade, asks for two integers with `scanf`, then echoes stdin.
 - **Ask SINGU AI for C.** In M9, type a brief such as *a lock-free
-  single-producer queue* or *an arena allocator*, pick a level if the brief does
-  not name one, then **Generate C** and **Build & run**. The plan and the hazards
-  list sit beside the code; **Send to M2 runtime** hands an edited program over.
+  single-producer queue*, *an arena allocator* or *the sum of the numbers and
+  sort ascending*, pick a level if the brief does not name one, then **Generate
+  C** and **Build & run**. **Autopilot** runs the built-in acceptance inputs and
+  repairs only what it can justify; **Explain C** reports the program's
+  functions, loops, recursion and heap use. The plan and the hazards list sit
+  beside the code; **Send to M2 runtime** hands an edited program over.
 - **Prove the relay is blind.** In M4, send a message and read the relay
   inspector - every field it can see is listed.
 - **Watch a tombstone disappear.** In M6, press *Compact*: the panel reports how

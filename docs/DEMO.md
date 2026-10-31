@@ -61,10 +61,10 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    old Gold ceiling. Say out loud that the leading column is the brief's points
    band and the ladder grades the *requirements*, which is why the two readings
    disagree.
-7. Point at the budget table: the current payload is **met** (122.2 KiB gzip
-   cold-load JavaScript plus 26.9 KiB gzip CSS = 149.1 KiB gzip / 482.5 KiB raw
+7. Point at the budget table: the current payload is **met** (123.8 KiB gzip
+   cold-load JavaScript plus 26.9 KiB gzip CSS = 150.7 KiB gzip / 489.2 KiB raw
    across 15 initial files: 14 JS and the stylesheet, against a 170 KB JS ceiling).
-   The 18-file deferred graph is 119.9 KiB gzip JS; the approximately 18.4 MiB
+   The 22-file deferred graph is 147.7 KiB gzip JS; the approximately 18.4 MiB
    compressed toolchain asset set is separate and loads on the first compiler run.
    Label the hour-long memory soak and frame rate as **historical evidence**
    under the recorded conditions, not new runs of the corrected app; the snapshot
@@ -163,7 +163,7 @@ assets, not a compilation service. Program source is not uploaded.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run. Browser eligibility: 331 tests; 7 Node-only checks are skipped.
+Open **/tests/browser.html** and let the suite run. Browser eligibility: 375 tests; 7 Node-only checks are skipped.
 Then name the remaining gaps: no independent crypto audit, no bundled TURN,
 no HDR specular prefilter, no VoiceOver/TalkBack validation and no 10,000-browser fleet.
 Internal red-team, NVDA, relay load/chaos and real Clang/WebAssembly evidence exist;

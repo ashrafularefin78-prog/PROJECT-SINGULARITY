@@ -27,6 +27,10 @@ const SUITES = [
   './a11y.test.js',
   './sw.test.js',
   './singu.test.js',
+  './compose.test.js',
+  './planner.test.js',
+  './autopilot.test.js',
+  './explain.test.js',
 ];
 
 async function main() {

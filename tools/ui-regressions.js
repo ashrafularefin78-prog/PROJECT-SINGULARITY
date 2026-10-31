@@ -423,6 +423,66 @@ test('SINGU Kill ownership and exact interpreter handoff to M2', 'compiler', asy
   assert.equal(await s.evaluate(`window.__uiRegression.runs[${handoff}].kills`), 1);
 });
 
+test('SINGU Autopilot verifies, repairs, and Explain reads the program back', 'assistant', async s => {
+  await fill(s, PROMPT, 'the sum of the numbers and sort ascending');
+  await s.waitFor(`!!${get(GENERATED)}`);
+  await click(s, 'Generate C');
+  await s.waitFor(`(${get(GENERATED)}?.value || '').includes('sum_of')`);
+  const generated = await s.evaluate(`${get(GENERATED)}.value`);
+  assert.match(generated, /sum_of/);
+  await click(s, 'Autopilot');
+  const first = await s.evaluate(`({
+    status: document.querySelector('#panel-assistant [role="status"]').textContent,
+    output: ${get(SINGU_OUTPUT)}.textContent,
+    diagnostics: document.querySelector('#panel-assistant .singu-diag').textContent,
+    transcript: [...document.querySelectorAll('#panel-assistant [aria-label="Autopilot results"] li')].map(li => li.textContent),
+    explanationHidden: document.querySelector('#panel-assistant [aria-label="Program explanation"]').hidden,
+  })`);
+  assert.match(first.status, /^autopilot passed · \d+ checks · 0 repair\(s\) · \d+ steps$/);
+  assert.match(first.output, /sum: 201/);
+  assert.equal(first.diagnostics, '');
+  assert.ok(first.transcript.some(line => line.startsWith('PASS:')), 'the transcript carries a verdict');
+  assert.equal(first.explanationHidden, true);
+
+  await fill(s, GENERATED, generated.replace('#include <stdio.h>\n', ''));
+  await click(s, 'Autopilot');
+  const repaired = await s.evaluate(`({
+    status: document.querySelector('#panel-assistant [role="status"]').textContent,
+    code: ${get(GENERATED)}.value,
+    output: ${get(SINGU_OUTPUT)}.textContent,
+    transcript: [...document.querySelectorAll('#panel-assistant [aria-label="Autopilot results"] li')].map(li => li.textContent),
+  })`);
+  assert.match(repaired.status, /^autopilot passed · \d+ checks · 1 repair\(s\)/);
+  assert.ok(repaired.code.includes('#include <stdio.h>'), 'the repair is written back to the editor');
+  assert.match(repaired.output, /sum: 201/);
+  assert.ok(repaired.transcript.some(line => line.startsWith('Repair (include):')), 'the repair rule is named');
+
+  await click(s, 'Explain C');
+  const explained = await s.evaluate(`(() => {
+    const box = document.querySelector('#panel-assistant [aria-label="Program explanation"]');
+    return {
+      status: document.querySelector('#panel-assistant [role="status"]').textContent,
+      hidden: box.hidden,
+      open: box.open,
+      summary: [...box.querySelectorAll('li')].map(li => li.textContent),
+    };
+  })()`);
+  assert.equal(explained.hidden, false);
+  assert.equal(explained.open, true);
+  assert.match(explained.status, /^explained 3 function\(s\) · \d+ loop\(s\) · \d+ distinct call\(s\)$/);
+  assert.ok(explained.summary.some(line => line.startsWith('Entry point: int main(void)')), 'the entry point is named');
+  assert.ok(explained.summary.some(line => /Local arrays: int a\[100\]/.test(line)), 'local storage is named');
+
+  await fill(s, GENERATED, 'int main( {');
+  await click(s, 'Explain C');
+  const broken = await s.evaluate(`({
+    status: document.querySelector('#panel-assistant [role="status"]').textContent,
+    diagnostic: document.querySelector('#panel-assistant .singu-diag').textContent,
+  })`);
+  assert.equal(broken.status, 'cannot explain: the source does not parse');
+  assert.match(broken.diagnostic, /line 1, column \d+: Parse error/);
+});
+
 for (const [name, initial, selector, value] of [
   ['compiler source', 'compiler', SOURCE, '// keyboard '],
   ['SINGU brief', 'assistant', PROMPT, 'keyboard '],
