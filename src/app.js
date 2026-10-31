@@ -3433,7 +3433,7 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 382, suites: 28, browser: 375, nodeOnly: 7 };
+const TEST_TOTALS = { total: 385, suites: 28, browser: 378, nodeOnly: 7 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
@@ -3652,7 +3652,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '382', label: 'tests - 28 suites', hint: 'run them from this page' },
+  { value: '385', label: 'tests - 28 suites', hint: 'run them from this page' },
   { value: '0', label: 'npm dependencies', hint: 'optional self-hosted WASM toolchain' },
 ];
 
@@ -3817,7 +3817,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '382 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '385 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {

@@ -9,6 +9,7 @@ Trust boundaries:
 2. browser ↔ relay (sees only ciphertext + routing metadata)
 3. tab ↔ tab (peer messages, hostile peers assumed present)
 4. page ↔ local storage (IndexedDB, survives reloads)
+5. page ↔ vendored toolchain assets (third-party WebAssembly treated as a trusted build input)
 
 ## 1. STRIDE table
 
@@ -25,8 +26,9 @@ Trust boundaries:
 | **Information disclosure** | Relay or server reads user content | Only ciphertext and routing metadata ever leave the device | `CiphertextRelay.inspect()` lists the exact fields the relay can read; a test asserts plaintext never appears |
 | **Information disclosure** | Nonce reuse leaks plaintext across messages | Per-instance queues serialize chain advancement before asynchronous key derivation; the AEAD nonce derives from a fresh message key | Concurrent sends have distinct counters/keys and decrypt; tampered receives cannot consume state |
 | **Information disclosure** | XSS exfiltrates keys from the page | No markup sinks exist; Trusted Types enforced with a one-policy allowlist; script-src without `unsafe-inline`/`unsafe-eval` | CSP meta/headers in the running app; an in-app probe attempts `innerHTML` and `eval()` and shows them refused; `tools/red-team.js` cannot create a second policy |
+| **Tampering** | A corrupted or upstream-compromised Clang/WASI binary forges compilation results | The four toolchain assets are same-origin and pinned by `assets/toolchain/manifest.json`; the loader checks each uncompressed size and SHA-256 before compiling, and there is no update channel. The compiler runs in a disposable worker whose Wasm imports expose only virtual files, stdout/stderr, clock, randomness and arguments - no DOM, storage or network imports | `loadAsset()` refuses size or hash mismatches before compilation; `M2: toolchain bytes that do not match the manifest hash are refused before compilation`; the intercepted-asset test; generated programs cannot open the compiler's input files |
 | **Information disclosure** | Local data readable after the device is lost | **Not addressed.** IndexedDB is plaintext at rest. Declared below. | — |
-| **Denial of service** | Infinite loop in user C freezes the tab | Step budget (deterministic), heap cap, recursion cap, wall-clock kill switch, and execution only in a worker that can be terminated | Loop test stops at exactly 5,000,000 steps; recursion test hits the depth cap; heap test refuses the allocation |
+| **Denial of service** | Infinite loop in user C freezes the tab | Step budget (deterministic), heap cap, recursion cap, wall-clock kill switch, and execution only in a worker that can be terminated; the Clang path adds a 120 s compile limit, a 4 s execution limit, a 32 MiB linker and allocator cap and a manual kill | Loop test stops at exactly 5,000,000 steps; the recursion test hits the depth cap; the interpreter heap test refuses the allocation; browser tests terminate Clang at its 4-second limit, kill it manually and see a 64 MiB allocation refused under the 32 MiB cap |
 | **Denial of service** | Oversized allocation exhausts memory | Array allocations are charged against a byte cap before allocation | Heap-budget test |
 | **Denial of service** | Peer floods the room with messages | Heartbeat/liveness pruning, message counting surfaced in the UI | Mesh stats expose sent/received/dropped |
 | **Denial of service** | Storage quota exhausted | Quota is measured and persistence can be requested; snapshots retain causal history instead of silently truncating identities | `estimate()`, snapshot-plus-edit/reopen tests; bounded durable history is not yet implemented |
@@ -58,6 +60,19 @@ Trust boundaries:
 6. **`requestAnimationFrame` and timers are throttled in background tabs**, which
    the mesh tests had to be rewritten around; the suite is now event-driven
    rather than sleep-driven.
+7. **Vendored compiler supply chain.** The Clang 8.0.1, LLD, memfs and WASI
+   sysroot binaries were downloaded from
+   [`binji.github.io/wasm-clang`](https://binji.github.io/wasm-clang/) on
+   2026-10-28 and vendored, not built from source in this repository. The
+   manifest proves the bytes have not changed since vendoring; it does not
+   attest the upstream build or the site that served it. A malicious binary
+   accepted at vendoring time could forge compilation results or attack the
+   narrow WASI host from inside its disposable worker. Clang 8.0.1 is from 2019
+   and no longer receives security fixes; parser and code-generation
+   vulnerabilities fixed in later LLVM releases remain present. Parsing
+   adversarial C inside WebAssembly bounds but does not eliminate that risk.
+   Replacing it requires reproducing or independently re-verifying a newer
+   pinned toolchain.
 
 ## 3. Explicitly out of scope
 

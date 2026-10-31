@@ -34,11 +34,11 @@ UI/browser run, score increase or unmeasured device guarantee is claimed.
 
 Two environments are reported on purpose:
 
-* **bare Node** (`npm test`) runs 355 of the 382 tests and skips the 27 that need
+* **bare Node** (`npm test`) runs 356 of the 385 tests and skips the 29 that need
   a canvas or IndexedDB, so the exit code means "no regressions" rather than
   "this machine has no GPU".
 * **real browser** (`npm run test:browser`) exercises WebGL2, IndexedDB, OPFS
-  and the compiler Workers. Browser eligibility: 375 tests; 7 Node-only checks are skipped.
+  and the compiler Workers. Browser eligibility: 378 tests; 7 Node-only checks are skipped.
   Compiler tests load the bundled toolchain; earlier interpreter-only timings are not current-suite measurements.
 
 ### Why there is no 10,000-user run here
@@ -690,8 +690,8 @@ the GitHub Pages layout is reproduced locally.
 
 | Command | Environment | Result |
 |---------|-------------|--------|
-| `npm test` | bare Node 24, no browser | 355 passed, 0 failed, 27 skipped (the 27 need a canvas or IndexedDB) |
-| `npm run test:browser` | Real browser via CDP, WebGL2 + IndexedDB | Browser eligibility: 375 tests; 7 Node-only checks are skipped. |
+| `npm test` | bare Node 24, no browser | 356 passed, 0 failed, 29 skipped (the 29 need a canvas or IndexedDB) |
+| `npm run test:browser` | Real browser via CDP, WebGL2 + IndexedDB | Browser eligibility: 378 tests; 7 Node-only checks are skipped. |
 | `node tools/browser-run.js --url=<deployment>` | The same suite against the specified artifact | Run explicitly; source-tree results do not establish deployed-artifact correctness. |
 
 `npm test` used to report those 10 as failures because the machine has no GPU.
@@ -748,8 +748,8 @@ Reproduce any row:
 
 ```sh
 python3 tools/serve.py 5173     # or: node tools/serve.js
-npm test                        # 382 collected: 355 pass + 27 skip, no browser needed
-npm run test:browser            # all 382, in a real browser
+npm test                        # 385 collected: 356 pass + 29 skip, no browser needed
+npm run test:browser            # all 385, in a real browser
 node tools/payload.js           # import-graph payload size
 node tools/perf.js lcp          # throttled LCP -> docs/reports/lcp.json
 node tools/perf.js soak         # memory soak -> docs/reports/soak.json

@@ -97,6 +97,13 @@ header GitHub Pages does send is host-level and outside this repository.
    carries the SRI attributes and `.integrity-manifest.json` that only the build
    path produces.
 
+The four toolchain archives are already gzip and the loader decompresses them
+itself, so do not add `Content-Encoding: gzip` for `/assets/toolchain/*.gz`:
+fetch would decode them once and the loader's own `DecompressionStream` would
+fail. They load only on the first compile, each is under Pages' 25 MiB per-file
+limit, and the service worker stores them cache-first, so later compiles do not
+re-download the 18.4 MiB set.
+
 That is the stronger of the two Pages uploads, and the one that makes the M8
 claims true on the live origin: the three directives a meta tag cannot express
 (`frame-ancestors`, COOP, COEP) arrive as real headers, `tools/verify-headers.js
@@ -192,8 +199,8 @@ node tools/browser-run.js --url=http://127.0.0.1:8788/tests/browser.html
 Last worker-served run: **152 passed, 0 failed, 0 skipped**
 (`[dom=true webgl2=true indexeddb=true]`), with the strict CSP arriving from the
 generated worker rather than from a dev server. The suite has since grown to
-**382** (355 pass + 27 browser-only skips under bare Node).
-Browser eligibility: 375 tests; 7 Node-only checks are skipped.
+**385** (356 pass + 29 browser-only skips under bare Node).
+Browser eligibility: 378 tests; 7 Node-only checks are skipped.
 The worker-served run above has not been repeated here since, because `.tools/wrangler` is not installed in this
 checkout (CI's deploy job runs the same command against the built artifact
 served from `dist/`). A build that cannot deliver its own security policy, or

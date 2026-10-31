@@ -248,6 +248,28 @@ test('M2: intercepted empty toolchain assets fail with an actionable diagnostic'
   assertEquals(phases.join(','), 'loading');
 });
 
+test('M2: toolchain bytes that do not match the manifest hash are refused before compilation', async () => {
+  const { compileAndRun } = await import('../src/runtime/clang.js');
+  const payload = new TextEncoder().encode('not a compiler');
+  const gz = new Uint8Array(await new Response(
+    new Blob([payload]).stream().pipeThrough(new CompressionStream('gzip')),
+  ).arrayBuffer());
+  const digest = await crypto.subtle.digest('SHA-256', payload);
+  const hex = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  const wrong = `${hex[0] === '0' ? '1' : '0'}${hex.slice(1)}`;
+  const files = Object.fromEntries(['memfs.wasm', 'clang.wasm', 'lld.wasm', 'sysroot.tar']
+    .map((name) => [name, { bytes: payload.length, sha256: wrong }]));
+  const result = await compileAndRun('int main(void) { return 0; }', {
+    fetchAsset: async (url) => url.pathname.endsWith('/manifest.json')
+      ? new Response(JSON.stringify({ files }))
+      : new Response(gz, { headers: { 'content-type': 'application/gzip' } }),
+  });
+  assert(!result.ok);
+  assertEquals(result.error.stage, 'Toolchain');
+  assert(/toolchain asset integrity mismatch: (memfs\.wasm|clang\.wasm|lld\.wasm|sysroot\.tar)/.test(result.error.message), result.error.message);
+  assertEquals(result.output, '');
+});
+
 test('M2: WebAssembly C compiles real headers, variadic functions and goto', async () => {
   const r = await wasmRun(`#include <stdio.h>
 #include <stdarg.h>
@@ -315,11 +337,44 @@ test('M2: WebAssembly preserves nonzero exits and traps', async () => {
   assertEquals(trap.error.stage, 'Runtime');
 });
 
-test('M2: WebAssembly termination preserves explicitly flushed stdout', async () => {
-  const r = await wasmRun('#include <stdio.h>\nint main(void) { printf("before"); fflush(stdout); for (;;) {} }', { timeLimitMs: 150 });
+test('M2: Clang sandbox stops an infinite loop at the 4-second wall-clock limit and preserves flushed stdout', async () => {
+  const r = await wasmRun('#include <stdio.h>\nint main(void) { printf("before"); fflush(stdout); for (;;) {} }');
   assert(r.killed);
-  assert(/Execution stopped/.test(r.error.message), r.error.message);
+  assert(/Execution stopped after 4000 ms/.test(r.error.message), r.error.message);
   assertEquals(r.output, 'before');
+}, { needs: 'dom' });
+
+test('M2: Clang sandbox manual kill terminates an infinite loop', async () => {
+  const { Sandbox } = await import('../src/runtime/sandbox.js');
+  const sandbox = new Sandbox({ backend: 'clang', timeLimitMs: 30000 });
+  let reachedRunning;
+  const running = new Promise((resolve) => { reachedRunning = resolve; });
+  const handle = sandbox.start('int main(void) { for (;;) {} }', {
+    onStatus: (status) => { if (status.phase === 'running') reachedRunning(); },
+  });
+  await running;
+  handle.kill();
+  const result = await handle.promise;
+  assert(result.killed);
+  assertEquals(result.error.stage, 'Sandbox');
+  assert(/terminated by the user/.test(result.error.message), result.error.message);
+}, { needs: 'dom' });
+
+test('M2: Clang sandbox enforces the program memory cap', async () => {
+  const { Sandbox } = await import('../src/runtime/sandbox.js');
+  const sandbox = new Sandbox({ backend: 'clang', timeLimitMs: 30000 });
+  const result = await sandbox.run(`#include <stdio.h>
+#include <stdlib.h>
+int main(void) {
+  char *block = malloc(64u * 1024u * 1024u);
+  if (!block) { puts("denied"); return 3; }
+  puts("allocated");
+  return 0;
+}`, { maxHeapBytes: 32 * 1024 * 1024 });
+  assert(!result.ok, 'a 64 MiB allocation must not succeed under a 32 MiB cap');
+  assertEquals(result.exitCode, 3);
+  assertEquals(result.output, 'denied\n');
+  assert(result.memoryBytes <= 32 * 1024 * 1024, `program memory grew to ${result.memoryBytes}`);
 }, { needs: 'dom' });
 
 test('M2: sandbox restart and stale kill handles cannot stop a later run', async () => {

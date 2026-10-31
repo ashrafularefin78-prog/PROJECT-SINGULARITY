@@ -1,7 +1,7 @@
 # Project Singularity
 
 [![Live demo](https://img.shields.io/badge/live_demo-GitHub_Pages-6ea8fe)](https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/)
-[![Tests](https://img.shields.io/badge/tests-382_across_28_suites-57d68d)](#verify-it)
+[![Tests](https://img.shields.io/badge/tests-385_across_28_suites-57d68d)](#verify-it)
 [![npm dependencies](https://img.shields.io/badge/npm_dependencies-0-b39ddb)](#technologies)
 [![License](https://img.shields.io/badge/license-MIT-8399b0)](LICENSE)
 
@@ -25,7 +25,7 @@ interpreter. There is no bundler or transpiler.
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
 | Repository signals | **0 stars · 0 forks · 40 commits · 1 author · 2 tagged releases (v0.1.0, v1.0.0)** (snapshot 21 Oct 2026; GitHub is the live source) |
-| Tests | **382 across 28 suites**, runnable in the browser from the site itself |
+| Tests | **385 across 28 suites**, runnable in the browser from the site itself |
 | Dependencies | **0 npm packages**; optional self-hosted WebAssembly C/C++ compiler and libraries |
 | Modules | 8 scored (3 full, 5 partial - each partial says exactly where it stops) plus M9 SINGU AI, unscored |
 | Case study | The M0 dashboard carries one engineering decision record per module: problem, decision, trade-off and measured evidence. |
@@ -130,9 +130,9 @@ build step, no test framework to install:
 http://127.0.0.1:5173/tests/browser.html
 ```
 
-**382 tests across 28 suites** (real compiler tests also load the local toolchain; unavailable capabilities are explicit skips). Each
+**385 tests across 28 suites** (real compiler tests also load the local toolchain; unavailable capabilities are explicit skips). Each
 suite also runs standalone from `tests/*.test.js`; `tests/run.js` is a Node
-runner for environments that have it (it reports those 25 as skips with a reason,
+runner for environments that have it (it reports those 29 as skips with a reason,
 not as failures). The browser is the authoritative runner - some tests need a
 real WebGL2 context, IndexedDB or RTCPeerConnection, none of which Node provides
 - and the same runner works headlessly against the deployed site:
@@ -148,7 +148,7 @@ npm run test:ui                                                  # real app work
 | `rga.test.js` | 26 | CRDT convergence, causality, idempotence, undo/redo replication, cursor-walk parity, tombstone collection, op-log trimming |
 | `history.test.js` | 9 | undo/redo history, op-log retention and snapshot compaction |
 | `crypto.test.js` | 18 | X3DH, Double Ratchet, signed-bundle enforcement, replay/tamper rejection, groups, file AEAD, passphrase-sealed keys |
-| `compiler.test.js` | 30 | interpreter and real C/C++ compilation, STL, stdin, extra files, diagnostics, runtime isolation, output limits and worker cancellation |
+| `compiler.test.js` | 33 | interpreter and real C/C++ compilation, STL, stdin, extra files, diagnostics, runtime isolation, output limits, wall-clock and manual kills, the 32 MiB memory cap, toolchain hash rejection and worker cancellation |
 | `lang.test.js` | 23 | the full language surface: ternary, switch, structs, casts, the malloc family, scanf, and the heap's failure modes |
 | `stdlib.test.js` | 51 | `<string.h>`, `<ctype.h>`, `<math.h>`, the preprocessor (`#define`, function-like macros, `__VA_ARGS__`), `typedef`, two-dimensional arrays, function pointers, unions, enums, prototypes, `sprintf`, `qsort`, `fgets` - including the fail-closed cases |
 | `storage.test.js` | 12 | IndexedDB reopen, causal history retention, empty documents, atomic history replacement, file frames and migrations |
@@ -174,9 +174,12 @@ npm run test:ui                                                  # real app work
 | `autopilot.test.js` | 13 | verification against acceptance tests, each justified repair, and honest stops for unsafe or unprovable code |
 | `explain.test.js` | 8 | AST walkthrough: entry point, loops, recursion, heap calls, globals, structs, prototypes and parse-error honesty |
 
-Number check: the 28 suites hold 382 tests. Browser eligibility: 375 tests; 7 Node-only checks are skipped.
-The Node runner reports **355 pass + 27 browser-only skips**. Capability skips cover
+Number check: the 28 suites hold 385 tests. Browser eligibility: 378 tests; 7 Node-only checks are skipped.
+The Node runner reports **356 pass + 29 browser-only skips**. Capability skips cover
 DOM, WebGL2, IndexedDB and OPFS; they are not passes. Both runners report failures explicitly.
+The Clang sandbox limit tests in `compiler.test.js` need a browser, so the
+headless-Chrome CI job is where the 4-second kill, manual kill, memory cap and
+toolchain hash refusal are exercised; bare Node reports them as skips.
 
 ## Technologies
 
@@ -297,7 +300,7 @@ src/security/policy.js  Trusted Types policy, safe DOM helper, rate limiter
 src/ui/hud.js           the deck: activity waveform, ticker, frame chrome, module dial
 sw.js                   service worker (offline shell, scope-relative)
 _headers                the header set for hosts that read a _headers file
-tests/                  browser test suite (28 suites, 382 tests, fuzzer included)
+tests/                  browser test suite (28 suites, 385 tests, fuzzer included)
 tools/serve.py          static server with the _headers policy, --prefix, --root
 tools/build-site.py     deploy build: SRI, worker cache bump, manifest
 tools/gen-soak-section.py  rewrites the soak section of LOAD_CHAOS.md from the JSON

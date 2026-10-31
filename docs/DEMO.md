@@ -163,7 +163,7 @@ assets, not a compilation service. Program source is not uploaded.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run. Browser eligibility: 375 tests; 7 Node-only checks are skipped.
+Open **/tests/browser.html** and let the suite run. Browser eligibility: 378 tests; 7 Node-only checks are skipped.
 Then name the remaining gaps: no independent crypto audit, no bundled TURN,
 no HDR specular prefilter, no VoiceOver/TalkBack validation and no 10,000-browser fleet.
 Internal red-team, NVDA, relay load/chaos and real Clang/WebAssembly evidence exist;
