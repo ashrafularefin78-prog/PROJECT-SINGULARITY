@@ -5,14 +5,18 @@
  *
  *   - a correct inverse bind matrix cancels the rest world transform
  *   - LINEAR translation reaches the midpoint exactly, STEP holds the last key
+ *   - CUBICSPLINE evaluates the glTF Hermite (span-scaled tangents) and
+ *     normalises interpolated rotations
+ *   - morph weight tracks sample LINEAR/STEP/CUBICSPLINE and validate against
+ *     the target count
  *   - quaternion channels slerp the shortest arc, not the long way round
  *   - a parent's rotation reaches its child's joint matrix
  *   - time loops over the clip duration
- *   - the unsupported parts of the spec (CUBICSPLINE, non-monotonic time) are
- *     refused instead of approximated
+ *   - the unsupported parts of the spec (unknown interpolation, non-monotonic
+ *     time) are refused instead of approximated
  */
 import { test, assert, assertEquals } from './harness.js';
-import { buildRig, composeTRS, sampleTrack } from '../src/graphics/skin.js';
+import { buildRig, composeTRS, sampleTrack, sampleWeightTrack, validateWeightTrack } from '../src/graphics/skin.js';
 import { transformPoint } from '../src/graphics/math.js';
 
 const near = (a, b, eps, msg) => assert(Math.abs(a - b) <= eps, `${msg}: ${a} vs ${b} (eps ${eps})`);
@@ -166,12 +170,109 @@ test('skin: composeTRS normalises rotation and applies scale before translation'
   near(point[2], 4, 1e-6, 'z translation');
 });
 
+test('skin: CUBICSPLINE applies the glTF Hermite with span-scaled tangents', () => {
+  // Two translation keys; each key is [inTangent, value, outTangent]. At
+  // t = 0.25 the Hermite basis gives 0.84375*p0 + 0.140625*span*m0 +
+  // 0.15625*p1 - 0.046875*span*m1. With p0 = 0, p1 = 4, m0 = m1 = 2 and
+  // span = 1 that is 0.8125, while LINEAR would say 1.0.
+  const cubic = {
+    node: 0,
+    path: 'translation',
+    interpolation: 'CUBICSPLINE',
+    times: new Float32Array([0, 1]),
+    values: new Float32Array([
+      0, 0, 0,   0, 0, 0,   2, 0, 0,
+      2, 0, 0,   4, 0, 0,   0, 0, 0,
+    ]),
+  };
+  const rig = buildRig({
+    nodes: [{ translation: [0, 0, 0] }],
+    skins: [{ joints: [0] }],
+    animations: [{ channels: [cubic] }],
+  });
+  assertEquals(rig.duration, 1);
+  near(translation(rig.pose(0.25)[0])[0], 0.8125, 1e-6, 'quarter key Hermite value');
+  near(translation(rig.pose(0.5)[0])[0], 2, 1e-6, 'midpoint with symmetric tangents');
+  near(translation(rig.pose(0)[0])[0], 0, 1e-6, 'first key returns its value, not its tangent');
+  near(sampleTrack(cubic, 1)[0], 4, 1e-6, 'last key returns its value');
+  // A duplicated call at the same time must hit the pose cache, not resample.
+  assert(rig.pose(0.25)[0] === rig.pose(0.25)[0], 'cubic pose is cached per time');
+});
+
+test('skin: CUBICSPLINE normalises interpolated rotations', () => {
+  const channel = {
+    path: 'rotation',
+    interpolation: 'CUBICSPLINE',
+    times: new Float32Array([0, 1]),
+    // Tangents and values chosen so the component-wise Hermite at t = 0.5 is
+    // (0, 0, 0.5, 1.5): length sqrt(2.5), so the result must be renormalised.
+    values: new Float32Array([
+      0, 0, 0, 0,   0, 0, 0, 1,   0, 0, 0, 0,
+      0, 0, 0, 0,   0, 0, 1, 2,   0, 0, 0, 0,
+    ]),
+  };
+  const q = sampleTrack(channel, 0.5);
+  near(Math.hypot(...q), 1, 1e-6, 'normalised quaternion');
+  near(q[2], 0.5 / Math.sqrt(2.5), 1e-6, 'direction preserved: z');
+  near(q[3], 1.5 / Math.sqrt(2.5), 1e-6, 'direction preserved: w');
+});
+
+test('skin: morph weight tracks support LINEAR, STEP and CUBICSPLINE', () => {
+  const linear = {
+    times: new Float32Array([0, 1]),
+    values: new Float32Array([0, 1, 1, 0]),
+  };
+  const a = sampleWeightTrack(linear, 2, 0.25);
+  near(a[0], 0.25, 1e-6, 'linear target 0');
+  near(a[1], 0.75, 1e-6, 'linear target 1');
+
+  const stepped = { ...linear, interpolation: 'STEP' };
+  near(sampleWeightTrack(stepped, 2, 0.75)[0], 0, 1e-6, 'STEP holds key 0');
+  near(sampleWeightTrack(stepped, 2, 1)[0], 1, 1e-6, 'STEP advances at key 1');
+
+  const cubic = {
+    times: new Float32Array([0, 1]),
+    interpolation: 'CUBICSPLINE',
+    // One target, two keys, each [inTangent, value, outTangent].
+    values: new Float32Array([0, 0, 2, 2, 4, 0]),
+  };
+  near(sampleWeightTrack(cubic, 1, 0.25)[0], 0.8125, 1e-6, 'cubic target 0 at a quarter');
+  near(sampleWeightTrack(cubic, 1, 0)[0], 0, 1e-6, 'cubic first key value');
+  near(sampleWeightTrack(cubic, 1, 1)[0], 4, 1e-6, 'cubic last key value');
+
+  validateWeightTrack(linear, 2);
+  validateWeightTrack(cubic, 1);
+  let message = '';
+  try { validateWeightTrack(linear, 3); } catch (error) { message = error.message; }
+  assert(/target and keyframe counts/.test(message), `wrong target count should be named: ${message}`);
+  message = '';
+  try { validateWeightTrack({ ...linear, times: new Float32Array([1, 0]) }, 2); } catch (error) { message = error.message; }
+  assert(/strictly increase/.test(message), `backwards keys should be named: ${message}`);
+  message = '';
+  try { validateWeightTrack(linear, 0); } catch (error) { message = error.message; }
+  assert(/at least one target/.test(message), `zero targets should be named: ${message}`);
+});
+
 test('skin: unsupported or malformed rigs are refused, not approximated', () => {
   const base = {
     nodes: [{ translation: [0, 0, 0] }],
     skins: [{ joints: [0] }],
   };
-  const cubic = () => buildRig({
+  const unknown = () => buildRig({
+    ...base,
+    animations: [{
+      channels: [{
+        node: 0, path: 'translation', interpolation: 'QUADRATIC',
+        times: new Float32Array([0, 1]),
+        values: new Float32Array([0, 0, 0, 1, 0, 0]),
+      }],
+    }],
+  });
+  let message = '';
+  try { unknown(); } catch (error) { message = error.message; }
+  assert(/QUADRATIC/.test(message), `unknown interpolation should be named: ${message}`);
+
+  const shortCubic = () => buildRig({
     ...base,
     animations: [{
       channels: [{
@@ -181,9 +282,9 @@ test('skin: unsupported or malformed rigs are refused, not approximated', () => 
       }],
     }],
   });
-  let message = '';
-  try { cubic(); } catch (error) { message = error.message; }
-  assert(/CUBICSPLINE/.test(message), `CUBICSPLINE should be named: ${message}`);
+  message = '';
+  try { shortCubic(); } catch (error) { message = error.message; }
+  assert(/keyframe count/.test(message), `short cubic output should be named: ${message}`);
 
   const backwards = () => buildRig({
     ...base,

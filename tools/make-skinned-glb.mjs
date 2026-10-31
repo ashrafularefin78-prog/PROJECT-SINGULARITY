@@ -7,6 +7,11 @@
  * between the two joint levels nearest its height. A six-second looping clip
  * rotates alternating joints about X and Z, so the totem bends in two axes.
  *
+ * The mesh also carries two morph targets - a radial pulse and a slow twist,
+ * each with matching normal deltas - mixed by a CUBICSPLINE weights track. The
+ * loader, rig sampler and renderer therefore exercise morph deltas, animated
+ * weights and cubic interpolation alongside the skeletal clip.
+ *
  * Everything is deterministic: fixed phases, fixed amplitudes, keys every
  * 0.25 s. Running this file twice writes the same bytes, which is why the
  * generated asset can be committed rather than built in the browser.
@@ -85,6 +90,52 @@ for (let s = 0; s < SIDES; s += 1) {
   indices.push(b, a, centre);
 }
 
+// ---------------------------------------------------------------- morph targets
+// Both targets peak at mid-height: a radial pulse driven by r + 0.16 sin(pi y /
+// DURATION), and a twist of 0.10 rad about Y. Deltas are per vertex; normal
+// deltas follow the analytic surface normal so shading tracks the deformation.
+const pulsePosition = new Float32Array(positions.length);
+const pulseNormal = new Float32Array(normals.length);
+const twistPosition = new Float32Array(positions.length);
+const twistNormal = new Float32Array(normals.length);
+
+for (let v = 0; v < positions.length / 3; v += 1) {
+  const at = v * 3;
+  const x = positions[at] - ORIGIN[0];
+  const y = positions[at + 1];
+  const z = positions[at + 2] - ORIGIN[2];
+  const radius = Math.hypot(x, z);
+  const bell = Math.sin((Math.PI * y) / DURATION);
+  const bellSlope = (Math.PI * Math.cos((Math.PI * y) / DURATION)) / DURATION;
+
+  if (radius > 1e-6) {
+    const cos = x / radius;
+    const sin = z / radius;
+    const bulge = 0.16 * bell;
+    const bulgeSlope = 0.16 * bellSlope;
+    pulsePosition[at] = cos * bulge;
+    pulsePosition[at + 2] = sin * bulge;
+    // Surface of revolution: N ~ (cos, -r'(y), sin), normalised before and
+    // after the pulse, so the delta is the shading change the bulge implies.
+    const baseSlope = slopeAt(y);
+    const baseLength = Math.hypot(cos, baseSlope, sin);
+    const nextLength = Math.hypot(cos, baseSlope + bulgeSlope, sin);
+    pulseNormal[at] = cos / nextLength - cos / baseLength;
+    pulseNormal[at + 1] = -(baseSlope + bulgeSlope) / nextLength + baseSlope / baseLength;
+    pulseNormal[at + 2] = sin / nextLength - sin / baseLength;
+  }
+
+  const twist = 0.10 * bell;
+  const cosTwist = Math.cos(twist);
+  const sinTwist = Math.sin(twist);
+  twistPosition[at] = x * cosTwist + z * sinTwist - x;
+  twistPosition[at + 2] = -x * sinTwist + z * cosTwist - z;
+  const nx = normals[at];
+  const nz = normals[at + 2];
+  twistNormal[at] = nx * cosTwist + nz * sinTwist - nx;
+  twistNormal[at + 2] = -nx * sinTwist + nz * cosTwist - nz;
+}
+
 // ---------------------------------------------------------------- animation
 const times = new Float32Array(KEYS);
 for (let k = 0; k < KEYS; k += 1) times[k] = (k * DURATION) / (KEYS - 1);
@@ -106,6 +157,18 @@ const rotations = AMPLITUDES.map((amplitude, joint) => {
   }
   return values;
 });
+
+// CUBICSPLINE weights track: target 0 swings 0..1, target 1 is its complement.
+// Each key packs in-tangents, values and out-tangents, two targets each, as the
+// glTF cubic-spline layout requires. The analytic derivative keeps the curve
+// smooth through every key.
+const morphWeightValues = new Float32Array(KEYS * 2 * 3);
+for (let k = 0; k < KEYS; k += 1) {
+  const angle = (TAU * times[k]) / DURATION;
+  const swing = Math.sin(angle);
+  const rate = (0.5 * TAU * Math.cos(angle)) / DURATION;
+  morphWeightValues.set([rate, -rate, 0.5 + 0.5 * swing, 0.5 - 0.5 * swing, rate, -rate], k * 6);
+}
 
 // ---------------------------------------------------------------- binary
 const chunks = [];
@@ -136,6 +199,11 @@ const normalView = addView(normalArray);
 const jointView = addView(jointArray);
 const weightView = addView(weightArray);
 const indexView = addView(indexArray);
+const pulsePositionView = addView(pulsePosition);
+const pulseNormalView = addView(pulseNormal);
+const twistPositionView = addView(twistPosition);
+const twistNormalView = addView(twistNormal);
+const morphWeightView = addView(morphWeightValues);
 
 // Inverse bind matrices: joints sit at ORIGIN + (0, j, 0) at rest, so the
 // inverse is a pure translation.
@@ -165,6 +233,22 @@ const normalAccessor = accessor(normalView, 'VEC3', normalArray.length / 3, 5126
 const jointAccessor = accessor(jointView, 'VEC4', jointArray.length / 4, 5123);
 const weightAccessor = accessor(weightView, 'VEC4', weightArray.length / 4, 5126);
 const indexAccessor = accessor(indexView, 'SCALAR', indexArray.length, 5123);
+const extent = (array) => {
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < array.length; i += 3) {
+    for (let c = 0; c < 3; c += 1) {
+      if (array[i + c] < min[c]) min[c] = array[i + c];
+      if (array[i + c] > max[c]) max[c] = array[i + c];
+    }
+  }
+  return { min, max };
+};
+const pulsePositionAccessor = accessor(pulsePositionView, 'VEC3', pulsePosition.length / 3, 5126, extent(pulsePosition));
+const pulseNormalAccessor = accessor(pulseNormalView, 'VEC3', pulseNormal.length / 3, 5126);
+const twistPositionAccessor = accessor(twistPositionView, 'VEC3', twistPosition.length / 3, 5126, extent(twistPosition));
+const twistNormalAccessor = accessor(twistNormalView, 'VEC3', twistNormal.length / 3, 5126);
+const morphWeightAccessor = accessor(morphWeightView, 'SCALAR', morphWeightValues.length, 5126);
 const inverseBindAccessor = accessor(inverseBindView, 'MAT4', JOINTS, 5126);
 const timeAccessor = accessor(timeView, 'SCALAR', KEYS, 5126);
 const rotationAccessors = rotationViews.map((view) => accessor(view, 'VEC4', KEYS, 5126));
@@ -176,7 +260,7 @@ const nodes = [
     translation: [0, 1, 0],
     ...(i < JOINTS - 2 ? { children: [i + 2] } : {}),
   })),
-  { name: 'totem', mesh: 0, skin: 0 },
+  { name: 'totem', mesh: 0, skin: 0, weights: [0.5, 0.5] },
 ];
 
 const gltf = {
@@ -196,20 +280,30 @@ const gltf = {
       indices: indexAccessor,
       material: 0,
       mode: 4,
+      targets: [
+        { POSITION: pulsePositionAccessor, NORMAL: pulseNormalAccessor },
+        { POSITION: twistPositionAccessor, NORMAL: twistNormalAccessor },
+      ],
     }],
   }],
   skins: [{ joints: Array.from({ length: JOINTS }, (_, i) => i), inverseBindMatrices: inverseBindAccessor, skeleton: 0 }],
   animations: [{
     name: 'totem-sway',
-    samplers: rotations.map((_, j) => ({
-      input: timeAccessor,
-      output: rotationAccessors[j],
-      interpolation: 'LINEAR',
-    })),
-    channels: rotations.map((_, j) => ({
-      sampler: j,
-      target: { node: j, path: 'rotation' },
-    })),
+    samplers: [
+      ...rotations.map((_, j) => ({
+        input: timeAccessor,
+        output: rotationAccessors[j],
+        interpolation: 'LINEAR',
+      })),
+      { input: timeAccessor, output: morphWeightAccessor, interpolation: 'CUBICSPLINE' },
+    ],
+    channels: [
+      ...rotations.map((_, j) => ({
+        sampler: j,
+        target: { node: j, path: 'rotation' },
+      })),
+      { sampler: rotations.length, target: { node: JOINTS, path: 'weights' } },
+    ],
   }],
   materials: [{
     name: 'totem-alloy',
@@ -254,4 +348,4 @@ out.set(bin, binHeader + 8);
 
 mkdirSync(dirname(outPath), { recursive: true });
 writeFileSync(outPath, out);
-console.log(`wrote ${outPath} (${out.byteLength} bytes, ${positionArray.length / 3} vertices, ${indexArray.length / 3} triangles, ${JOINTS} joints)`);
+console.log(`wrote ${outPath} (${out.byteLength} bytes, ${positionArray.length / 3} vertices, ${indexArray.length / 3} triangles, ${JOINTS} joints, 2 morph targets, ${KEYS} CUBICSPLINE weight keys)`);

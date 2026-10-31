@@ -237,15 +237,24 @@ test('M3: the shipped skinned GLB draws through the bone-texture pipeline withou
   assertEquals(summary.skinned, 1);
   assertEquals(summary.joints, 7);
   assertEquals(summary.animation, 6);
+  assertEquals(summary.morphTargets, 2, 'the totem file carries two morph targets');
+  assertEquals(summary.animatedMorphs, 1, 'a weights track animates them');
+  assertEquals(renderer.info().morphTargets, 2);
   assert(/skinning/.test(renderer.info().skinning), renderer.info().skinning);
   renderer.frame(0);
+  assert(Math.abs(renderer.model.meshes[0].morphWeights[0] - 0.5) < 1e-4, 'the clip starts at the file defaults');
   renderer.frame(1500);
+  assert(Math.abs(renderer.model.meshes[0].morphWeights[0] - 1) < 1e-3, 'the CUBICSPLINE weights track reaches full at 1.5 s');
+  assert(Math.abs(renderer.model.meshes[0].morphWeights[1]) < 1e-3, 'the complementary target empties at 1.5 s');
   assertEquals(renderer.gl.getError(), renderer.gl.NO_ERROR,
-    'skinned colour and depth passes must compile and draw clean: joint attributes 4/5, bone texture unit 6');
+    'skinned + morphed colour and depth passes must compile and draw clean: joint attributes 4/5, morph attributes 6-13, bone texture unit 6, BRDF LUT unit 7');
   const stats = renderer.stats();
   assertEquals(stats.modelSkinned, 1);
   assertEquals(stats.modelJoints, 7);
+  assertEquals(stats.modelMorphs, 2);
+  assertEquals(stats.animatedMorphs, 1);
   assert(/skinned primitive/.test(renderer.describeScene().objects.at(-1).detail), 'the accessible description names the skin');
+  assert(/morph target/.test(renderer.describeScene().objects.at(-1).detail), 'the accessible description names the morphs');
   renderer.detachModel();
   renderer.frame(3000);
   assertEquals(renderer.stats().modelSkinned, 0, 'detachModel released the bone texture');
@@ -360,7 +369,7 @@ function trackedGL() {
     'bindTexture', 'texParameteri', 'generateMipmap', 'bindFramebuffer', 'framebufferTexture2D',
     'enable', 'cullFace', 'disable', 'drawElements', 'drawArrays', 'drawElementsInstanced',
     'viewport', 'clear', 'clearColor', 'depthMask', 'blendFunc', 'activeTexture',
-    'uniformMatrix4fv', 'uniform1f', 'uniform3fv', 'uniform4fv']) gl[name] = () => {};
+    'uniformMatrix4fv', 'uniform1f', 'uniform1fv', 'uniform3fv', 'uniform4fv']) gl[name] = () => {};
   let constant = 100;
   const context = new Proxy(gl, {
     get(target, name) {
@@ -453,7 +462,7 @@ test('M3: dispose accounts for all renderer resources and stops animation idempo
     renderer.attachModel([syntheticMesh(true)]);
     await Promise.resolve();
     assertEquals(closed, 2, 'both decoded bitmaps closed');
-    assertEquals(resources.live.get('Texture').size, 6, 'environment, shadow and two model textures');
+    assertEquals(resources.live.get('Texture').size, 7, 'environment, BRDF LUT, shadow and two model textures');
     assert(renderer.groundVbo && renderer.particleVbo, 'ground and particle buffer handles retained');
     assertEquals(resources.live.get('Buffer').size, 10);
     assertEquals(resources.live.get('VertexArray').size, 4);
@@ -488,21 +497,21 @@ test('M3: a measured probe rebuilds both environment cubes and the procedural re
   const resources = trackedGL();
   const renderer = trackedRenderer(resources, true);
   try {
-    assertEquals(resources.gl.texImageCalls, 44,
-      'init uploads six irradiance faces, six GGX levels x six faces, one noise texture and the shadow depth map');
+    assertEquals(resources.gl.texImageCalls, 45,
+      'init uploads six irradiance faces, six GGX levels x six faces, one noise texture, the BRDF LUT and the shadow depth map');
     assert(renderer.info().environment.startsWith('procedural sky'), 'info names the procedural sky');
     assertEquals(renderer.env.specularChain.length, 6, 'the specular chain carries six roughness levels');
 
     const constant = () => [0.2, 0.4, 0.6];
     const applied = renderer.applyProbeLighting(new Float32Array(27), constant);
     assertEquals(applied, true, 'a live renderer applies the probe');
-    assertEquals(resources.gl.texImageCalls, 86,
+    assertEquals(resources.gl.texImageCalls, 87,
       'the probe re-uploads six diffuse faces and the full 36-face specular chain');
     assert(renderer.info().environment.startsWith('measured HDR probe'), 'info reports the measured probe');
 
     const reset = renderer.resetProceduralEnvironment();
     assertEquals(reset, true, 'the reset rebuilds from the procedural sky');
-    assertEquals(resources.gl.texImageCalls, 128, 'the reset re-uploads both cubes again');
+    assertEquals(resources.gl.texImageCalls, 129, 'the reset re-uploads both cubes again');
     assert(renderer.info().environment.startsWith('procedural sky'), 'info reports the procedural sky again');
     assertEquals(renderer.gl.getError(), renderer.gl.NO_ERROR, 'no GL errors along the path');
   } finally {
@@ -561,8 +570,42 @@ test('M3: a skinned mesh gets a bone texture and uploads a pose every frame', ()
   assertEquals(resources.total(), 0, 'the bone texture is released with the model');
 });
 
-test('M3: a bone texture that fails to allocate rolls back the whole attachment', () => {
+test('M3: a morph-target mesh keeps padded weights and samples its track per frame', () => {
   const resources = trackedGL();
+  const renderer = trackedRenderer(resources, true);
+  const mesh = {
+    ...syntheticMesh(),
+    morphTargets: [
+      { positions: new Float32Array([1, 0, 0, 0, 0, 0, 0, 0, 0]), normals: null },
+      { positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 0, 0]), normals: null },
+    ],
+    morphWeights: new Float32Array([0.25, 0.5]),
+    morphAnimation: {
+      duration: 2,
+      sample(seconds) {
+        const t = ((seconds % 2) + 2) % 2;
+        return new Float32Array([t, 1 - t]);
+      },
+    },
+  };
+  try {
+    const before = resources.gl.texImageCalls;
+    const summary = renderer.attachModel([mesh]);
+    assertEquals(summary.morphTargets, 2, 'two targets reported');
+    assertEquals(summary.animatedMorphs, 1, 'one animated primitive');
+    const record = renderer.model.meshes[0];
+    assertEquals(Array.from(record.morphWeights).join(','), '0.25,0.5,0,0', 'weights padded to the uniform array');
+    assertEquals(resources.gl.texImageCalls, before, 'morph deltas upload as buffers, not textures');
+    renderer.frame(500); // half a second
+    assertEquals(Array.from(record.morphWeights).join(','), '0.5,0.5,0,0', 'weights sampled for the frame');
+    assertEquals(renderer.info().morphTargets, 2, 'info reports the target count');
+  } finally {
+    renderer.dispose();
+  }
+  assertEquals(resources.total(), 0, 'morph attribute buffers are released with the model');
+});
+
+test('M3: a bone texture that fails to allocate rolls back the whole attachment', () => {  const resources = trackedGL();
   const renderer = trackedRenderer(resources, true);
   const rig = { duration: 0, pose: () => [new Float32Array(16)] };
   const mesh = {

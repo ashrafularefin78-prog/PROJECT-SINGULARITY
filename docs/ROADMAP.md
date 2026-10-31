@@ -21,16 +21,17 @@ decorative.
 
 ## 1. Where the project stands
 
-- 8 modules, 3 full and 5 declared partial; self-assessed 791/1000.
-- 403 tests across 30 suites (373 pass + 30 browser-only skips in bare Node).
+- 8 modules, 3 full and 5 declared partial; self-assessed 794/1000.
+- 416 tests across 31 suites (386 pass + 30 browser-only skips in bare Node).
 - Canonical deployment: <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/>.
 - The remaining module gaps are named: no third-party red-team and no
   header-capable deployment (M8), no VoiceOver/TalkBack pass yet (the NVDA pass
   is recorded, M7), no bundled TURN relay for symmetric NAT (M5), and no WebGPU
-  backend (M3; the HDRI probe, GGX specular prefilter chain and GPU skeletal
-  animation are shipped, and WebGPU is a declared non-goal in NON_GOALS.md).
-- Morph targets and CUBICSPLINE animation are refused by the loader, not
-  half-implemented.
+  backend (M3; the HDRI probe, GGX specular prefilter chain with the split-sum
+  BRDF LUT, GPU skeletal animation and morph targets with cubic weights are
+  shipped, and WebGPU is a declared non-goal in NON_GOALS.md).
+- TANGENT/UV morph deltas, more than four targets per primitive and non-joint
+  node animation are refused by the loader by name, not half-implemented.
 
 ## 2. Horizon 1 - temporal core (shipped in this pass)
 

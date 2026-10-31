@@ -10,8 +10,8 @@
  *
  *   1. compose each node's local TRS (or static matrix) into a column-major
  *      world matrix, parent before child;
- *   2. evaluate glTF animation channels at a time - LINEAR (lerp, slerp) and
- *      STEP are supported, CUBICSPLINE is refused rather than approximated;
+ *   2. evaluate glTF animation channels at a time - LINEAR (lerp, slerp),
+ *      STEP and CUBICSPLINE (Hermite, normalised for rotations) are supported;
  *   3. multiply each joint's animated world by its inverse bind.
  *
  * Time loops over the clip duration. A rig with no animation still poses its
@@ -81,19 +81,106 @@ function slerp(a, b, t) {
 }
 
 /**
+ * Sample a glTF `weights` channel (one scalar per morph target per keyframe).
+ * The output accessor is SCALAR: `times.length * targetCount` values for
+ * LINEAR/STEP, or three times that for CUBICSPLINE (in-tangent, value,
+ * out-tangent per target per key).
+ */
+export function sampleWeightTrack(channel, targetCount, time) {
+  const { times, values, interpolation = 'LINEAR' } = channel;
+  const cubic = interpolation === 'CUBICSPLINE';
+  const stride = cubic ? targetCount * 3 : targetCount;
+  const offset = cubic ? targetCount : 0;
+  const count = times.length;
+  const out = new Float32Array(targetCount);
+  const at = (base, add) => {
+    for (let i = 0; i < targetCount; i += 1) out[i] = values[base + add + i];
+    return out;
+  };
+  if (count === 1 || time <= times[0]) return at(offset, 0);
+  if (time >= times[count - 1]) return at((count - 1) * stride + offset, 0);
+  let lo = 0;
+  let hi = count - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid] <= time) lo = mid;
+    else hi = mid;
+  }
+  const start = lo * stride + offset;
+  const end = hi * stride + offset;
+  if (interpolation === 'STEP') return at(start, 0);
+  const span = times[hi] - times[lo];
+  const t = span > 0 ? (time - times[lo]) / span : 0;
+  if (cubic) {
+    for (let i = 0; i < targetCount; i += 1) {
+      out[i] = cubicSpline(
+        values[start + i],
+        values[start + targetCount + i],
+        values[end + i],
+        values[end - targetCount + i],
+        t,
+        span,
+      );
+    }
+    return out;
+  }
+  for (let i = 0; i < targetCount; i += 1) {
+    const a = values[start + i];
+    out[i] = a + (values[end + i] - a) * t;
+  }
+  return out;
+}
+
+/** Validate a weights channel once the target count is known. */
+export function validateWeightTrack(channel, targetCount) {
+  if (!Number.isSafeInteger(targetCount) || targetCount < 1) {
+    throw new Error('glTF morph: a weights channel needs at least one target');
+  }
+  if (!(channel.times instanceof Float32Array) || !(channel.values instanceof Float32Array)) {
+    throw new Error('glTF morph: weights input and output must be float accessors');
+  }
+  if (!channel.times.length) throw new Error('glTF morph: weights sampler has no keyframes');
+  for (let i = 1; i < channel.times.length; i += 1) {
+    if (!(channel.times[i] > channel.times[i - 1])) {
+      throw new Error('glTF morph: weights keyframe times must strictly increase');
+    }
+  }
+  const stride = channel.interpolation === 'CUBICSPLINE' ? targetCount * 3 : targetCount;
+  if (channel.values.length !== channel.times.length * stride) {
+    throw new Error('glTF morph: weights output does not match its target and keyframe counts');
+  }
+  return channel;
+}
+
+/** Hermite basis for glTF CUBICSPLINE. Tangents are stored per second. */
+function cubicSpline(p0, m0, p1, m1, t, span) {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  return (2 * t3 - 3 * t2 + 1) * p0
+    + (t3 - 2 * t2 + t) * span * m0
+    + (-2 * t3 + 3 * t2) * p1
+    + (t3 - t2) * span * m1;
+}
+
+/**
  * Sample one channel at `time` (already wrapped into the clip).
- * Values are packed `times.length * components`; returns an array of
- * `components` numbers (rotation channels slerp, everything else lerps).
+ * Values are packed `times.length * components` for LINEAR and STEP, and
+ * `times.length * components * 3` (in-tangent, value, out-tangent per key)
+ * for CUBICSPLINE. Rotation channels slerp under LINEAR and use a normalised
+ * component-wise Hermite under CUBICSPLINE, as the glTF spec requires.
  */
 export function sampleTrack(channel, time) {
   const { times, values, path, interpolation = 'LINEAR' } = channel;
   const components = path === 'rotation' ? 4 : 3;
+  const cubic = interpolation === 'CUBICSPLINE';
+  const stride = cubic ? components * 3 : components;
+  const valueOffset = cubic ? components : 0;
   const count = times.length;
   if (count === 1 || time <= times[0]) {
-    return Array.from(values.subarray(0, components));
+    return Array.from(values.subarray(valueOffset, valueOffset + components));
   }
   if (time >= times[count - 1]) {
-    const start = (count - 1) * components;
+    const start = (count - 1) * stride + valueOffset;
     return Array.from(values.subarray(start, start + components));
   }
   // Binary search for the first key strictly after `time`.
@@ -104,13 +191,31 @@ export function sampleTrack(channel, time) {
     if (times[mid] <= time) lo = mid;
     else hi = mid;
   }
-  const start = lo * components;
-  const end = hi * components;
+  const start = lo * stride + valueOffset;
+  const end = hi * stride + valueOffset;
   if (interpolation === 'STEP') {
     return Array.from(values.subarray(start, start + components));
   }
   const span = times[hi] - times[lo];
   const t = span > 0 ? (time - times[lo]) / span : 0;
+  if (cubic) {
+    const out = new Array(components);
+    for (let i = 0; i < components; i += 1) {
+      out[i] = cubicSpline(
+        values[start + i],
+        values[start + components + i],
+        values[end + i],
+        values[end - components + i],
+        t,
+        span,
+      );
+    }
+    if (path === 'rotation') {
+      const length = Math.hypot(...out) || 1;
+      for (let i = 0; i < 4; i += 1) out[i] /= length;
+    }
+    return out;
+  }
   if (path === 'rotation') {
     return slerp(
       values.subarray(start, start + 4),
@@ -133,10 +238,8 @@ function validateChannel(channel, nodeCount) {
   if (!['translation', 'rotation', 'scale'].includes(channel.path)) {
     throw new Error(`glTF skin: unsupported animation path '${channel.path}'`);
   }
-  if (channel.interpolation === 'CUBICSPLINE') {
-    throw new Error('glTF skin: CUBICSPLINE animation interpolation is not supported');
-  }
-  if (channel.interpolation !== undefined && !['LINEAR', 'STEP'].includes(channel.interpolation)) {
+  if (channel.interpolation !== undefined
+      && !['LINEAR', 'STEP', 'CUBICSPLINE'].includes(channel.interpolation)) {
     throw new Error(`glTF skin: unknown animation interpolation '${channel.interpolation}'`);
   }
   const { times, values, path } = channel;
@@ -145,7 +248,8 @@ function validateChannel(channel, nodeCount) {
   }
   if (times.length < 1) throw new Error('glTF skin: animation sampler has no keyframes');
   const components = path === 'rotation' ? 4 : 3;
-  if (values.length !== times.length * components) {
+  const stride = channel.interpolation === 'CUBICSPLINE' ? components * 3 : components;
+  if (values.length !== times.length * stride) {
     throw new Error(`glTF skin: ${path} output does not match its keyframe count`);
   }
   for (let i = 1; i < times.length; i += 1) {

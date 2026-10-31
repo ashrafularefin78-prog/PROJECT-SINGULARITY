@@ -20,6 +20,7 @@ const SUITES = [
   './skin.test.js',
   './hdr.test.js',
   './env.test.js',
+  './brdf.test.js',
   './fuzz.test.js',
   './motion.test.js',
   './substrate.test.js',

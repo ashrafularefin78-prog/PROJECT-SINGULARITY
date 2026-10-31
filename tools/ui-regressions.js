@@ -955,6 +955,24 @@ test('engine enter/leave disposes GPU ownership, rAF and timers repeatedly', 'ed
     assert.equal(availability.drawing, true, 'Real engine startup failed: ' + JSON.stringify(availability));
     const model = await s.waitFor("(() => { const r=window.__uiRegression.renderers.at(-1); const text=document.querySelector('#main').textContent; return text.includes('sample model failed to load:') ? {error:text.slice(-1600)} : r.instance.model ? {loaded:true} : false; })()", { timeoutMs: 60000 });
     assert.equal(model.loaded, true, 'Bundled glTF must actually load: ' + JSON.stringify(model));
+    // The shipped totem's morph targets must reach every surface a person reads,
+    // not just the loader: stat card, HUD, scene description and status sentence.
+    const morph = await s.waitFor(`(() => {
+      const panel = document.querySelector('#panel-engine');
+      if (!panel) return false;
+      const card = [...panel.querySelectorAll('.stat')].map(c => c.textContent)
+        .find(text => text.includes('Morph targets'));
+      const detail = [...panel.querySelectorAll('#scene-alt li')].map(li => li.textContent)
+        .find(text => text.startsWith('glTF model'));
+      const overlay = panel.querySelector('.canvas-overlay')?.textContent || '';
+      const status = [...panel.querySelectorAll('p')].map(p => p.textContent)
+        .find(text => text.startsWith('sample models:') && !text.includes('waiting')) || '';
+      if (!card || !detail || !status.includes('Its 2 morph targets are mixed by an animated weights track before skinning.')) return false;
+      return { card, detail, overlay, status };
+    })()`, { timeoutMs: 30000 });
+    assert.equal(morph.card, '2Morph targets1 animated by a weights track', 'The stat card must count the totem’s morph targets');
+    assert.match(morph.detail, /2 morph targets animated from a weights track, blended before skinning/);
+    assert.match(morph.overlay, /2 morph targets$/);
     const active = await s.evaluate('({timers:window.__uiRegression.intervals.size, gpu:window.__uiRegression.gpu.get(window.__uiRegression.renderers.at(-1).gl)?.size || 0})');
     assert.equal(active.timers, baseline + 2, 'Exactly two engine telemetry timers should be owned');
     assert.ok(active.gpu > 0, 'The real engine must allocate and draw, not take a fallback path');

@@ -1,4 +1,5 @@
 import { MemFS, WasmProcess, unpackSysroot } from './wasm-host.js';
+import { explainBackendFailure, installSysrootOverlay } from './sysroot-overlay.js';
 
 const encoder = new TextEncoder();
 const STANDARDS = {
@@ -90,6 +91,7 @@ export async function compileAndRun(source, options = {}) {
     ]);
     const fs = await MemFS.create(fsModule, write);
     unpackSysroot(sysroot, fs);
+    installSysrootOverlay(fs);
     fs.addDirectory('project');
     const entry = project.language === 'cpp' ? 'main.cpp' : 'main.c';
     const files = { [entry]: source, ...project.files };
@@ -110,7 +112,10 @@ export async function compileAndRun(source, options = {}) {
           '-I', '/project', '-ferror-limit', '10', '-fno-color-diagnostics', '-O0', `-std=${standard}`, '-x', language,
           '-o', obj, `project/${name}`],
       });
-      if (process.run() !== 0) return { ok: false, output, diagnostics, error: compileDiagnostic(diagnostics, stage) };
+      if (process.run() !== 0) {
+        const backend = explainBackendFailure(diagnostics, files);
+        return { ok: false, output, diagnostics, error: backend ?? compileDiagnostic(diagnostics, stage) };
+      }
       objects.push(obj);
     }
     stage = 'Link';

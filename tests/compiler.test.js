@@ -337,6 +337,79 @@ test('M2: WebAssembly preserves nonzero exits and traps', async () => {
   assertEquals(trap.error.stage, 'Runtime');
 });
 
+test('M2: C11 <stdatomic.h> overlay runs atomic loads, RMW, exchange and flags', async () => {
+  const r = await wasmRun(String.raw`#include <stdatomic.h>
+#include <stdio.h>
+int main(void) {
+  atomic_int count = ATOMIC_VAR_INIT(0);
+  atomic_fetch_add(&count, 3);
+  atomic_fetch_add_explicit(&count, 4, memory_order_relaxed);
+  int expected = 7;
+  int saw = atomic_load(&count);
+  if (!atomic_compare_exchange_strong(&count, &expected, 9)) return 1;
+  if (atomic_exchange(&count, saw) != 9) return 2;
+  atomic_store(&count, 7);
+  atomic_flag flag = ATOMIC_FLAG_INIT;
+  if (atomic_flag_test_and_set(&flag) != 0) return 3;
+  if (atomic_flag_test_and_set(&flag) != 1) return 4;
+  atomic_flag_clear_explicit(&flag, memory_order_release);
+  if (atomic_flag_test_and_set(&flag) != 0) return 5;
+  atomic_thread_fence(memory_order_seq_cst);
+  printf("%d %d %d %d\n", count, saw, (int)atomic_is_lock_free(&count), atomic_load_explicit(&count, memory_order_acquire));
+  return 0;
+}`, { standard: 'c11' });
+  assert(r.ok, r.error?.message);
+  assertEquals(r.output, '7 7 1 7\n');
+});
+
+test('M2: constructs the WASI backend cannot code-generate fail with a named diagnostic', async () => {
+  const direct = await wasmRun(String.raw`int main(void) {
+  _Atomic int counter = 0;
+  counter = counter + 1;
+  return counter;
+}`);
+  assert(!direct.ok);
+  assertEquals(direct.error.stage, 'Compile');
+  assertEquals(direct.error.file, 'main.c');
+  assertEquals(direct.error.line, 2);
+  assertEquals(direct.error.col, 3);
+  assert(/no atomics feature/.test(direct.error.message), direct.error.message);
+  assert(/stdatomic\.h/.test(direct.error.message), direct.error.message);
+  assert(!/Cannot select/.test(direct.error.message), 'an LLVM selector dump is not a diagnostic');
+
+  const cpp = await wasmRun(String.raw`#include <atomic>
+int main() {
+  std::atomic<int> value{0};
+  value.fetch_add(2);
+  return value.load();
+}`, { language: 'cpp', standard: 'c++17' });
+  assert(!cpp.ok);
+  assertEquals(cpp.error.stage, 'Compile');
+  assertEquals(cpp.error.file, 'main.cpp');
+  assertEquals(cpp.error.line, 3);
+  assert(/std::atomic/.test(cpp.error.message), cpp.error.message);
+
+  const { explainBackendFailure } = await import('../src/runtime/sysroot-overlay.js');
+  const masked = explainBackendFailure('fatal error: error in backend: Cannot select: 0x1', {
+    'helper.h': '// __sync_fetch_and_add in a comment\nconst char *label = "__atomic_load";\nint gnu(int *p) { return __sync_fetch_and_add(p, 1); }\n',
+  });
+  assertEquals(masked.stage, 'Compile');
+  assertEquals(masked.file, 'helper.h');
+  assertEquals(masked.line, 3);
+  assertEquals(masked.col, 26);
+  assert(/__sync_\*/.test(masked.message), masked.message);
+  assertEquals(explainBackendFailure('project/main.c:2:3: error: expected expression', { 'main.c': '' }), null);
+});
+
+test('M2: C++ exceptions are refused by the frontend with a named diagnostic', async () => {
+  const thrown = await wasmRun('int main() {\n  try { throw 7; } catch (int error) { return error; }\n  return 0;\n}',
+    { language: 'cpp', standard: 'c++17' });
+  assert(!thrown.ok);
+  assertEquals(thrown.error.stage, 'Compile');
+  assertEquals(thrown.error.line, 2);
+  assert(/cannot use 'throw' with exceptions disabled/.test(thrown.error.message), thrown.error.message);
+});
+
 test('M2: Clang sandbox stops an infinite loop at the 4-second wall-clock limit and preserves flushed stdout', async () => {
   const r = await wasmRun('#include <stdio.h>\nint main(void) { printf("before"); fflush(stdout); for (;;) {} }');
   assert(r.killed);

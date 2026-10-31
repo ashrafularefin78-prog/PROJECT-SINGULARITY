@@ -29,12 +29,17 @@
  *        (float or normalised u8/u16), with per-vertex weights renormalised and
  *        a zero-weight vertex falling back to its first joint
  *   ✓  Animation clips: translation / rotation / scale channels, LINEAR
- *        (lerp + shortest-arc slerp) and STEP, evaluated by src/graphics/skin.js;
- *        a skinned primitive ignores its node's transform, as glTF specifies
+ *        (lerp + shortest-arc slerp), STEP and CUBICSPLINE (Hermite),
+ *        evaluated by src/graphics/skin.js; a skinned primitive ignores its
+ *        node's transform, as glTF specifies
+ *   ✓  Morph targets: up to four position/normal targets per primitive, with
+ *        file-default weights and animated weight channels (glTF `weights`
+ *        path), sampled by the same interpolators as the joint clips
  *
  * Not implemented (declared gap, not a stub):
- *   - Morph targets
- *   - CUBICSPLINE animation interpolation (refused with a named error)
+ *   - Morph deltas other than POSITION/NORMAL (TANGENT, TEXCOORD_0 and any
+ *     other target attribute are refused by name) and more than four targets
+ *     per primitive
  *   - Camera / light nodes, non-joint node animation
  *   - Non-triangle primitive modes (points, lines)
  *   - Sparse accessors, KTX2/Basis compressed textures, extensions
@@ -55,6 +60,9 @@
  *     joints:    Float32Array,  // 4 joint indices per vertex, or absent
  *     weights:   Float32Array,  // 4 normalised weights per vertex, or absent
  *     skeleton:  { rig, skinIndex, jointCount, duration },  // or absent
+ *     morphTargets: [{positions, normals}],  // position/normal deltas, or absent
+ *     morphWeights: Float32Array,           // one weight per target
+ *     morphAnimation: {duration, sample(seconds)->Float32Array},  // or absent
  *     material: {
  *       baseColor:  [r, g, b, a],   // 0..1
  *       metallic:   number,         // 0..1
@@ -67,7 +75,10 @@
  * ; in sampler = { wrapS, wrapT, magFilter, minFilter }, the glTF enum values.
  */
 
-import { buildRig, composeTRS } from './skin.js';
+import { buildRig, composeTRS, sampleWeightTrack, validateWeightTrack } from './skin.js';
+
+/** Vertex attribute budget: 6 core attributes leave room for four targets. */
+export const MAX_MORPH_TARGETS = 4;
 
 // ------------------------------------------------------------------ helpers
 
@@ -628,7 +639,8 @@ export async function loadGltf(source, isGlb = false) {
   });
 
   const parsedAnimations = [];
-  if (parsedSkins.length && gltf.animations !== undefined) {
+  const weightTracks = new Map(); // node index -> the last weights channel
+  if (gltf.animations !== undefined) {
     if (!Array.isArray(gltf.animations)) throw new Error('glTF: invalid animations');
     for (let ai = 0; ai < gltf.animations.length; ai += 1) {
       const animation = reference(gltf.animations, ai, 'animation');
@@ -638,7 +650,7 @@ export async function loadGltf(source, isGlb = false) {
         const path = target?.path;
         const components = path === 'rotation' ? 4
           : path === 'translation' || path === 'scale' ? 3 : 0;
-        if (!components) {
+        if (!components && path !== 'weights') {
           throw new Error(`glTF animation ${ai} channel ${ci}: unsupported target path '${path}'`);
         }
         if (!Number.isSafeInteger(target.node)) {
@@ -646,13 +658,29 @@ export async function loadGltf(source, isGlb = false) {
         }
         const sampler = reference(animation.samplers, channel.sampler, 'animation sampler');
         const interpolation = sampler.interpolation ?? 'LINEAR';
-        if (interpolation === 'CUBICSPLINE') {
-          throw new Error('glTF skin: CUBICSPLINE animation interpolation is not supported');
+        if (!['LINEAR', 'STEP', 'CUBICSPLINE'].includes(interpolation)) {
+          throw new Error(`glTF animation ${ai} channel ${ci}: unknown interpolation '${interpolation}'`);
         }
         const input = reference(gltf.accessors, sampler.input, 'animation input');
         const output = reference(gltf.accessors, sampler.output, 'animation output');
         if (input.type !== 'SCALAR' || input.componentType !== 5126 || input.normalized) {
           throw new Error('glTF skin: animation input must be an unnormalised float SCALAR accessor');
+        }
+        const times = new Float32Array(readAccessor(gltf, buffers, sampler.input));
+        for (let k = 1; k < times.length; k += 1) {
+          if (!(times[k] > times[k - 1])) {
+            throw new Error('glTF skin: animation keyframe times must strictly increase');
+          }
+        }
+        const values = new Float32Array(readAccessor(gltf, buffers, sampler.output));
+        if (path === 'weights') {
+          // Target count is only known once the node's mesh is parsed, so the
+          // output length is checked when the primitive attaches this track.
+          if (output.type !== 'SCALAR' || output.componentType !== 5126 || output.normalized) {
+            throw new Error('glTF morph: weights output must be an unnormalised float SCALAR accessor');
+          }
+          weightTracks.set(target.node, { times, values, interpolation });
+          continue;
         }
         if (output.type !== (components === 4 ? 'VEC4' : 'VEC3')
             || output.componentType !== 5126 || output.normalized) {
@@ -662,8 +690,8 @@ export async function loadGltf(source, isGlb = false) {
           node: target.node,
           path,
           interpolation,
-          times: new Float32Array(readAccessor(gltf, buffers, sampler.input)),
-          values: new Float32Array(readAccessor(gltf, buffers, sampler.output)),
+          times,
+          values,
         });
       }
       parsedAnimations.push({ name: animation.name, channels });
@@ -676,6 +704,7 @@ export async function loadGltf(source, isGlb = false) {
   // ---- collect meshes
   const results = [];
   const decoded = new Map(); // image index -> bytes-decode promise (shared)
+  const consumedWeightTracks = new Set();
 
   for (let ni = 0; ni < nodeCount; ni += 1) {
     const node = gltf.nodes[ni];
@@ -834,11 +863,78 @@ export async function loadGltf(source, isGlb = false) {
         tangents = computeTangents(positions, normals, uvs, indices);
       }
 
+      // Morph targets: POSITION and NORMAL deltas applied before skinning (the
+      // glTF order). Any other target attribute (TANGENT, TEXCOORD_0, ...) is
+      // refused by name rather than silently dropped.
+      let morphTargets = null;
+      let morphWeights = null;
+      let morphAnimation = null;
+      const targetDefs = prim.targets ?? [];
+      if (!Array.isArray(targetDefs)) throw new Error('glTF morph: targets must be an array');
+      if (targetDefs.length) {
+        if (targetDefs.length > MAX_MORPH_TARGETS) {
+          throw new Error(`glTF morph: ${targetDefs.length} targets exceed the supported ${MAX_MORPH_TARGETS}`);
+        }
+        const vertexCount = positions.length / 3;
+        const delta = (index, label) => {
+          const acc = reference(gltf.accessors, index, `${label} accessor`);
+          if (acc.type !== 'VEC3' || acc.componentType !== 5126 || acc.normalized) {
+            throw new Error(`glTF morph: ${label} must be an unnormalised float VEC3`);
+          }
+          const raw = readAccessor(gltf, buffers, index, true);
+          if (raw.length !== vertexCount * 3) {
+            throw new Error(`glTF morph: ${label} does not match the POSITION vertex count`);
+          }
+          return raw instanceof Float32Array ? raw : new Float32Array(raw);
+        };
+        morphTargets = targetDefs.map((target, ti) => {
+          if (!target || typeof target !== 'object') throw new Error(`glTF morph: target ${ti} is not an object`);
+          const unsupported = Object.keys(target).find((key) => key !== 'POSITION' && key !== 'NORMAL');
+          if (unsupported) throw new Error(`glTF morph: ${unsupported} deltas are not supported`);
+          if (target.POSITION == null) throw new Error(`glTF morph: target ${ti} has no POSITION delta`);
+          return {
+            positions: delta(target.POSITION, `target ${ti} POSITION`),
+            normals: target.NORMAL != null ? delta(target.NORMAL, `target ${ti} NORMAL`) : null,
+          };
+        });
+        const fileWeights = node.weights ?? mesh.weights ?? null;
+        if (fileWeights != null) {
+          if (!Array.isArray(fileWeights) || fileWeights.length !== targetDefs.length
+              || !fileWeights.every((w) => Number.isFinite(w))) {
+            throw new Error('glTF morph: weights must be a finite number per target');
+          }
+        }
+        morphWeights = new Float32Array(targetDefs.length);
+        if (fileWeights) {
+          for (let t = 0; t < targetDefs.length; t += 1) morphWeights[t] = fileWeights[t];
+        }
+        const track = weightTracks.get(ni);
+        if (track) {
+          consumedWeightTracks.add(ni);
+          validateWeightTrack(track, targetDefs.length);
+          const duration = track.times[track.times.length - 1];
+          morphAnimation = {
+            duration,
+            sample(seconds) {
+              const time = duration > 0 ? ((seconds % duration) + duration) % duration : 0;
+              return sampleWeightTrack(track, targetDefs.length, time);
+            },
+          };
+        }
+      }
+
       results.push({
         positions, normals, uvs, tangents, indices,
         worldMatrix: new Float32Array(worldMatrix), material,
         ...(joints ? { joints, weights, skeleton } : {}),
+        ...(morphTargets ? { morphTargets, morphWeights, ...(morphAnimation ? { morphAnimation } : {}) } : {}),
       });
+    }
+  }
+
+  for (const ni of weightTracks.keys()) {
+    if (!consumedWeightTracks.has(ni)) {
+      throw new Error('glTF morph: a weights channel targets a node with no morph targets');
     }
   }
 
@@ -859,7 +955,8 @@ export async function loadGltf(source, isGlb = false) {
  * @param {WebGL2RenderingContext} gl
  * @param {DrawMesh} mesh
  * @param {{ position: number, normal: number, uv?: number, tangent?: number,
- *           joints?: number, weights?: number }} attribLocs
+ *           joints?: number, weights?: number,
+ *           morph?: Array<{position: number, normal?: number}> }} attribLocs
  * @returns {{ vao: WebGLVertexArrayObject, buffers: WebGLBuffer[], count: number, indexed: boolean }}
  */
 export function uploadMesh(gl, mesh, attribLocs) {
@@ -893,6 +990,17 @@ export function uploadMesh(gl, mesh, attribLocs) {
     }
     if (mesh.joints && attribLocs.joints != null) attribute(mesh.joints, attribLocs.joints, 4);
     if (mesh.weights && attribLocs.weights != null) attribute(mesh.weights, attribLocs.weights, 4);
+    if (mesh.morphTargets) {
+      const slots = attribLocs.morph ?? [];
+      if (mesh.morphTargets.length > slots.length) {
+        throw new Error(`mesh upload: ${mesh.morphTargets.length} morph targets exceed ${slots.length} attribute slots`);
+      }
+      for (let t = 0; t < mesh.morphTargets.length; t += 1) {
+        const target = mesh.morphTargets[t];
+        if (slots[t]?.position != null) attribute(target.positions, slots[t].position, 3);
+        if (target.normals && slots[t]?.normal != null) attribute(target.normals, slots[t].normal, 3);
+      }
+    }
     if (mesh.indices) uploadBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices);
     gl.bindVertexArray(null);
     if (gl.getError && gl.getError() !== gl.NO_ERROR) throw new Error('mesh upload: attribute setup failed');

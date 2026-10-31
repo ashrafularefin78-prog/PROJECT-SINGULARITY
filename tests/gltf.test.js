@@ -641,7 +641,13 @@ function skinnedDocument({ nodeTranslation = [5, 0, 0], interpolation = 'LINEAR'
     1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -1, 0, 1,
   ]);
   const times = new Float32Array([0, 1]);
-  const rotations = new Float32Array([0, 0, 0, 1, 0, 0, 0.7071068, 0.7071068]);
+  const linearRotations = [0, 0, 0, 1, 0, 0, 0.7071068, 0.7071068];
+  // CUBICSPLINE output is [inTangent, value, outTangent] per key; zero tangents
+  // give the same midpoint rotation as LINEAR.
+  const rotations = interpolation === 'CUBICSPLINE'
+    ? new Float32Array([0, 0, 0, 0, ...linearRotations.slice(0, 4), 0, 0, 0, 0,
+      0, 0, 0, 0, ...linearRotations.slice(4), 0, 0, 0, 0])
+    : new Float32Array(linearRotations);
 
   const chunks = [positions, normals, joints, weights, indices, inverseBind, times, rotations];
   const views = [];
@@ -691,7 +697,7 @@ function skinnedDocument({ nodeTranslation = [5, 0, 0], interpolation = 'LINEAR'
     meshes: [{ primitives: [{ attributes, indices: acc(4, 'SCALAR', 3, 5123), mode: 4 }] }],
     skins: [{ joints: [0, 1], inverseBindMatrices: acc(5, 'MAT4', 2, 5126) }],
     animations: [{
-      samplers: [{ input: acc(6, 'SCALAR', 2, 5126), output: acc(7, 'VEC4', 2, 5126), interpolation }],
+      samplers: [{ input: acc(6, 'SCALAR', 2, 5126), output: acc(7, 'VEC4', interpolation === 'CUBICSPLINE' ? 6 : 2, 5126), interpolation }],
       channels: [{ sampler: 0, target: { node: 0, path: 'rotation' } }],
     }],
     accessors,
@@ -734,13 +740,25 @@ test('M3: glTF loader parses skins, weights and a looping animation clip', async
   }
 });
 
+test('M3: glTF CUBICSPLINE skin output evaluates the Hermite at the midpoint', async () => {
+  const [mesh] = await loadGltf(documentUri(skinnedDocument({ interpolation: 'CUBICSPLINE' })));
+  assertEquals(mesh.skeleton.duration, 1, 'the one-second clip');
+  const mid = mesh.skeleton.rig.pose(0.5)[0];
+  const c = Math.cos(Math.PI / 4);
+  for (const joint of [0, 1]) {
+    const base = joint * 16;
+    assert(Math.abs(mid[base] - c) < 1e-5, `joint ${joint} m00 is cos 45`);
+    assert(Math.abs(mid[base + 1] - Math.sin(Math.PI / 4)) < 1e-5, `joint ${joint} m01 is sin 45`);
+  }
+});
+
 test('M3: malformed skinning is refused with a named error, not silently unskinned', async () => {
   await rejectsGltf(documentUri(skinnedDocument({ jointAttributes: 'joints-only' })),
     /both JOINTS_0 and WEIGHTS_0/, 'missing weights');
   await rejectsGltf(documentUri(skinnedDocument({ jointAttributes: 'weights-only' })),
     /both JOINTS_0 and WEIGHTS_0/, 'missing joints');
-  await rejectsGltf(documentUri(skinnedDocument({ interpolation: 'CUBICSPLINE' })),
-    /CUBICSPLINE/, 'cubic spline');
+  await rejectsGltf(documentUri(skinnedDocument({ interpolation: 'QUADRATIC' })),
+    /QUADRATIC/, 'unknown interpolation');
 
   const badJoint = skinnedDocument();
   writeHalf(badJoint, 1, 2);
@@ -755,7 +773,182 @@ test('M3: malformed skinning is refused with a named error, not silently unskinn
   assertEquals(mesh.weights[5] + mesh.weights[6] + mesh.weights[7], 0, 'other influences stay zero');
 });
 
-/** Read, mutate and re-encode the combined buffer from skinnedDocument. */
+// --------------------------------------------------------------- morph targets
+
+/**
+ * One triangle with morph targets, no skin. Each target shifts the triangle
+ * along +X by (target + 1) and adds +1 to Z on every normal. Node weights
+ * default to [0.25, 0.5]; a weights channel is attached unless animate:false.
+ * Returns the raw glTF JSON so a test can mutate one thing and expect a named
+ * error instead of a silently dropped feature.
+ */
+function morphDocument({
+  targetCount = 2,
+  weights = [0.25, 0.5],
+  animate = true,
+  interpolation = 'LINEAR',
+  weightValues = null,
+  times = [0, 1],
+} = {}) {
+  const positions = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+  const normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+  const indices = new Uint16Array([0, 1, 2]);
+  const deltas = [];
+  for (let t = 0; t < targetCount; t += 1) {
+    deltas.push(new Float32Array([t + 1, 0, 0, t + 1, 0, 0, t + 1, 0, 0]));
+    deltas.push(new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]));
+  }
+  const keyTimes = new Float32Array(times);
+  const cubic = interpolation === 'CUBICSPLINE';
+  let weightOutput;
+  if (weightValues) {
+    weightOutput = new Float32Array(weightValues);
+  } else if (cubic) {
+    // Zero tangents; values key0 = [0, 1], key1 = [1, 0].
+    weightOutput = new Float32Array(keyTimes.length * targetCount * 3);
+    for (let k = 0; k < keyTimes.length; k += 1) {
+      const base = k * targetCount * 3 + targetCount;
+      for (let t = 0; t < targetCount; t += 1) {
+        weightOutput[base + t] = k === 0 ? (t === 0 ? 0 : 1) : (t === 0 ? 1 : 0);
+      }
+    }
+  } else {
+    weightOutput = new Float32Array(keyTimes.length * targetCount);
+    for (let k = 0; k < keyTimes.length; k += 1) {
+      for (let t = 0; t < targetCount; t += 1) {
+        weightOutput[k * targetCount + t] = k === 0 ? (t === 0 ? 0 : 1) : (t === 0 ? 1 : 0);
+      }
+    }
+  }
+
+  const chunks = [
+    { data: positions, type: 'VEC3', componentType: 5126, count: 3 },
+    { data: normals, type: 'VEC3', componentType: 5126, count: 3 },
+    { data: indices, type: 'SCALAR', componentType: 5123, count: 3 },
+    ...deltas.map((data) => ({ data, type: 'VEC3', componentType: 5126, count: 3 })),
+    { data: keyTimes, type: 'SCALAR', componentType: 5126, count: keyTimes.length },
+    { data: weightOutput, type: 'SCALAR', componentType: 5126, count: weightOutput.length },
+  ];
+  const views = [];
+  const pieces = [];
+  let cursor = 0;
+  for (const chunk of chunks) {
+    const pad = (4 - (cursor % 4)) % 4;
+    if (pad) {
+      pieces.push(new Uint8Array(pad));
+      cursor += pad;
+    }
+    const bytes = new Uint8Array(chunk.data.buffer, chunk.data.byteOffset, chunk.data.byteLength);
+    views.push({ buffer: 0, byteOffset: cursor, byteLength: bytes.byteLength });
+    pieces.push(bytes);
+    cursor += bytes.byteLength;
+  }
+  const combined = new Uint8Array(cursor);
+  let at = 0;
+  for (const piece of pieces) {
+    combined.set(piece, at);
+    at += piece.byteLength;
+  }
+  const accessors = [];
+  const acc = (view, type, count, componentType) => {
+    const idx = accessors.length;
+    accessors.push({ bufferView: view, byteOffset: 0, componentType, type, count });
+    return idx;
+  };
+  const positionAccessor = acc(0, 'VEC3', 3, 5126);
+  const normalAccessor = acc(1, 'VEC3', 3, 5126);
+  const indexAccessor = acc(2, 'SCALAR', 3, 5123);
+  const targets = [];
+  let view = 3;
+  for (let t = 0; t < targetCount; t += 1) {
+    targets.push({ POSITION: acc(view, 'VEC3', 3, 5126), NORMAL: acc(view + 1, 'VEC3', 3, 5126) });
+    view += 2;
+  }
+  const timeAccessor = acc(view, 'SCALAR', keyTimes.length, 5126);
+  const weightAccessor = acc(view + 1, 'SCALAR', weightOutput.length, 5126);
+
+  return {
+    asset: { version: '2.0' },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ mesh: 0, ...(weights ? { weights } : {}) }],
+    meshes: [{
+      primitives: [{
+        attributes: { POSITION: positionAccessor, NORMAL: normalAccessor },
+        indices: indexAccessor,
+        mode: 4,
+        ...(targetCount ? { targets } : {}),
+      }],
+    }],
+    ...(animate ? {
+      animations: [{
+        samplers: [{ input: timeAccessor, output: weightAccessor, interpolation }],
+        channels: [{ sampler: 0, target: { node: 0, path: 'weights' } }],
+      }],
+    } : {}),
+    accessors,
+    bufferViews: views,
+    buffers: [{ uri: `data:application/octet-stream;base64,${btoa(String.fromCharCode(...combined))}`, byteLength: cursor }],
+  };
+}
+
+test('M3: glTF loader materialises morph targets, defaults and weight animation', async () => {
+  const [mesh] = await loadGltf(documentUri(morphDocument()));
+  assertEquals(mesh.morphTargets.length, 2, 'two targets');
+  assertEquals(Array.from(mesh.morphWeights).join(','), '0.25,0.5', 'node weights are the defaults');
+  assertEquals(mesh.morphTargets[1].positions[0], 2, 'second target position delta');
+  assertEquals(mesh.morphTargets[0].normals[2], 1, 'first target normal delta');
+  assertEquals(mesh.morphAnimation.duration, 1, 'weight clip duration');
+  assertEquals(Array.from(mesh.morphAnimation.sample(0.5)).join(','), '0.5,0.5', 'linear midpoint');
+  assertEquals(Array.from(mesh.morphAnimation.sample(1.5)).join(','), '0.5,0.5', 'time wraps into the clip');
+
+  const [defaulted] = await loadGltf(documentUri(morphDocument({ weights: null, animate: false })));
+  assertEquals(Array.from(defaulted.morphWeights).join(','), '0,0', 'no file weights means zeroed targets');
+  assertEquals(defaulted.morphAnimation, undefined, 'no channel, no animation');
+});
+
+test('M3: glTF morph weights accept CUBICSPLINE', async () => {
+  const [mesh] = await loadGltf(documentUri(morphDocument({ interpolation: 'CUBICSPLINE' })));
+  const quarter = Array.from(mesh.morphAnimation.sample(0.25));
+  // Zero tangents: the Hermite reduces to h00 * value0 + h01 * value1, with
+  // h00 = 0.84375 and h01 = 0.15625 at t = 0.25.
+  assert(Math.abs(quarter[0] - 0.15625) < 1e-6, `target 0 at a quarter: ${quarter[0]}`);
+  assert(Math.abs(quarter[1] - 0.84375) < 1e-6, `target 1 at a quarter: ${quarter[1]}`);
+});
+
+test('M3: malformed or unsupported morph data is refused with a named error', async () => {
+  const fiveTargets = morphDocument({ targetCount: 5, weights: [0, 0, 0, 0, 0] });
+  await rejectsGltf(documentUri(fiveTargets), /exceed the supported 4/, 'more than four targets');
+
+  const tangent = morphDocument();
+  tangent.meshes[0].primitives[0].targets[0].TANGENT = tangent.meshes[0].primitives[0].targets[0].POSITION;
+  await rejectsGltf(documentUri(tangent), /TANGENT deltas are not supported/, 'tangent deltas');
+
+  const uv = morphDocument();
+  uv.meshes[0].primitives[0].targets[0].TEXCOORD_0 = uv.meshes[0].primitives[0].targets[0].POSITION;
+  await rejectsGltf(documentUri(uv), /TEXCOORD_0 deltas are not supported/, 'texture-coordinate deltas');
+
+  const missing = morphDocument();
+  delete missing.meshes[0].primitives[0].targets[0].POSITION;
+  await rejectsGltf(documentUri(missing), /has no POSITION delta/, 'target without POSITION');
+
+  const short = morphDocument();
+  short.accessors[short.meshes[0].primitives[0].targets[0].POSITION].count = 2;
+  await rejectsGltf(documentUri(short), /does not match the POSITION vertex count/, 'delta vertex count');
+
+  const badWeights = morphDocument();
+  badWeights.nodes[0].weights = [1];
+  await rejectsGltf(documentUri(badWeights), /finite number per target/, 'weight count');
+
+  const noTargets = morphDocument();
+  delete noTargets.meshes[0].primitives[0].targets;
+  await rejectsGltf(documentUri(noTargets), /no morph targets/, 'weights channel without targets');
+
+  const shortTrack = morphDocument({ weightValues: [0, 1, 1] });
+  await rejectsGltf(documentUri(shortTrack), /target and keyframe counts/, 'weights output count');
+});
+
+
 function editBuffer(document, mutate) {
   const bytes = new Uint8Array(atob(document.buffers[0].uri.split(',')[1]).split('').map((c) => c.charCodeAt(0)));
   mutate(new DataView(bytes.buffer), document.bufferViews);

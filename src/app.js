@@ -1298,7 +1298,8 @@ async function renderEngine(root) {
     if (!state.renderer) return;
     const s = state.renderer.stats();
     const skin = s.modelSkinned ? ` · ${s.modelJoints} animated joints` : '';
-    overlay.textContent = `${s.fps} FPS · ${s.instances.toLocaleString()} instances · ${s.particles.toLocaleString()} particles · ${s.drawCalls} draw calls${skin}`;
+    const morph = s.modelMorphs ? ` · ${s.modelMorphs} morph targets` : '';
+    overlay.textContent = `${s.fps} FPS · ${s.instances.toLocaleString()} instances · ${s.particles.toLocaleString()} particles · ${s.drawCalls} draw calls${skin}${morph}`;
   };
 
   const updateStats = () => {
@@ -1320,6 +1321,9 @@ async function renderEngine(root) {
     }
     if (s.modelSkinned) {
       statsBox.append(statCard('Skinned primitives', String(s.modelSkinned), `${s.modelJoints} joints, GPU bone texture`));
+    }
+    if (s.modelMorphs) {
+      statsBox.append(statCard('Morph targets', String(s.modelMorphs), s.animatedMorphs ? `${s.animatedMorphs} animated by a weights track` : 'static weights'));
     }
     state.fpsHistory.push(s.fps);
     if (state.fpsHistory.length > 320) state.fpsHistory.shift();
@@ -1377,8 +1381,13 @@ async function renderEngine(root) {
         const skin = summary.skinned
           ? ` The totem's ${summary.skinned} skinned primitive plays a ${summary.animation} s loop across ${summary.joints} joints from a GPU bone texture.`
           : '';
+        const morph = summary.morphTargets
+          ? summary.animatedMorphs
+            ? ` Its ${summary.morphTargets} morph targets are mixed by an animated weights track before skinning.`
+            : ` Its ${summary.morphTargets} morph targets blend before skinning.`
+          : '';
         const missing = failures.length ? ` Not loaded: ${failures.join('; ')}.` : '';
-        modelStatus.textContent = `sample models: ${summary.meshes} primitives, ${summary.triangles.toLocaleString()} triangles (${coreMeshes.length} from assets/models/singularity-core.glb, ${totemMeshes.length} from assets/models/skinned-totem.glb) — parsed, uploaded and shaded by the same PBR shader as the instances.${skin}${missing}`;
+        modelStatus.textContent = `sample models: ${summary.meshes} primitives, ${summary.triangles.toLocaleString()} triangles (${coreMeshes.length} from assets/models/singularity-core.glb, ${totemMeshes.length} from assets/models/skinned-totem.glb) — parsed, uploaded and shaded by the same PBR shader as the instances.${skin}${morph}${missing}`;
         if (reduced) renderer.frame(performance.now());
         updateOverlay();
         updateStats();
@@ -1447,7 +1456,7 @@ async function renderEngine(root) {
   root.appendChild(
     el('div', { class: 'panel' }, [
       moduleHead('M3', 'Custom 3D engine on WebGL2', 'Written directly against the WebGL2 API: one indexed cube drawn with hardware instancing, animated entirely in the vertex shader so per-frame CPU cost stays O(1) regardless of instance count. A real depth-only shadow pass feeds hardware PCF shadow sampling, a million particles are generated from gl_VertexID with no vertex buffers at all, and everything - the cube and both glTF samples - is shaded with one Cook-Torrance BRDF (GGX/Smith/Schlick) plus a Reinhard tone map. Lighting has two real sources: a shadowed directional sun, and an image-based sky - src/graphics/env.js projects a deterministic procedural sky onto band-2 spherical harmonics for the diffuse irradiance cube, and convolves it with a GGX normal distribution into a six-level specular prefilter chain that the shader samples at roughness * 5, with no HDRI downloaded.'),
-      note('The object in the middle is a real glTF 2.0 binary (assets/models/singularity-core.glb): src/graphics/gltf.js parses its buffer views, accessors, images, samplers and textures, flattens the TRS node hierarchy into world matrices, computes mikkelsen tangent frames for normal mapping, generates flat normals for the primitive that ships without them, and the engine uploads each primitive and draws it with the same PBR shader as the instances, sampling SRGB8_ALPHA8 base-colour and RGBA8 normal maps from the file. The totem to its right is a second real GLB (assets/models/skinned-totem.glb) carrying JOINTS_0/WEIGHTS_0 and a six-second rotation clip: src/graphics/skin.js samples the rig on the CPU, and the vertex shader blends four joints per vertex from an RGBA32F bone texture uploaded once per frame - the same loaders, no separate animation engine. The ambient light is no longer a hand-mixed constant: it is image-based, sampled per-pixel from the sky of src/graphics/env.js - band-2 SH for diffuse, a GGX-importance-sampled roughness chain for specular, both declared in the module header for exactly what they are. Still deliberately missing, and not faked: a WebGPU backend (declared out of scope in docs/NON_GOALS.md), glTF morph targets and CUBICSPLINE animation. The measured HDRI probe below is real: a Radiance RGBE file decoded, projected to band-2 SH, scored against a direct cosine integral, and then used to rebuild both the diffuse cube and the specular chain.'),
+      note('The object in the middle is a real glTF 2.0 binary (assets/models/singularity-core.glb): src/graphics/gltf.js parses its buffer views, accessors, images, samplers and textures, flattens the TRS node hierarchy into world matrices, computes mikkelsen tangent frames for normal mapping, generates flat normals for the primitive that ships without them, and the engine uploads each primitive and draws it with the same PBR shader as the instances, sampling SRGB8_ALPHA8 base-colour and RGBA8 normal maps from the file. The totem to its right is a second real GLB (assets/models/skinned-totem.glb) carrying JOINTS_0/WEIGHTS_0 and a six-second rotation clip: src/graphics/skin.js samples the rig on the CPU, and the vertex shader blends four joints per vertex from an RGBA32F bone texture uploaded once per frame - the same loaders, no separate animation engine. The ambient light is no longer a hand-mixed constant: it is image-based, sampled per-pixel from the sky of src/graphics/env.js - band-2 SH for diffuse, a GGX-importance-sampled roughness chain for specular, and a split-sum BRDF integration LUT for the specular Fresnel term, all declared in the module header for exactly what they are. The totem also carries two morph targets (a radial pulse and a twist, with normal deltas) mixed by a CUBICSPLINE weights track and blended before skinning; the same weights path also drives CUBICSPLINE joint clips. Still deliberately missing, and not faked: a WebGPU backend (declared out of scope in docs/NON_GOALS.md), TANGENT/UV morph deltas, more than four targets per primitive and non-joint node animation. The measured HDRI probe below is real: a Radiance RGBE file decoded, projected to band-2 SH, scored against a direct cosine integral, and then used to rebuild both the diffuse cube and the specular chain.'),
       card('Scene', [
         el('div', { class: 'canvas-wrap' }, [
           canvas,
@@ -3452,18 +3461,18 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 403, suites: 30, browser: 395, nodeOnly: 8 };
+const TEST_TOTALS = { total: 416, suites: 31, browser: 408, nodeOnly: 8 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
   { id: 'M2', title: 'In-browser C/C++ compiler and runtime', status: 'partial', points: 74, note: 'Self-hosted Clang 8.0.1/WASI compiles C/C++ and standard libraries locally in a killable worker, with headers, multiple sources, stdin and diagnostics. The lightweight C-subset interpreter keeps deterministic budgets. No OS APIs, threads, exceptions or standards beyond C11/C++17; compiler assets and memory overhead are explicit.' },
-  { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 90, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by band-2 SH diffuse plus a six-level GGX-importance-sampled specular prefilter chain, a glTF 2.0 loader with mikkelsen tangents sampling stored models through the same BRDF, a real HDRI probe whose SH and radiance rebuild both environment cubes, and glTF skins: a seven-joint looping clip sampled by src/graphics/skin.js and blended four joints per vertex in the shader from an RGBA32F bone texture. The prefilter is the split-sum second term under N=V with no BRDF LUT. No WebGPU backend (declared out of scope in docs/NON_GOALS.md), no morph targets or CUBICSPLINE animation.' },
+  { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 93, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by band-2 SH diffuse plus a six-level GGX-importance-sampled specular prefilter chain and a split-sum BRDF integration LUT, a glTF 2.0 loader with mikkelsen tangents sampling stored models through the same BRDF, a real HDRI probe whose SH and radiance rebuild both environment cubes, GPU skins (a seven-joint looping clip blended four joints per vertex from an RGBA32F bone texture), and up to four morph targets per primitive with normal deltas and LINEAR/STEP/CUBICSPLINE weights animation. The sample totem carries two morph targets and a CUBICSPLINE weights track. No WebGPU backend (declared out of scope in docs/NON_GOALS.md); TANGENT/UV morph deltas, more than four targets and non-joint node animation remain declared gaps.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 82, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD over WebCrypto; the signed prekey bundle is verified inside the handshake, and identity keys are sealed to a passphrase (PBKDF2 600k) in IndexedDB. No audited key storage.' },
   { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 78, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. No bundled TURN, so symmetric NAT on both ends still needs one.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 85, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. The tile carries the evidence-backed score (66/100); the structural ceiling is 83/100 and the reviewer\'s latest mark is 70/100.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist enforced at the canonical host; _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
-  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 125.3 KiB gzip against a 170 KB budget, 60-minute soak ending smaller, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
+  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 125.8 KiB gzip against a 170 KB budget, 60-minute soak ending smaller, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
   { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'partial', points: 69, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
 ];
 
@@ -3577,7 +3586,7 @@ const ROADMAP = [
   { state: 'done', what: 'M6 - Offline-first', detail: 'Full: op log, snapshots, migrations, service worker, server-stopped recovery.' },
   { state: 'done', what: 'The suite', detail: `${TEST_TOTALS.total} registered tests in ${TEST_TOTALS.suites} suites: ${TEST_TOTALS.browser} browser tests and ${TEST_TOTALS.nodeOnly} Node-only checks.` },
   { state: 'done', what: 'M2 - Runtime (74/100)', detail: 'Clang/WASI C/C++ compilation runs locally alongside the interpreter. Still partial: old standards, no OS APIs, threads or C++ exceptions.' },
-  { state: 'active', what: 'M3 - Engine (90/100)', detail: 'Declared partial: HDR diffuse lighting, a GGX specular prefilter chain for the procedural sky and a measured probe, and glTF skeletal animation on a GPU bone texture are shipped. WebGPU is an explicit non-goal (docs/NON_GOALS.md); morph targets and CUBICSPLINE animation are not implemented.' },
+  { state: 'active', what: 'M3 - Engine (93/100)', detail: 'Declared partial: HDR diffuse lighting, a GGX specular prefilter chain for the procedural sky and a measured probe, a split-sum BRDF integration LUT, glTF skeletal animation on a GPU bone texture, and morph targets with CUBICSPLINE weights animation are shipped. WebGPU is an explicit non-goal (docs/NON_GOALS.md); TANGENT/UV morph deltas and non-joint node animation are still declared gaps.' },
   { state: 'active', what: 'M5 - Transport (78/100)', detail: 'Declared partial: the relay runs as a local dev node; no bundled TURN server for symmetric NATs.' },
   { state: 'active', what: 'M7 - Accessibility (66/100)', detail: 'Evidence-backed score: semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass announced all eight panel headings, read the M3 canvas description and read Bangla/Arabic text with the right language tags. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain; the tile carries 66/100 evidence-backed against an 83/100 structural ceiling, and the reviewer\'s latest mark is 70/100.' },
   { state: 'active', what: 'M8 - Hardening (72/100)', detail: 'Declared partial: no third-party red-team pass. The OWASP ZAP baseline ran (spider + active scan) and its report is archived: 0 High, 0 Medium, 0 Low.' },
@@ -3671,7 +3680,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '2', label: 'tags · 0 GitHub releases', hint: 'v0.1.0, v1.0.0' },
-  { value: '403', label: 'tests - 30 suites', hint: 'run them from this page' },
+  { value: '416', label: 'tests - 31 suites', hint: 'run them from this page' },
   { value: '0', label: 'npm dependencies', hint: 'optional self-hosted WASM toolchain' },
 ];
 
@@ -3712,13 +3721,13 @@ const CASE_STUDIES = [
     id: 'engine',
     mod: 'M3',
     title: '3D engine',
-    decisionLine: 'WebGL2 instancing, PCF shadows, a million particles, Cook-Torrance PBR lit by SH diffuse plus a GGX specular prefilter chain, glTF base-colour + normal-map sampling, and GPU skeletal animation - no Three.js.',
+    decisionLine: 'WebGL2 instancing, PCF shadows, a million particles, Cook-Torrance PBR lit by SH diffuse plus a GGX specular prefilter chain and a split-sum BRDF LUT, glTF base-colour + normal-map sampling, GPU skeletal animation, and morph targets with cubic weights - no Three.js.',
     status: 'partial',
     score: moduleMeta('M3').points,
     problem: 'Provide a real 3D scene on a strict JavaScript budget and a WebGL2-only compatibility target.',
-    decision: 'Instanced draws with vertex-shader animation, a depth-only PCF shadow pass, particles generated from gl_VertexID, and a physically based shader lit by two real sources: a shadowed directional sun and an image-based sky built from a deterministic procedural environment (band-2 SH diffuse irradiance cube, six-level GGX-importance-sampled specular prefilter chain uploaded as explicit mip levels and sampled at roughness * 5). A glTF 2.0 loader parses JSON and GLB into the same pipeline, materialises images/samplers/textures, computes mikkelsen tangents, uploads SRGB8_ALPHA8 base-colour and RGBA8 normal maps, and parses skins and animation clips. src/graphics/skin.js evaluates the rig; the vertex shader blends four joints per vertex from an RGBA32F bone texture refreshed once per frame, so joint count is not capped by the uniform budget.',
-    tradeoff: 'The GGX prefilter is the split-sum second term under the N=V approximation with an analytic Schlick Fresnel, not a full BRDF integration LUT. The measured HDR probe rebuilds both cubes, but its specular chain uses 32 base samples against the procedural path\'s 64. Skinning is linear-blend with four influences and no dual-quaternion option; morph targets and CUBICSPLINE animation are refused, not half-implemented. WebGPU is an explicit non-goal (docs/NON_GOALS.md): the WebGL2 path is the compatibility target and a second backend would attach to nothing measurable. Normals are generated flat when absent, and the material model is deliberately narrow.',
-    evidence: '23 renderer, 25 glTF, 8 rig and 15 environment tests; a browser test drives the shipped skinned GLB through the real shader pipeline and requires gl.getError() === NO_ERROR. 100k instances and 1M particles in 4 draw calls; 60 FPS at defaults and 58 at maximum on the measured machine. 90/100.',
+    decision: 'Instanced draws with vertex-shader animation, a depth-only PCF shadow pass, particles generated from gl_VertexID, and a physically based shader lit by two real sources: a shadowed directional sun and an image-based sky built from a deterministic procedural environment (band-2 SH diffuse irradiance cube, six-level GGX-importance-sampled specular prefilter chain uploaded as explicit mip levels and sampled at roughness * 5, with the split-sum Fresnel term read from a 64x64 RG16F BRDF integration LUT computed at boot). A glTF 2.0 loader parses JSON and GLB into the same pipeline, materialises images/samplers/textures, computes mikkelsen tangents, uploads SRGB8_ALPHA8 base-colour and RGBA8 normal maps, parses skins and animation clips, and parses up to four morph targets with position and normal deltas plus weights channels. src/graphics/skin.js evaluates the rig and the weights track; the vertex shader applies morph deltas before blending four joints per vertex from an RGBA32F bone texture refreshed once per frame, so joint count is not capped by the uniform budget, and the depth pass morphs and skins identically.',
+    tradeoff: 'The BRDF LUT is computed at boot (128 GGX samples per texel) rather than loaded from an authored asset, so it is deterministic but not validated against a reference implementation. The measured HDR probe rebuilds both cubes, but its specular chain uses 32 base samples against the procedural path\'s 64. Skinning is linear-blend with four influences and no dual-quaternion option; morph targets are limited to four per primitive with POSITION/NORMAL deltas - TANGENT and UV deltas, more than four targets, and non-joint node animation are refused by name. WebGPU is an explicit non-goal (docs/NON_GOALS.md): the WebGL2 path is the compatibility target and a second backend would attach to nothing measurable. Normals are generated flat when absent, and the material model is deliberately narrow.',
+    evidence: '24 renderer, 29 glTF, 11 rig, 5 BRDF and 15 environment tests; browser tests drive the shipped core and skinned/morphed GLBs through the real shader pipeline and require gl.getError() === NO_ERROR, including the totem\'s CUBICSPLINE weights track reaching full at 1.5 s. 100k instances and 1M particles in 4 draw calls; 60 FPS at defaults and 58 at maximum on the measured machine. 93/100.',
   },
   {
     id: 'crypto',
@@ -3836,7 +3845,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '403 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '416 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {

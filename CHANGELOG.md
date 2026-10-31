@@ -3,6 +3,46 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-10-31 - Morph targets, cubic animation and a split-sum BRDF LUT
+
+### Added
+- **M3 morph targets, end to end.** `gltf.js` parses up to four morph targets
+  per primitive with POSITION and NORMAL deltas, file-default and node weights,
+  and animated `weights` channels; `skin.js` samples those channels under
+  LINEAR, STEP and CUBICSPLINE. The renderer owns attribute slots 6-13, pads
+  every primitive to four weight slots, evaluates the track once per frame and
+  uploads the weights to the colour and depth programs, applying deltas before
+  skinning. A weights channel that targets a node without morph targets, a
+  target attribute other than POSITION/NORMAL, a missing POSITION delta or a
+  fifth target is refused by name.
+- **CUBICSPLINE joint animation.** The rig sampler evaluates glTF's Hermite
+  form (in-tangent, value, out-tangent per key, tangents scaled by key span) and
+  normalises quaternion results; LINEAR and STEP are unchanged. The rig suite
+  proves the 0.8125 Hermite midpoint and the normalised rotation.
+- **A split-sum BRDF integration LUT.** `src/graphics/brdf.js` integrates the
+  GGX/Smith specular term at 128 Hammersley samples per texel into a 64x64
+  RG16F texture (half-float, round-to-nearest-even), built at boot and sampled
+  as `vec2(NdotV, roughness)` in both PBR shaders. The N=V Fresnel
+  approximation in the ambient and specular terms is gone; the LUT is one
+  texture unit (7) and one more texture in the renderer's accounting.
+- **The shipped totem exercises all of it.** `tools/make-skinned-glb.mjs` adds
+  two morph targets (a radial pulse with normal deltas, and a twist) and a
+  25-key CUBICSPLINE weights track to `assets/models/skinned-totem.glb`
+  (19,976 bytes, 105 vertices, 200 triangles, seven joints). The M3 panel
+  reports the morph count in the HUD, a stat card and the canvas text
+  alternative.
+
+### Changed
+- **M3's self-score moves 90 → 93.** The eight-core-module total moves 634 →
+  637 / 800, so the in-app total is 794 / 1000 with the budget (88) and
+  integration (69) rows.
+- **Test counts move to 416 tests across 31 suites** (386 pass + 30 browser-only
+  skips in bare Node; 408 browser-eligible). `tests/brdf.test.js` adds five
+  tests for energy bounds, mirror convergence, determinism and half-float
+  encoding; the glTF suite grows to 29 and the rig suite to 11.
+- **The service worker precaches `src/graphics/brdf.js`** and the cache version
+  moves to `singularity-v14`.
+
 ## 2026-10-31 - The totem learns to move: glTF skins on a GPU bone texture
 
 ### Added
