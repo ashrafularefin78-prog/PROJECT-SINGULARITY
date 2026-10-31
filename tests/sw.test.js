@@ -196,13 +196,13 @@ test('M6 service worker: toolchain archives remain lazy, with their loaders in t
     const oldKey = await old.install();
     const built = await worker(storage, '/app/', '/app/', 'singularity-0123456789abcdef');
     const builtKey = await built.install();
-    const current = await worker(storage, '/app/', '/app/', 'singularity-v12');
+    const current = await worker(storage, '/app/', '/app/', 'singularity-v13');
     const currentKey = await current.install();
     const keep = [currentKey];
     for (const [directory, scope] of [['/', '/'], ['/sibling/', '/sibling/'], ['/app/', '/app/narrow/'], ['/app/nested/', '/app/']]) {
       keep.push(await (await worker(storage, directory, scope, 'singularity-v10')).install());
     }
-    for (const name of ['unrelated-cache', 'singularity-v10', 'singularity-0123456789abcdef', currentKey.replace(/singularity-v12$/, 'unknown-owner')]) {
+    for (const name of ['unrelated-cache', 'singularity-v10', 'singularity-0123456789abcdef', currentKey.replace(/singularity-v13$/, 'unknown-owner')]) {
       await storage.open(name);
       keep.push(name);
     }

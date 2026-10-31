@@ -21,7 +21,7 @@
  * All user data lives in IndexedDB and is never touched here, so a cache
  * eviction can never cost anyone a character.
  */
-const VERSION = 'singularity-v12';
+const VERSION = 'singularity-v13';
 
 /** Resolve a shell path against this worker's directory, so subpaths work. */
 const here = (path) => new URL(path, self.location.href).href;
@@ -40,6 +40,7 @@ const SHELL = [
   './manifest.webmanifest',
   './assets/icon.svg',
   './assets/models/singularity-core.glb',
+  './assets/models/skinned-totem.glb',
   './assets/probes/singularity-sky.hdr',
   './src/app.js',
   './src/boot-note.js',
@@ -76,6 +77,7 @@ const SHELL = [
   './src/graphics/renderer.js',
   './src/graphics/math.js',
   './src/graphics/gltf.js',
+  './src/graphics/skin.js',
   './src/graphics/hdr.js',
   './src/graphics/env.js',
 ].map(here);

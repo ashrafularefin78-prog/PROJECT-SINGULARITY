@@ -17,6 +17,7 @@
 import { test, assert, assertEquals } from './harness.js';
 import {
   envCube,
+  ggxPrefilterChain,
   ggxPrefilteredCube,
   irradiance,
   irradianceCube,
@@ -200,4 +201,46 @@ test('M3: ggxPrefilteredCube differs by roughness', () => {
   let different = 0;
   for (let i = 0; i < smooth.data.length; i += 1) if (smooth.data[i] !== rough.data[i]) different += 1;
   assert(different > 100, `different roughness must differ (${different} differing bytes)`);
+});
+
+test('M3: ggxPrefilterChain builds a complete roughness pyramid', () => {
+  const chain = ggxPrefilterChain(8, 4, 8);
+  assertEquals(chain.length, 4, 'one level per requested roughness step');
+  assertEquals(chain.map((level) => level.size).join(','), '8,4,2,1', 'each level halves, ending at 1');
+  assertEquals(chain.map((level) => level.roughness.toFixed(3)).join(','), '0.000,0.333,0.667,1.000',
+    'roughness spans 0 to 1 across the chain');
+  for (const level of chain) {
+    assertEquals(level.data.length, 6 * level.size * level.size * 4, `level ${level.size} carries six faces`);
+    for (let i = 3; i < level.data.length; i += 4) {
+      assertEquals(level.data[i], 255, `level ${level.size} alpha stays opaque`);
+    }
+  }
+});
+
+test('M3: ggxPrefilterChain is deterministic level by level', () => {
+  const a = ggxPrefilterChain(8, 3, 8);
+  const b = ggxPrefilterChain(8, 3, 8);
+  assertEquals(a.length, b.length);
+  for (let level = 0; level < a.length; level += 1) {
+    assertEquals(Array.from(a[level].data).join(','), Array.from(b[level].data).join(','),
+      `level ${level} reproduces byte for byte`);
+  }
+});
+
+test('M3: the prefilter preserves a constant radiance, including a custom sampler', () => {
+  // For a constant environment the GGX lobe average must return that constant,
+  // whatever sampler supplies it. This is the property the probe path relies on
+  // when it swaps skyRadiance for probeRadiance.
+  const constant = () => [0.6, 0.3, 0.15];
+  for (const faces of ggxPrefilterChain(4, 3, 16, constant)) {
+    for (let face = 0; face < 6; face += 1) {
+      for (let row = 0; row < faces.size; row += 1) {
+        for (let col = 0; col < faces.size; col += 1) {
+          near(texel(faces, face, row, col, 0) / 255, 0.6, 0.01, `face ${face} red`);
+          near(texel(faces, face, row, col, 1) / 255, 0.3, 0.01, `face ${face} green`);
+          near(texel(faces, face, row, col, 2) / 255, 0.15, 0.01, `face ${face} blue`);
+        }
+      }
+    }
+  }
 });

@@ -17,6 +17,7 @@ const SUITES = [
   './stream.test.js',
   './renderer.test.js',
   './gltf.test.js',
+  './skin.test.js',
   './hdr.test.js',
   './env.test.js',
   './fuzz.test.js',
@@ -31,6 +32,7 @@ const SUITES = [
   './planner.test.js',
   './autopilot.test.js',
   './explain.test.js',
+  './suite-registry.test.js',
 ];
 
 async function main() {

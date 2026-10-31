@@ -52,19 +52,19 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 4. Press the backslash key: the **module dial** opens with all eight modules on a
    ring, each labelled with the score it is actually carrying. Arrow keys turn
    it, digits jump straight to a module, Enter opens it, Escape closes.
-5. Point at the score ring: **785 / 1000**, points band **Platinum** by raw
+5. Point at the score ring: **791 / 1000**, points band **Platinum** by raw
    points (the bundled recording was captured when the ring read 668; the ring
    animates to the current total). Say that the requirement column is the one
    that grades, and it still reads **Silver**.
 6. Point at the tier ladder: the reviewer's tally tiers at **Silver** (four
-   modules full or near-full), while the points arithmetic (803) sits past the
-   old Gold ceiling. Say out loud that the leading column is the brief's points
-   band and the ladder grades the *requirements*, which is why the two readings
-   disagree.
-7. Point at the budget table: the current payload is **met** (123.8 KiB gzip
-   cold-load JavaScript plus 26.9 KiB gzip CSS = 150.7 KiB gzip / 489.2 KiB raw
+   modules full or near-full), while the points arithmetic (829) sits inside
+   the Platinum band, past the Gold ceiling. Say out loud that the leading
+   column is the brief's points band and the ladder grades the *requirements*,
+   which is why the two readings disagree.
+7. Point at the budget table: the current payload is **met** (125.3 KiB gzip
+   cold-load JavaScript plus 26.9 KiB gzip CSS = 152.2 KiB gzip / 493.1 KiB raw
    across 15 initial files: 14 JS and the stylesheet, against a 170 KB JS ceiling).
-   The 22-file deferred graph is 147.7 KiB gzip JS; the approximately 18.4 MiB
+   The 23-file deferred graph is 155.2 KiB gzip JS; the approximately 18.4 MiB
    compressed toolchain asset set is separate and loads on the first compiler run.
    Label the hour-long memory soak and frame rate as **historical evidence**
    under the recorded conditions, not new runs of the corrected app; the snapshot
@@ -101,7 +101,9 @@ assets, not a compilation service. Program source is not uploaded.
 ## 3. M3 3D Engine — WebGL2 from scratch (1 min)
 
 1. Open **3. M3 3D Engine**: cube 3D scene, 4 draw calls, FPS readout, PCF
-   shadows, particles.
+   shadows, particles. The totem beside the core model is a second shipped GLB
+   whose seven-joint clip is playing: point at the **Skinned primitives** stat
+   card and the scene text alternative, which both report the rig.
 2. Drag to orbit; then push **instances to 100,000** and **particles to
    1,000,000** and read the FPS (58 on the machine measured for
    [LOAD_CHAOS.md](LOAD_CHAOS.md)).
@@ -163,9 +165,10 @@ assets, not a compilation service. Program source is not uploaded.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run. Browser eligibility: 378 tests; 7 Node-only checks are skipped.
+Open **/tests/browser.html** and let the suite run. Browser eligibility: 395 tests; 8 Node-only checks are skipped.
 Then name the remaining gaps: no independent crypto audit, no bundled TURN,
-no HDR specular prefilter, no VoiceOver/TalkBack validation and no 10,000-browser fleet.
+no WebGPU backend (an explicit non-goal, see [NON_GOALS.md](NON_GOALS.md)),
+no VoiceOver/TalkBack validation and no 10,000-browser fleet.
 Internal red-team, NVDA, relay load/chaos and real Clang/WebAssembly evidence exist;
 the original recording predates these improvements.
 

@@ -215,6 +215,43 @@ test('M3: the shipped GLB decodes both material textures and draws without GL er
   renderer.dispose();
 }, NEEDS_GL);
 
+test('M3: the shipped skinned GLB draws through the bone-texture pipeline without GL errors', async () => {
+  const res = await fetch(new URL('../assets/models/skinned-totem.glb', import.meta.url));
+  assert(res.ok, 'the skinned GLB must be reachable from the served tree');
+  const meshes = await loadGltf(await res.arrayBuffer(), true);
+  assertEquals(meshes.length, 1, 'one skinned primitive');
+  const skeleton = meshes[0].skeleton;
+  assertEquals(skeleton.jointCount, 7, 'the totem rig has seven joints');
+  assertEquals(skeleton.duration, 6, 'the clip loops over six seconds');
+  const rest = skeleton.rig.pose(0)[skeleton.skinIndex].slice();
+  const later = skeleton.rig.pose(1.5)[skeleton.skinIndex];
+  assert(rest.some((v, i) => Math.abs(v - later[i]) > 1e-3), 'the clip must actually move joints');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 320;
+  canvas.height = 200;
+  const renderer = new Renderer(canvas, { instances: 0, particles: 0 });
+  renderer.init();
+  renderer.gl.getError();
+  const summary = renderer.attachModel(meshes, { spin: 0 });
+  assertEquals(summary.skinned, 1);
+  assertEquals(summary.joints, 7);
+  assertEquals(summary.animation, 6);
+  assert(/skinning/.test(renderer.info().skinning), renderer.info().skinning);
+  renderer.frame(0);
+  renderer.frame(1500);
+  assertEquals(renderer.gl.getError(), renderer.gl.NO_ERROR,
+    'skinned colour and depth passes must compile and draw clean: joint attributes 4/5, bone texture unit 6');
+  const stats = renderer.stats();
+  assertEquals(stats.modelSkinned, 1);
+  assertEquals(stats.modelJoints, 7);
+  assert(/skinned primitive/.test(renderer.describeScene().objects.at(-1).detail), 'the accessible description names the skin');
+  renderer.detachModel();
+  renderer.frame(3000);
+  assertEquals(renderer.stats().modelSkinned, 0, 'detachModel released the bone texture');
+  renderer.dispose();
+}, NEEDS_GL);
+
 test('M3: attachModel decodes canvas-rendered textures for a synthetic textured mesh', async () => {
   const png = async (r, g, b) => {
     const c = document.createElement('canvas');
@@ -276,6 +313,7 @@ function trackedGL() {
     bufferDataCalls: 0,
     createBufferCalls: 0,
     texImageCalls: 0,
+    texSubImageCalls: 0,
     boundVao: null,
     error: 0,
     getError() { const error = this.error; this.error = 0; return error; },
@@ -297,6 +335,9 @@ function trackedGL() {
       this.texImageCalls += 1;
       if (this.texImageCalls === this.failTexImageAt) throw new Error('injected texture upload failure');
     },
+    texSubImage2D() {
+      this.texSubImageCalls += 1;
+    },
   };
   for (const kind of ['Buffer', 'VertexArray', 'Texture', 'Program', 'Framebuffer', 'Shader', 'Query']) {
     live.set(kind, new Set());
@@ -317,7 +358,9 @@ function trackedGL() {
   for (const name of ['bindBuffer', 'enableVertexAttribArray', 'vertexAttribPointer', 'vertexAttribDivisor',
     'shaderSource', 'compileShader', 'attachShader', 'linkProgram', 'useProgram', 'uniform1i',
     'bindTexture', 'texParameteri', 'generateMipmap', 'bindFramebuffer', 'framebufferTexture2D',
-    'enable', 'cullFace']) gl[name] = () => {};
+    'enable', 'cullFace', 'disable', 'drawElements', 'drawArrays', 'drawElementsInstanced',
+    'viewport', 'clear', 'clearColor', 'depthMask', 'blendFunc', 'activeTexture',
+    'uniformMatrix4fv', 'uniform1f', 'uniform3fv', 'uniform4fv']) gl[name] = () => {};
   let constant = 100;
   const context = new Proxy(gl, {
     get(target, name) {
@@ -414,7 +457,7 @@ test('M3: dispose accounts for all renderer resources and stops animation idempo
     assert(renderer.groundVbo && renderer.particleVbo, 'ground and particle buffer handles retained');
     assertEquals(resources.live.get('Buffer').size, 10);
     assertEquals(resources.live.get('VertexArray').size, 4);
-    assertEquals(resources.live.get('Program').size, 6);
+    assertEquals(resources.live.get('Program').size, 8, 'static and skinned model programs, colour and depth');
     assertEquals(resources.live.get('Framebuffer').size, 1);
     assertEquals(resources.live.get('Shader').size, 0, 'linked shaders already deleted');
     assertEquals(resources.created.get('Query'), 0, 'renderer does not allocate timer queries');
@@ -439,6 +482,103 @@ test('M3: dispose accounts for all renderer resources and stops animation idempo
     globalThis.requestAnimationFrame = originalRequest;
     globalThis.cancelAnimationFrame = originalCancel;
   }
+});
+
+test('M3: a measured probe rebuilds both environment cubes and the procedural reset restores them', () => {
+  const resources = trackedGL();
+  const renderer = trackedRenderer(resources, true);
+  try {
+    assertEquals(resources.gl.texImageCalls, 44,
+      'init uploads six irradiance faces, six GGX levels x six faces, one noise texture and the shadow depth map');
+    assert(renderer.info().environment.startsWith('procedural sky'), 'info names the procedural sky');
+    assertEquals(renderer.env.specularChain.length, 6, 'the specular chain carries six roughness levels');
+
+    const constant = () => [0.2, 0.4, 0.6];
+    const applied = renderer.applyProbeLighting(new Float32Array(27), constant);
+    assertEquals(applied, true, 'a live renderer applies the probe');
+    assertEquals(resources.gl.texImageCalls, 86,
+      'the probe re-uploads six diffuse faces and the full 36-face specular chain');
+    assert(renderer.info().environment.startsWith('measured HDR probe'), 'info reports the measured probe');
+
+    const reset = renderer.resetProceduralEnvironment();
+    assertEquals(reset, true, 'the reset rebuilds from the procedural sky');
+    assertEquals(resources.gl.texImageCalls, 128, 'the reset re-uploads both cubes again');
+    assert(renderer.info().environment.startsWith('procedural sky'), 'info reports the procedural sky again');
+    assertEquals(renderer.gl.getError(), renderer.gl.NO_ERROR, 'no GL errors along the path');
+  } finally {
+    renderer.dispose();
+  }
+  assertEquals(resources.total(), 0, 'every owned GPU resource released');
+});
+
+test('M3: a skinned mesh gets a bone texture and uploads a pose every frame', () => {
+  const resources = trackedGL();
+  const renderer = trackedRenderer(resources, true);
+  const posed = [];
+  const matrices = new Float32Array(16);
+  matrices[0] = 1; matrices[5] = 1; matrices[10] = 1; matrices[15] = 1;
+  const rig = {
+    duration: 2,
+    pose(seconds) {
+      posed.push(seconds);
+      const out = new Float32Array(matrices);
+      out[12] = seconds;
+      return [out];
+    },
+  };
+  const mesh = {
+    ...syntheticMesh(),
+    joints: new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    weights: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]),
+    skeleton: { rig, skinIndex: 0, jointCount: 1, duration: 2 },
+  };
+  try {
+    const before = resources.gl.texImageCalls;
+    const summary = renderer.attachModel([mesh]);
+    assertEquals(summary.meshes, 1);
+    assertEquals(summary.skinned, 1, 'the skinned primitive is reported');
+    assertEquals(summary.joints, 1);
+    assertEquals(summary.animation, 2);
+    assertEquals(resources.gl.texImageCalls, before + 1, 'the bone texture is one RGBA32F allocation');
+    assert(renderer.model.meshes[0].boneTexture, 'the renderer owns a bone texture');
+    assert(/GPU linear-blend skinning/.test(renderer.info().skinning), renderer.info().skinning);
+    assert(posed.includes(0), 'the initial pose is evaluated');
+
+    renderer.frame(500); // seconds = 0.5
+    assert(posed.includes(0.5), 'the frame evaluates the rig at the frame time');
+    assert(resources.gl.texSubImageCalls >= 1, 'the frame re-uploads joint matrices');
+    const stats = renderer.stats();
+    assertEquals(stats.modelSkinned, 1);
+    assertEquals(stats.modelJoints, 1);
+    assert(/skinned primitive/.test(renderer.describeScene().objects.at(-1).detail),
+      renderer.describeScene().objects.at(-1).detail);
+
+    renderer.detachModel();
+    assertEquals(renderer.info().skinning, 'none', 'detaching removes the skin');
+  } finally {
+    renderer.dispose();
+  }
+  assertEquals(resources.total(), 0, 'the bone texture is released with the model');
+});
+
+test('M3: a bone texture that fails to allocate rolls back the whole attachment', () => {
+  const resources = trackedGL();
+  const renderer = trackedRenderer(resources, true);
+  const rig = { duration: 0, pose: () => [new Float32Array(16)] };
+  const mesh = {
+    ...syntheticMesh(),
+    joints: new Float32Array(12),
+    weights: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]),
+    skeleton: { rig, skinIndex: 0, jointCount: 1, duration: 0 },
+  };
+  try {
+    resources.gl.failTexImageAt = resources.gl.texImageCalls + 1;
+    assertThrows(() => renderer.attachModel([mesh]));
+    assertEquals(renderer.model, null, 'no partially skinned model is committed');
+  } finally {
+    renderer.dispose();
+  }
+  assertEquals(resources.total(), 0, 'the failed attachment leaked nothing');
 });
 
 test('M3: late model bitmap decodes after disposal close without allocating textures', async () => {

@@ -65,11 +65,26 @@ const targets = {
 const replaceAll = (text, pattern, replacement) => text.replace(pattern, replacement);
 
 /**
+ * A changelog entry records the suite as it stood on that date. Only the newest
+ * entry describes the current runner; rewriting older entries would turn
+ * recorded history into a claim that was never true (a past entry once read
+ * "385 tests ... 242 pass" after a sync).
+ */
+function splitChangelog(text) {
+  const parts = text.split(/(?=^## )/m);
+  return { head: parts[0], current: parts[1] || '', history: parts.slice(2).join('') };
+}
+
+/**
  * The deterministic rewrite. Every rule here is a *claim shape* that has
  * appeared in the repository, not a blind number replacement: `16 tests cover
  * the glTF parser` is a subset count and must not change.
  */
 function transform(name, text) {
+  if (name === 'changelog') {
+    const { head, current, history } = splitChangelog(text);
+    return head + transform('changelog-entry', current) + history;
+  }
   const n = String(total);
   const s = String(suites);
   const p = String(pass);
@@ -120,7 +135,7 @@ function transform(name, text) {
         .replace(/\b\d+ tests, \d+ suites\b/g, `${n} tests, ${s} suites`)
         .replace(/\b\d+ suites hold \d+ tests\b/g, `${s} suites hold ${n} tests`)
         .replace(/\*\*\d+ pass \+ \d+(\s+)browser-only skips\*\*/g, `**${p} pass + ${k}$1browser-only skips**`);
-    case 'changelog':
+    case 'changelog-entry':
       return text.replace(/\b\d+ tests across \d+ suites\b/g, `${n} tests across ${s} suites`);
     case 'contributing':
       return text
@@ -193,9 +208,11 @@ for (const [name, rel] of Object.entries(targets)) {
   }
   // A recorded past run is evidence, not a claim about the current suite: the
   // worker-served run in DEPLOY.md reports what that run saw and must keep its
-  // own numbers. Every other line is scanned for a count the runner does not
+  // own numbers, and changelog entries below the newest describe their own
+  // dated suite. Every other line is scanned for a count the runner does not
   // produce.
-  for (const line of before.split(/\r?\n/)) {
+  const scanText = name === 'changelog' ? splitChangelog(before).current : before;
+  for (const line of scanText.split(/\r?\n/)) {
     if (/Last worker-served run/.test(line)) continue;
     for (const pattern of suspicious) {
       for (const match of line.matchAll(pattern)) {

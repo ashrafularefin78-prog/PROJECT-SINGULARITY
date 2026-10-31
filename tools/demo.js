@@ -657,7 +657,7 @@ async function tour(ctx) {
 
   add({
     page: 'a', title: 'Close · what is still missing',
-    text: 'No independent crypto audit, bundled TURN, HDR specular prefilter, VoiceOver/TalkBack validation or 10,000-browser fleet. Internal red-team, NVDA, relay load/chaos and local Clang evidence exist; the remaining gaps stay explicit.',
+    text: 'No independent crypto audit, bundled TURN, WebGPU backend (declared non-goal), VoiceOver/TalkBack validation or 10,000-browser fleet. Internal red-team, NVDA, relay load/chaos and local Clang evidence exist; the remaining gaps stay explicit.',
     hold: 16,
     act: async () => {
       await a.evaluate(`window.scrollTo({ top: 0, behavior: 'smooth' })`);

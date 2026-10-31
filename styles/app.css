@@ -2360,7 +2360,8 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .roadmap .status { flex: 0 0 auto; width: 74px; text-align: center; font: 700 calc(9.5px * var(--scale)) / 1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid var(--line-2); border-radius: 999px; padding: 4px 6px; color: var(--dim); }
 .roadmap .done .status { color: var(--ok); border-color: rgba(87, 214, 141, 0.55); }
 .roadmap .active .status { color: var(--warn); border-color: rgba(247, 185, 85, 0.55); }
-.roadmap .planned .status { color: var(--dim); }
+.roadmap .planned .status,
+.roadmap .out .status { color: var(--dim); }
 .roadmap .w { color: var(--text); }
 .roadmap .w i { display: block; color: var(--dim); font-style: normal; font-size: 0.86em; }
 

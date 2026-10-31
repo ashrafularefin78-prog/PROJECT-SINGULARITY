@@ -3,6 +3,72 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-10-31 - The totem learns to move: glTF skins on a GPU bone texture
+
+### Added
+- **M3 skeletal animation, end to end.** `src/graphics/skin.js` builds a rig
+  from glTF nodes, composes TRS matrices, samples LINEAR/STEP tracks with
+  shortest-arc slerp and returns per-skin joint matrices; `gltf.js` now parses
+  `skins`, inverse bind matrices, `JOINTS_0`/`WEIGHTS_0` (normalising weights,
+  refusing out-of-range joints) and looping animation clips, while refusing
+  CUBICSPLINE and non-joint targets by name. The renderer evaluates the rig
+  once per frame and uploads each skin to an RGBA32F bone texture; a dedicated
+  skinned vertex shader blends four influences with `texelFetch`, so joint
+  count is not capped by the uniform budget, and the shadow pass has a matching
+  skinned depth program.
+- **A deterministic skinned sample ships.** `tools/make-skinned-glb.mjs`
+  generates `assets/models/skinned-totem.glb` (105 vertices, 200 triangles,
+  seven joints, a six-second alternating X/Z rotation clip) with no external
+  tool or download; the M3 panel loads it beside the core model and reports the
+  skinned primitive count and joint count in its stat cards, HUD line and text
+  alternative.
+- **The browser runner can no longer silently miss a suite.** It keeps an
+  explicit list while Node discovers the directory; `tests/suite-registry.test.js`
+  fails when the two differ. This pass found `skin.test.js` was absent from the
+  browser list, so its eight rig tests had never run in the authoritative suite.
+
+### Changed
+- **M3's self-score moves 87 → 90.** The reviewer's 88 predates this work; the
+  eight-core-module self total moves 631 → 634 / 800, so the in-app total is
+  791 / 1000 with the budget (88) and integration (69) rows.
+- **WebGPU is declared out of scope, not staged indefinitely.** docs/NON_GOALS.md
+  records the reason - WebGL2 is the measured compatibility target and a second
+  backend with no requirement it uniquely satisfies is surface, not engineering.
+  The roadmap, module copy and README now say "out of scope" instead of
+  "planned"; morph targets and CUBICSPLINE animation stay declared gaps.
+- Test counts move to **403 tests across 30 suites** (373 pass + 30 browser-only
+  skips in bare Node; 395 browser-eligible). A browser test fetches the shipped
+  skinned GLB, draws it through the real shader pipeline and requires
+  `gl.getError() === NO_ERROR`; the service worker precaches the new asset and
+  the cache version moves to `singularity-v13`.
+
+## 2026-10-31 - The sky's specular term becomes a real GGX prefilter, for the procedural sky and a measured probe
+
+### Changed
+- **M3's specular IBL is a GGX prefilter now.** `src/graphics/env.js` gained
+  `ggxPrefilterChain`: six importance-sampled roughness levels (32^2 down to
+  1^2, deterministic radical-inverse sampling), uploaded as explicit cube mip
+  levels with no `generateMipmap` call, and sampled at `roughness * 5` in both
+  PBR shaders. The old path read a box-filtered mip chain of the raw sky and
+  said so; the new path pre-integrates the GGX lobe per roughness level.
+  `ggxPrefilteredCube` also accepts any radiance function, not just the
+  procedural sky.
+- **The measured HDR probe rebuilds both environment cubes.** The probe's SH
+  replaces the diffuse irradiance cube and `probeRadiance` drives a fresh
+  specular chain, through `applyProbeLighting` / `resetProceduralEnvironment`
+  (renamed from the diffuse-only pair). The panel reports which cubes were
+  rebuilt. The prefilter is still the split-sum second term under N=V with an
+  analytic Schlick Fresnel - no BRDF integration LUT - and that stays declared.
+- **M3's self-score moves 84 → 87**, one point below the reviewer's 88: the
+  declared "HDR specular prefiltering" gap is closed. Skeletal animation and
+  WebGPU remain declared gaps. The eight-core-module self total moves 628 → 631
+  / 800, so the in-app total is 788 / 1000 with the budget (88) and integration
+  (69) rows.
+- Test counts move to **389 tests across 28 suites** (360 pass + 29 browser-only
+  skips in bare Node; 382 browser-eligible). `env.test.js` gains chain-shape,
+  chain-determinism and constant-radiance tests; `renderer.test.js` proves a
+  probe click re-uploads all 42 environment faces and the reset does it again.
+
 ## 2026-10-31 - The Clang sandbox limits get browser evidence, and the toolchain gets a threat-model entry
 
 ### Added
@@ -237,7 +303,7 @@ Each entry is derived from the commit history; the newest comes first.
   slow-4G figure is untouched rather than re-measured on this machine.
 - `sw.js` is at v9: the shell precache covers the new module, and the suite
   (`tests/sw.test.js`) fails if the shell and the import graph diverge.
-- Published test totals move to **385 tests across 28 suites** (242 pass, 25
+- Published test totals move to **267 tests across 23 suites** (242 pass, 25
   browser-only skips in bare Node), regenerated by `tools/test-count.js`.
 
 
@@ -430,7 +496,7 @@ Each entry is derived from the commit history; the newest comes first.
   resolution, mikkelsen tangents and UV-absent degradation.
 
 ### Changed
-- The suite grew to **385 tests across 28 suites** with the temporal core (9),
+- The suite grew to **275 tests across 22 suites** with the temporal core (9),
   `motion` (8) and `substrate` (4) suites, plus four glTF texture tests and two
   renderer texture-decode tests.
 - The accessibility artifact was re-measured against the new dashboard DOM

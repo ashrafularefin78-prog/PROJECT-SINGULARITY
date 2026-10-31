@@ -25,10 +25,17 @@
  *   ✓  Buffer URI (data: URI or relative URL) and GLB binary chunk
  *   ✓  URL fetches sniff the GLB magic, so `.gltf` JSON and `.glb` binaries
  *        load through the same call
+ *   ✓  Skins: joints, inverse bind matrices, JOINTS_0 (u8/u16) and WEIGHTS_0
+ *        (float or normalised u8/u16), with per-vertex weights renormalised and
+ *        a zero-weight vertex falling back to its first joint
+ *   ✓  Animation clips: translation / rotation / scale channels, LINEAR
+ *        (lerp + shortest-arc slerp) and STEP, evaluated by src/graphics/skin.js;
+ *        a skinned primitive ignores its node's transform, as glTF specifies
  *
  * Not implemented (declared gap, not a stub):
- *   - Skinned meshes / morph targets
- *   - Camera / light nodes
+ *   - Morph targets
+ *   - CUBICSPLINE animation interpolation (refused with a named error)
+ *   - Camera / light nodes, non-joint node animation
  *   - Non-triangle primitive modes (points, lines)
  *   - Sparse accessors, KTX2/Basis compressed textures, extensions
  *
@@ -45,6 +52,9 @@
  *     tangents:  Float32Array,  // flat TBN quads (4N, w = handedness), or null
  *     indices:   Uint32Array,   // triangle list (or null for non-indexed)
  *     worldMatrix: Float32Array(16),
+ *     joints:    Float32Array,  // 4 joint indices per vertex, or absent
+ *     weights:   Float32Array,  // 4 normalised weights per vertex, or absent
+ *     skeleton:  { rig, skinIndex, jointCount, duration },  // or absent
  *     material: {
  *       baseColor:  [r, g, b, a],   // 0..1
  *       metallic:   number,         // 0..1
@@ -56,6 +66,8 @@
  *   }
  * ; in sampler = { wrapS, wrapT, magFilter, minFilter }, the glTF enum values.
  */
+
+import { buildRig, composeTRS } from './skin.js';
 
 // ------------------------------------------------------------------ helpers
 
@@ -74,31 +86,6 @@ function mul4(a, b) {
     }
   }
   return out;
-}
-
-/**
- * Build a column-major 4×4 matrix from a glTF node's TRS.
- * All three are optional; a missing component defaults to identity/zero/one.
- */
-function trsToMatrix(translation, rotation, scale) {
-  const t = translation || [0, 0, 0];
-  const q = rotation   || [0, 0, 0, 1]; // xyzw
-  const s = scale      || [1, 1, 1];
-
-  // Quaternion to rotation matrix (column-major)
-  const [x, y, z, w] = q;
-  const x2 = x + x, y2 = y + y, z2 = z + z;
-  const xx = x * x2, xy = x * y2, xz = x * z2;
-  const yy = y * y2, yz = y * z2, zz = z * z2;
-  const wx = w * x2, wy = w * y2, wz = w * z2;
-
-  // col-major: [col0row0, col0row1, col0row2, col0row3, col1…]
-  return new Float32Array([
-    (1 - (yy + zz)) * s[0], (xy + wz) * s[0], (xz - wy) * s[0], 0,
-    (xy - wz) * s[1], (1 - (xx + zz)) * s[1], (yz + wx) * s[1], 0,
-    (xz + wy) * s[2], (yz - wx) * s[2], (1 - (xx + yy)) * s[2], 0,
-    t[0], t[1], t[2], 1,
-  ]);
 }
 
 /**
@@ -614,11 +601,77 @@ export async function loadGltf(source, isGlb = false) {
     if (node.matrix) {
       local = new Float32Array(node.matrix);
     } else {
-      local = trsToMatrix(node.translation, node.rotation, node.scale);
+      local = composeTRS(node.translation, node.rotation, node.scale);
     }
     worldMatrices[ni] = parent !== null ? mul4(worldMatrices[parent], local) : local;
     for (const child of node.children || []) queue.push({ ni: child, parent: ni });
   }
+
+  // ---- skins, inverse binds and animation clips
+  const skinDefs = gltf.skins ?? [];
+  if (!Array.isArray(skinDefs)) throw new Error('glTF: invalid skins');
+  const parsedSkins = skinDefs.map((skin, si) => {
+    reference(skinDefs, si, 'skin');
+    if (!Array.isArray(skin.joints)) throw new Error(`glTF skin ${si}: joints must be an array`);
+    let inverseBindMatrices;
+    if (skin.inverseBindMatrices != null) {
+      const acc = reference(gltf.accessors, skin.inverseBindMatrices, 'inverse bind accessor');
+      if (acc.type !== 'MAT4' || acc.componentType !== 5126 || acc.normalized) {
+        throw new Error(`glTF skin ${si}: inverse bind matrices must be float MAT4`);
+      }
+      inverseBindMatrices = new Float32Array(readAccessor(gltf, buffers, skin.inverseBindMatrices));
+      if (inverseBindMatrices.length !== skin.joints.length * 16) {
+        throw new Error(`glTF skin ${si}: inverse bind matrix count does not match joint count`);
+      }
+    }
+    return { joints: skin.joints.slice(), inverseBindMatrices };
+  });
+
+  const parsedAnimations = [];
+  if (parsedSkins.length && gltf.animations !== undefined) {
+    if (!Array.isArray(gltf.animations)) throw new Error('glTF: invalid animations');
+    for (let ai = 0; ai < gltf.animations.length; ai += 1) {
+      const animation = reference(gltf.animations, ai, 'animation');
+      const channels = [];
+      for (const [ci, channel] of (animation.channels || []).entries()) {
+        const target = channel?.target;
+        const path = target?.path;
+        const components = path === 'rotation' ? 4
+          : path === 'translation' || path === 'scale' ? 3 : 0;
+        if (!components) {
+          throw new Error(`glTF animation ${ai} channel ${ci}: unsupported target path '${path}'`);
+        }
+        if (!Number.isSafeInteger(target.node)) {
+          throw new Error(`glTF animation ${ai} channel ${ci}: invalid target node`);
+        }
+        const sampler = reference(animation.samplers, channel.sampler, 'animation sampler');
+        const interpolation = sampler.interpolation ?? 'LINEAR';
+        if (interpolation === 'CUBICSPLINE') {
+          throw new Error('glTF skin: CUBICSPLINE animation interpolation is not supported');
+        }
+        const input = reference(gltf.accessors, sampler.input, 'animation input');
+        const output = reference(gltf.accessors, sampler.output, 'animation output');
+        if (input.type !== 'SCALAR' || input.componentType !== 5126 || input.normalized) {
+          throw new Error('glTF skin: animation input must be an unnormalised float SCALAR accessor');
+        }
+        if (output.type !== (components === 4 ? 'VEC4' : 'VEC3')
+            || output.componentType !== 5126 || output.normalized) {
+          throw new Error('glTF skin: animation output must be an unnormalised float vector accessor');
+        }
+        channels.push({
+          node: target.node,
+          path,
+          interpolation,
+          times: new Float32Array(readAccessor(gltf, buffers, sampler.input)),
+          values: new Float32Array(readAccessor(gltf, buffers, sampler.output)),
+        });
+      }
+      parsedAnimations.push({ name: animation.name, channels });
+    }
+  }
+  const rig = parsedSkins.length
+    ? buildRig({ nodes: gltf.nodes ?? [], skins: parsedSkins, animations: parsedAnimations })
+    : null;
 
   // ---- collect meshes
   const results = [];
@@ -627,7 +680,9 @@ export async function loadGltf(source, isGlb = false) {
   for (let ni = 0; ni < nodeCount; ni += 1) {
     const node = gltf.nodes[ni];
     if (node.mesh == null) continue;
-    const worldMatrix = worldMatrices[ni] || MAT4_IDENTITY;
+    let worldMatrix = worldMatrices[ni] || MAT4_IDENTITY;
+    const skinIndex = node.skin == null ? null : node.skin;
+    if (skinIndex !== null) reference(gltf.skins, skinIndex, 'skin');
     const mesh = gltf.meshes[node.mesh];
 
     for (const prim of mesh.primitives || []) {
@@ -714,6 +769,64 @@ export async function loadGltf(source, isGlb = false) {
         }
       }
 
+      // Skinning: JOINTS_0 + WEIGHTS_0, normalised to floats the renderer can
+      // upload as plain attributes. The joint indices are validated against
+      // this skin. A skinned primitive ignores its node's transform, as the
+      // glTF spec requires; a primitive under a skinned node without the two
+      // joint attributes is drawn statically, which is the same fallback the
+      // spec describes.
+      let joints = null;
+      let weights = null;
+      let skeleton = null;
+      if (skinIndex !== null) {
+        const jointIdx = prim.attributes.JOINTS_0;
+        const weightIdx = prim.attributes.WEIGHTS_0;
+        if (jointIdx != null && weightIdx != null) {
+          const jointAcc = reference(gltf.accessors, jointIdx, 'JOINTS_0 accessor');
+          if (jointAcc.type !== 'VEC4' || ![5121, 5123].includes(jointAcc.componentType) || jointAcc.normalized) {
+            throw new Error('glTF skin: JOINTS_0 must be unnormalised unsigned VEC4');
+          }
+          const weightAcc = reference(gltf.accessors, weightIdx, 'WEIGHTS_0 accessor');
+          if (weightAcc.type !== 'VEC4' || ![5121, 5123, 5126].includes(weightAcc.componentType)
+              || (weightAcc.componentType !== 5126 && !weightAcc.normalized)) {
+            throw new Error('glTF skin: WEIGHTS_0 must be float or normalised unsigned VEC4');
+          }
+          const rawJoints = readAccessor(gltf, buffers, jointIdx, true);
+          const rawWeights = readAccessor(gltf, buffers, weightIdx, true);
+          const vertexCount = positions.length / 3;
+          if (rawJoints.length !== vertexCount * 4 || rawWeights.length !== vertexCount * 4) {
+            throw new Error('glTF skin: JOINT/WEIGHT attributes do not match the POSITION vertex count');
+          }
+          const jointCount = parsedSkins[skinIndex].joints.length;
+          const scale = weightAcc.componentType === 5121 ? 1 / 255
+            : weightAcc.componentType === 5123 ? 1 / 65535 : 1;
+          joints = new Float32Array(rawJoints.length);
+          weights = new Float32Array(rawWeights.length);
+          for (let v = 0; v < vertexCount; v += 1) {
+            let sum = 0;
+            for (let k = 0; k < 4; k += 1) {
+              const joint = rawJoints[v * 4 + k];
+              if (joint >= jointCount) throw new Error('glTF skin: a joint index exceeds the skin joint count');
+              joints[v * 4 + k] = joint;
+              const weight = Math.max(0, rawWeights[v * 4 + k] * scale);
+              weights[v * 4 + k] = weight;
+              sum += weight;
+            }
+            if (sum > 0) {
+              for (let k = 0; k < 4; k += 1) weights[v * 4 + k] /= sum;
+            } else {
+              // A vertex with no influence would collapse to the origin; keep
+              // it on its first joint instead of inventing a blend.
+              weights[v * 4] = 1;
+            }
+          }
+          worldMatrix = MAT4_IDENTITY;
+          skeleton = { rig, skinIndex, jointCount, duration: rig.duration };
+        } else if (jointIdx != null || weightIdx != null) {
+          throw new Error('glTF skin: a skinned primitive needs both JOINTS_0 and WEIGHTS_0');
+        }
+      }
+
       // Tangent frames — required for normal mapping; computed from geometry
       // when the file does not ship a TANGENT accessor.
       let tangents = null;
@@ -721,7 +834,11 @@ export async function loadGltf(source, isGlb = false) {
         tangents = computeTangents(positions, normals, uvs, indices);
       }
 
-      results.push({ positions, normals, uvs, tangents, indices, worldMatrix: new Float32Array(worldMatrix), material });
+      results.push({
+        positions, normals, uvs, tangents, indices,
+        worldMatrix: new Float32Array(worldMatrix), material,
+        ...(joints ? { joints, weights, skeleton } : {}),
+      });
     }
   }
 
@@ -732,15 +849,17 @@ export async function loadGltf(source, isGlb = false) {
  * Upload a DrawMesh to WebGL2 and return a VAO handle ready for
  * `gl.drawElements` / `gl.drawArrays`.
  *
- * UV and tangent attributes are bound only when both the mesh carries them
- * and the caller provides locations — meshes without them stay valid on the
- * plain position/normal layout (the renderer fills degenerate fallbacks).
+ * UV, tangent and joint/weight attributes are bound only when both the mesh
+ * carries them and the caller provides locations — meshes without them stay
+ * valid on the plain position/normal layout (the renderer fills degenerate
+ * fallbacks).
  *
  * The caller owns the VAO and must delete it when done.
  *
  * @param {WebGL2RenderingContext} gl
  * @param {DrawMesh} mesh
- * @param {{ position: number, normal: number, uv?: number, tangent?: number }} attribLocs
+ * @param {{ position: number, normal: number, uv?: number, tangent?: number,
+ *           joints?: number, weights?: number }} attribLocs
  * @returns {{ vao: WebGLVertexArrayObject, buffers: WebGLBuffer[], count: number, indexed: boolean }}
  */
 export function uploadMesh(gl, mesh, attribLocs) {
@@ -772,6 +891,8 @@ export function uploadMesh(gl, mesh, attribLocs) {
     if (mesh.tangents && mesh.tangents.length === mesh.positions.length / 3 * 4 && attribLocs.tangent != null) {
       attribute(mesh.tangents, attribLocs.tangent, 4);
     }
+    if (mesh.joints && attribLocs.joints != null) attribute(mesh.joints, attribLocs.joints, 4);
+    if (mesh.weights && attribLocs.weights != null) attribute(mesh.weights, attribLocs.weights, 4);
     if (mesh.indices) uploadBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices);
     gl.bindVertexArray(null);
     if (gl.getError && gl.getError() !== gl.NO_ERROR) throw new Error('mesh upload: attribute setup failed');

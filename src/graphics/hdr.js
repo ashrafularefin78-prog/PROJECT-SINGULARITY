@@ -11,9 +11,10 @@
  * by `tools/make-probe.py`) so there is no network fetch and no licence
  * question. A different probe is just another file: the loader takes bytes.
  *
- * Deliberately not here: an equirect-to-cube resampler or a GGX prefilter of the
- * probe. The diffuse irradiance cube is probe-driven; the specular path stays
- * on the procedural sky, and the UI says which is which.
+ * This module stays decode/sample/measure: it has no cube resampler and no
+ * GPU upload. The renderer builds the probe's environment by passing
+ * `probeRadiance` through env.js:ggxPrefilterChain (specular) and probeSH
+ * through irradianceCube (diffuse), so both cubes come from the same file.
  */
 import { irradiance, shProject } from './env.js';
 

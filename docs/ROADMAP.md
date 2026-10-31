@@ -21,11 +21,16 @@ decorative.
 
 ## 1. Where the project stands
 
-- 8 modules, 3 full and 5 declared partial; self-assessed 697/1000.
-- 254 tests across 16 suites (236 pass + 18 browser-only skips in bare Node).
+- 8 modules, 3 full and 5 declared partial; self-assessed 791/1000.
+- 403 tests across 30 suites (373 pass + 30 browser-only skips in bare Node).
 - Canonical deployment: <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/>.
-- The remaining module gaps are named: no third-party red-team or ZAP baseline
-  (M8), no VoiceOver/TalkBack pass yet (the NVDA pass is recorded), no TURN relay or HDRI probe (M5/M3).
+- The remaining module gaps are named: no third-party red-team and no
+  header-capable deployment (M8), no VoiceOver/TalkBack pass yet (the NVDA pass
+  is recorded, M7), no bundled TURN relay for symmetric NAT (M5), and no WebGPU
+  backend (M3; the HDRI probe, GGX specular prefilter chain and GPU skeletal
+  animation are shipped, and WebGPU is a declared non-goal in NON_GOALS.md).
+- Morph targets and CUBICSPLINE animation are refused by the loader, not
+  half-implemented.
 
 ## 2. Horizon 1 - temporal core (shipped in this pass)
 
@@ -61,15 +66,15 @@ project currently does not use. Ordered by payoff per unit of risk.
 | ID | Capability | Why it is a leap | Gate |
 |----|------------|------------------|------|
 | D2.1 | **OPFS durability tier** | the origin-private filesystem is the one storage primitive the app does not use; it survives cache eviction better than IndexedDB and is synchronous inside a worker | crash-injection test: kill the page mid-append, reopen, zero accepted edits lost; quota report published |
-| E2.1 | **WebGPU compute path** | particles and GGX prefiltering move from draw calls to compute dispatches, with WebGL2 unchanged as the fallback | measured parity on the 1M-particle scene, capability-gated so a missing adapter is a declared skip, not a failure |
+| E2.1 | **WebGPU backend (out of scope)** | particles and GGX prefiltering would move from draw calls to compute dispatches, but no requirement here needs it | no gate: [NON_GOALS.md](NON_GOALS.md) excludes a second backend; revisit only if a measured requirement appears that WebGL2 cannot meet |
 | S2.1 | **Local-first retrieval** | a hand-written inverted index plus trigram fuzzy search over documents and retained ops, ranked on-device | query latency and recall published alongside the index size; no network call in the trace |
 | T2.1 | **Convergence sentinel** | digest comparison across peers turns "it looks the same" into a boolean the dashboard can show | two-tab and two-peer tests, with a deliberate divergence injected and detected |
 | A2.1 | **VoiceOver/TalkBack pass** | NVDA 2026.2 is recorded; the other platforms are the remaining M7 evidence gap | recorded pass over editor, tablist and preferences on Safari/macOS and Android; scorecard updated |
 | X2.1 | **ZAP baseline in CI** | passive scan of the built artifact, findings triaged in `docs/SECURITY_REPORT.md` | report artifact committed, every finding either fixed or accepted with a reason |
 
 Sequencing note: D2.1 before T1.7 (durability makes the snapshot trustworthy),
-E2.1 after A2.1 (accessibility debt is cheaper to pay before a new renderer), and
-T2.1 immediately after T1.5.
+T2.1 immediately after T1.5, and E2.1 stays off the queue as a declared non-goal
+rather than a future pass.
 
 ## 4. Horizon 3 - research bets
 
@@ -109,5 +114,5 @@ These are worth attempting only after Horizon 2, and each may end in a written
 | 1 (this one) | T1.1-T1.4 temporal core | a second execution path for the CRDT, 9 new tests, new M1 card |
 | 2 | T1.5, T2.1, D2.1 | divergence detection across peers, OPFS durability with a crash test |
 | 3 | A2.1, X2.1 | M7 VoiceOver/TalkBack and M8 evidence gaps closed or honestly re-scored |
-| 4 | E2.1, S2.1 | WebGPU compute path, on-device retrieval |
+| 4 | S2.1 | On-device retrieval; E2.1 remains a declared non-goal |
 | 5 | Horizon 3 candidate | one research bet, chosen by measured payoff rather than novelty |

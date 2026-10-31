@@ -14,4 +14,6 @@ images, samplers and textures (SRGB8_ALPHA8 base-colour, RGBA8 normal maps).
 
 ## Consequences
 - Runs on commodity hardware; 100k instances and 1M particles in 4 draw calls.
-- No skeletal animation or WebGPU path yet; normals are generated flat when absent.
+- No WebGPU path yet; normals are generated flat when absent.
+- **Update:** skeletal animation has since landed (`graphics/skin.js`, GPU bone
+  textures). WebGPU remains an explicit non-goal in [NON_GOALS.md](../NON_GOALS.md).

@@ -17,28 +17,21 @@
  *                            normal `n` receives from the whole sky.
  *   - `irradianceCube()`     6 x size^2 face map of `irradiance()`, so the GPU
  *                            answers the same question with one tex() fetch.
- *   - `envCube()`            6 x size^2 face map of the raw sky itself. The
- *                            renderer mip-maps this and fetches `reflect(-V,N)`
- *                            through `textureLod` at a roughness-driven LOD,
- *                            which is a box-filter approximation of the rough
- *                            specular lobe (declared: not a GGX prefilter).
- *   - `ggxPrefilteredCube()` GGX split-sum importance-sampled specular prefilter
- *                            for a given roughness, replacing the earlier box-filter
- *                            approximation (samples the procedural sky with a
- *                            GGX distribution, deterministic via Hammersley).
- *                            detail (sampled by the ground plane; the lattice
- *                            hash wraps on the size modulo so a fetch never
- *                            leaves the lattice).
+ *   - `envCube()`            6 x size^2 face map of the raw sky itself.
+ *   - `ggxPrefilteredCube()` GGX importance-sampled specular prefilter of any
+ *                            radiance function (the procedural sky by default),
+ *                            deterministic via a radical-inverse sequence.
+ *   - `ggxPrefilterChain()`  six roughness levels from 32^2 down to 1^2, so the
+ *                            shader can fetch roughness directly with textureLod
+ *                            instead of relying on generic mip-maps.
  *
  * The cube faces are laid out in the GL sampling convention (major axis, then
  * sc/tc per the OpenGL cube-map selection table), so `texture(uEnvCube, R)` in
  * the shader answers for the direction R without any fix-up.
  *
- * What this is not: a measured HDRI, glTF image sampling, or skinned animation.
- * The sky here is a guess about the fiction of this app, rendered deterministically,
- * and it says so. The specular prefilter is now a proper GGX split-sum
- * importance-sampled convolution (ggxPrefilteredCube) rather than a box-filter
- * mip-map of the raw sky.
+ * What this is not: a measured HDRI (the sky is procedural), a BRDF integration
+ * LUT, or skinned animation. The prefilter chain is a GGX lobe average, not the
+ * full split-sum BRDF term.
  */
 
 // Band-2 real SH basis constants, y-up world (Peter-Pike Sloan's table).
@@ -225,30 +218,28 @@ export function irradianceCube(coeffs, size = 16) {
 }
 
 /** The specular environment cube: the raw procedural sky. */
-/** The specular environment cube: the raw procedural sky. */
 export function envCube(size = 64) {
   return radianceCube((d) => skyRadiance(d), size);
 }
 
 /**
- * GGX specular prefilter: convolve the procedural sky with a GGX normal
- * distribution for a given roughness, producing a cube map that the renderer
- * samples directly (no runtime LOD box-filter). Uses the split-sum
- * importance-sampling formulation with a deterministic Hammersley sequence so
- * the result is reproducible from the seed.
+ * GGX specular prefilter: convolve a radiance function with a GGX normal
+ * distribution for a given roughness, producing a cube map the renderer samples
+ * directly. Uses deterministic radical-inverse samples so the result is
+ * reproducible from the seed. The default radiance is the procedural sky; the
+ * measured HDR probe passes its own sampler.
  */
-export function ggxPrefilteredCube(size = 32, roughness = 0.5, samples = 64) {
+export function ggxPrefilteredCube(size = 32, roughness = 0.5, samples = 64, radiance = skyRadiance) {
   const alpha = Math.max(roughness * roughness, 1e-4);
   const data = new Uint8Array(6 * size * size * 4);
-  // Hammersley sequence for deterministic sampling.
-  const hammersley = (i, n) => {
+  const radicalInverse = (i) => {
     let bits = i;
     bits = (bits << 16) | (bits >>> 16);
     bits = ((bits & 0x55555555) << 1) | ((bits & 0xAAAAAAAA) >>> 1);
     bits = ((bits & 0x33333333) << 2) | ((bits & 0xCCCCCCCC) >>> 2);
     bits = ((bits & 0x0F0F0F0F) << 4) | ((bits & 0xF0F0F0F0) >>> 4);
     bits = ((bits & 0x00FF00FF) << 8) | ((bits & 0xFF00FF00) >>> 8);
-    return bits / 4294967296;
+    return (bits >>> 0) / 4294967296;
   };
   const ggxSample = (xi1, xi2, nrm) => {
     const a2 = alpha * alpha;
@@ -289,8 +280,8 @@ export function ggxPrefilteredCube(size = 32, roughness = 0.5, samples = 64) {
         const v = [n[0], n[1], n[2]];
         let accR = 0, accG = 0, accB = 0, accW = 0;
         for (let s = 0; s < samples; s += 1) {
-          const xi1 = hammersley(s, samples);
-          const xi2 = hammersley(s + samples, samples);
+          const xi1 = (s + 0.5) / samples;
+          const xi2 = radicalInverse(s);
           const h = ggxSample(xi1, xi2, n);
           const hl = Math.sqrt(h[0] * h[0] + h[1] * h[1] + h[2] * h[2]);
           h[0] /= hl; h[1] /= hl; h[2] /= hl;
@@ -299,7 +290,7 @@ export function ggxPrefilteredCube(size = 32, roughness = 0.5, samples = 64) {
           const l = [2 * vd * h[0] - v[0], 2 * vd * h[1] - v[1], 2 * vd * h[2] - v[2]];
           const ndl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
           if (ndl > 0) {
-            const rad = skyRadiance(l);
+            const rad = radiance(l);
             accR += rad[0] * ndl;
             accG += rad[1] * ndl;
             accB += rad[2] * ndl;
@@ -319,6 +310,26 @@ export function ggxPrefilteredCube(size = 32, roughness = 0.5, samples = 64) {
     }
   }
   return { size, data };
+}
+
+/**
+ * A complete cube mip chain for the specular lookup. Level 0 is 32^2 per face at
+ * roughness 0, each level halves in size and rises in roughness, ending at 1^2
+ * and roughness 1. Lower levels need fewer samples: the lobe is wider, and the
+ * coarser cube hides the variance. Six levels is a complete mip chain, which
+ * LINEAR_MIPMAP_LINEAR requires.
+ */
+export function ggxPrefilterChain(size = 32, levels = 6, samples = 64, radiance = skyRadiance) {
+  const chain = [];
+  let levelSize = size;
+  for (let level = 0; level < levels; level += 1) {
+    const roughness = levels === 1 ? 0 : level / (levels - 1);
+    const levelSamples = Math.max(4, samples >> level);
+    const faces = ggxPrefilteredCube(levelSize, roughness, levelSamples, radiance);
+    chain.push({ ...faces, roughness });
+    levelSize = Math.max(1, levelSize >> 1);
+  }
+  return chain;
 }
 
 /**

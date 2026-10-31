@@ -622,3 +622,156 @@ test('M3: deep node forests validate and traverse without recursive stack growth
   for (let i = 0; i < 20000; i += 1) g.nodes.push(i === 19999 ? {} : { children: [i + 1] });
   assertEquals((await loadGltf(documentUri(g))).length, 0);
 });
+
+// ------------------------------------------------------------------ skinning
+
+/**
+ * One triangle carried entirely by joint 1, two joints in a chain, and a
+ * one-second 90-degree rotation on the root. The mesh node carries its own
+ * translation to prove a skinned primitive ignores it.
+ */
+function skinnedDocument({ nodeTranslation = [5, 0, 0], interpolation = 'LINEAR', jointAttributes = 'both' } = {}) {
+  const positions = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+  const normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+  const joints = new Uint16Array([0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
+  const weights = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
+  const indices = new Uint16Array([0, 1, 2]);
+  const inverseBind = new Float32Array([
+    1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -1, 0, 1,
+  ]);
+  const times = new Float32Array([0, 1]);
+  const rotations = new Float32Array([0, 0, 0, 1, 0, 0, 0.7071068, 0.7071068]);
+
+  const chunks = [positions, normals, joints, weights, indices, inverseBind, times, rotations];
+  const views = [];
+  const pieces = [];
+  let cursor = 0;
+  for (const typed of chunks) {
+    const pad = (4 - (cursor % 4)) % 4;
+    if (pad) {
+      pieces.push(new Uint8Array(pad));
+      cursor += pad;
+    }
+    const bytes = new Uint8Array(typed.buffer, typed.byteOffset, typed.byteLength);
+    views.push({ buffer: 0, byteOffset: cursor, byteLength: bytes.byteLength });
+    pieces.push(bytes);
+    cursor += bytes.byteLength;
+  }
+  const combined = new Uint8Array(cursor);
+  let at = 0;
+  for (const piece of pieces) {
+    combined.set(piece, at);
+    at += piece.byteLength;
+  }
+  const uri = `data:application/octet-stream;base64,${btoa(String.fromCharCode(...combined))}`;
+
+  const accessors = [];
+  const acc = (view, type, count, componentType) => {
+    const idx = accessors.length;
+    accessors.push({ bufferView: view, byteOffset: 0, componentType, type, count });
+    return idx;
+  };
+  const attributes = {
+    POSITION: acc(0, 'VEC3', 3, 5126),
+    NORMAL: acc(1, 'VEC3', 3, 5126),
+  };
+  if (jointAttributes !== 'weights-only') attributes.JOINTS_0 = acc(2, 'VEC4', 3, 5123);
+  if (jointAttributes !== 'joints-only') attributes.WEIGHTS_0 = acc(3, 'VEC4', 3, 5126);
+
+  return {
+    asset: { version: '2.0' },
+    scene: 0,
+    scenes: [{ nodes: [0, 2] }],
+    nodes: [
+      { children: [1] },
+      { translation: [0, 1, 0] },
+      { mesh: 0, skin: 0, translation: nodeTranslation },
+    ],
+    meshes: [{ primitives: [{ attributes, indices: acc(4, 'SCALAR', 3, 5123), mode: 4 }] }],
+    skins: [{ joints: [0, 1], inverseBindMatrices: acc(5, 'MAT4', 2, 5126) }],
+    animations: [{
+      samplers: [{ input: acc(6, 'SCALAR', 2, 5126), output: acc(7, 'VEC4', 2, 5126), interpolation }],
+      channels: [{ sampler: 0, target: { node: 0, path: 'rotation' } }],
+    }],
+    accessors,
+    bufferViews: views,
+    buffers: [{ uri, byteLength: cursor }],
+  };
+}
+
+test('M3: glTF loader parses skins, weights and a looping animation clip', async () => {
+  const [mesh] = await loadGltf(documentUri(skinnedDocument()));
+  assert(mesh.joints instanceof Float32Array && mesh.weights instanceof Float32Array, 'joint attributes materialise');
+  assertEquals(mesh.joints.length, 12, 'four joint indices per vertex');
+  assertEquals(mesh.skeleton.jointCount, 2, 'two joints');
+  assertEquals(mesh.skeleton.skinIndex, 0, 'skin 0');
+  assertEquals(mesh.skeleton.duration, 1, 'the one-second clip');
+  for (let v = 0; v < 3; v += 1) {
+    const sum = mesh.weights[v * 4] + mesh.weights[v * 4 + 1] + mesh.weights[v * 4 + 2] + mesh.weights[v * 4 + 3];
+    assert(Math.abs(sum - 1) < 1e-6, `vertex ${v} weights sum to one (got ${sum})`);
+  }
+  // The skinned primitive must ignore its node's translation.
+  assertEquals(Array.from(mesh.worldMatrix).join(','),
+    '1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1', 'node transform ignored under a skin');
+
+  const rest = mesh.skeleton.rig.pose(0)[0];
+  for (let i = 0; i < 32; i += 1) {
+    const expected = i % 16 === 0 || i % 16 === 5 || i % 16 === 10 || i % 16 === 15 ? 1 : 0;
+    assert(Math.abs(rest[i] - expected) < 1e-6, `rest joint matrix element ${i} is identity`);
+  }
+  // Halfway through a 90-degree root turn both joint matrices are a 45-degree
+  // rotation about Z (the inverse bind cancels the child's translation).
+  const mid = mesh.skeleton.rig.pose(0.5)[0];
+  const c = Math.cos(Math.PI / 4);
+  const s = Math.sin(Math.PI / 4);
+  for (const joint of [0, 1]) {
+    const base = joint * 16;
+    assert(Math.abs(mid[base] - c) < 1e-5, `joint ${joint} m00 is cos 45`);
+    assert(Math.abs(mid[base + 1] - s) < 1e-5, `joint ${joint} m01 is sin 45`);
+    assert(Math.abs(mid[base + 4] + s) < 1e-5, `joint ${joint} m10 is -sin 45`);
+    assert(Math.abs(mid[base + 5] - c) < 1e-5, `joint ${joint} m11 is cos 45`);
+  }
+});
+
+test('M3: malformed skinning is refused with a named error, not silently unskinned', async () => {
+  await rejectsGltf(documentUri(skinnedDocument({ jointAttributes: 'joints-only' })),
+    /both JOINTS_0 and WEIGHTS_0/, 'missing weights');
+  await rejectsGltf(documentUri(skinnedDocument({ jointAttributes: 'weights-only' })),
+    /both JOINTS_0 and WEIGHTS_0/, 'missing joints');
+  await rejectsGltf(documentUri(skinnedDocument({ interpolation: 'CUBICSPLINE' })),
+    /CUBICSPLINE/, 'cubic spline');
+
+  const badJoint = skinnedDocument();
+  writeHalf(badJoint, 1, 2);
+  await rejectsGltf(documentUri(badJoint), /joint index exceeds/, 'joint index out of range');
+
+  // A zero-weight vertex is kept on its first joint rather than collapsed;
+  // load it and check the fallback instead of expecting an error.
+  const zeroed = skinnedDocument();
+  zeroWeights(zeroed, 1);
+  const [mesh] = await loadGltf(documentUri(zeroed));
+  assertEquals(mesh.weights[4], 1, 'zero-weight vertex falls back to joint 0 with weight 1');
+  assertEquals(mesh.weights[5] + mesh.weights[6] + mesh.weights[7], 0, 'other influences stay zero');
+});
+
+/** Read, mutate and re-encode the combined buffer from skinnedDocument. */
+function editBuffer(document, mutate) {
+  const bytes = new Uint8Array(atob(document.buffers[0].uri.split(',')[1]).split('').map((c) => c.charCodeAt(0)));
+  mutate(new DataView(bytes.buffer), document.bufferViews);
+  document.buffers[0].uri = `data:application/octet-stream;base64,${btoa(String.fromCharCode(...bytes))}`;
+}
+
+/** Joints live in view 2, four little-endian u16 per vertex. */
+function writeHalf(document, vertex, joint) {
+  editBuffer(document, (view, views) => {
+    view.setUint16(views[2].byteOffset + vertex * 8, joint, true);
+  });
+}
+
+/** Weights live in view 3, four little-endian f32 per vertex. */
+function zeroWeights(document, vertex) {
+  editBuffer(document, (view, views) => {
+    for (let k = 0; k < 4; k += 1) view.setFloat32(views[3].byteOffset + vertex * 16 + k * 4, 0, true);
+  });
+}

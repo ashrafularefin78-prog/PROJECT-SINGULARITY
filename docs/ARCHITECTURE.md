@@ -136,10 +136,14 @@ and undo did not change at all when WebRTC was added.
 
 ## 6. What is deliberately missing
 
-WebGPU renderer, a SharedArrayBuffer worker pool, an OffscreenCanvas render loop,
-a bundled TURN relay, full HDRI specular prefiltering, skeletal animation, current
-Clang/native OS compatibility, VoiceOver/TalkBack validation, an independent
-red-team audit, a 10,000-session distributed load rig and a multi-node cluster.
-The shipped HDR probe drives diffuse irradiance only; recorded NVDA, demo and
-local security evidence are not substitutes for the missing independent/device
-validation. See the scorecard, [PLAN.md](PLAN.md) and [LOAD_CHAOS.md](LOAD_CHAOS.md).
+A WebGPU backend (an explicit non-goal, see [NON_GOALS.md](NON_GOALS.md)), a
+SharedArrayBuffer worker pool, an OffscreenCanvas render loop, a bundled TURN
+relay, glTF morph targets and CUBICSPLINE animation, current Clang/native OS
+compatibility, VoiceOver/TalkBack validation, an independent red-team audit, a
+10,000-session distributed load rig and a multi-node cluster. Skeletal animation
+is implemented: a rig evaluated by `graphics/skin.js` drives a GPU bone texture
+sampled by the skinned vertex shader. The HDR probe drives both environment
+cubes, but its specular chain is the split-sum second term under N=V (no BRDF
+integration LUT), and recorded NVDA, demo and local security evidence are not
+substitutes for the missing independent/device validation.
+See the scorecard, [PLAN.md](PLAN.md) and [LOAD_CHAOS.md](LOAD_CHAOS.md).

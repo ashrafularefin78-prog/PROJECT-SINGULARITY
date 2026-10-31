@@ -13,8 +13,9 @@ Artifact: [docs/reports/nvda-session.md](reports/nvda-session.md) and
 ## Score
 
 - **Structural maximum: 83/100** - unchanged.
-- **Evidence-backed score: 66/100** - up from 55; the reviewer's current mark is
-  the ceiling until the restored NVDA artifact is re-verified.
+- **Evidence-backed score: 66/100** - up from 55; the tile carries this number.
+  The structural ceiling is 83/100, and the reviewer's latest mark is 70/100;
+  the self-score stays at 66 until the remaining platforms and flows are run.
 - The remaining 17 points are the untested platforms (VoiceOver, TalkBack,
   JAWS), the deeper M2/M4/M5/M6 flows that this pass only reached at panel
   level, and Bangla/Arabic pronunciation (the language tags are verified; the

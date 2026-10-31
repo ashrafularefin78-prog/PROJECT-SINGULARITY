@@ -197,8 +197,9 @@ function pointsBand(score) {
  * scorecard rather than asserted by hand. Bronze asks for two modules working
  * independently and Silver for four, so this build (three complete, five
  * partial) meets Bronze and falls one module short of Silver on the app's own
- * strict count - the reviewer's independent tally (803) stamps it Silver,
- * reading the near-full partials (M2, M5) as the credit the brief allows. A
+ * strict count - the reviewer's independent tally (829) stamps it Silver,
+ * reading the near-full M2 row alongside the three full modules as the credit
+ * the brief allows. A
  * different answer from the points band, which is exactly why both are shown.
  */
 function tierRequirementMet(tier, fullModules) {
@@ -1274,7 +1275,7 @@ async function renderEngine(root) {
   const statsBox = el('div', { class: 'stats' });
   refs.engineStats = statsBox;
   const sceneText = el('div', { id: 'scene-alt' });
-  const modelStatus = el('p', { class: 'small dim mt-6', text: 'sample model: waiting for the engine to start…' });
+  const modelStatus = el('p', { class: 'small dim mt-6', text: 'sample models: waiting for the engine to start…' });
   const reduced = state.a11y.motion === 'reduced';
   // A live oscilloscope for the frame rate: the same numbers as the stat cards,
   // but the shape of them, which is what tells you whether 60 FPS is steady.
@@ -1296,7 +1297,8 @@ async function renderEngine(root) {
   const updateOverlay = () => {
     if (!state.renderer) return;
     const s = state.renderer.stats();
-    overlay.textContent = `${s.fps} FPS · ${s.instances.toLocaleString()} instances · ${s.particles.toLocaleString()} particles · ${s.drawCalls} draw calls`;
+    const skin = s.modelSkinned ? ` · ${s.modelJoints} animated joints` : '';
+    overlay.textContent = `${s.fps} FPS · ${s.instances.toLocaleString()} instances · ${s.particles.toLocaleString()} particles · ${s.drawCalls} draw calls${skin}`;
   };
 
   const updateStats = () => {
@@ -1310,11 +1312,14 @@ async function renderEngine(root) {
       statCard('Instanced objects', s.instances.toLocaleString(), 'one draw call'),
       statCard('GPU particles', s.particles.toLocaleString(), 'no vertex buffer per particle'),
       statCard('Draw calls / frame', String(s.drawCalls), s.shadows ? 'includes shadow pass' : 'shadows off'),
-      statCard('Ambient light', 'procedural sky IBL', 'band-2 SH diffuse + roughness-LOD specular cube'),
+      statCard('Ambient light', String(r.envSource).startsWith('measured') ? 'measured HDR probe' : 'procedural sky IBL', 'band-2 SH diffuse + GGX prefilter chain'),
       statCard('Renderer', short(info.renderer, 22), info.glVersion),
     );
     if (s.modelMeshes) {
       statsBox.append(statCard('glTF model triangles', s.modelTriangles.toLocaleString(), `${s.modelMeshes} primitives, material from the file`));
+    }
+    if (s.modelSkinned) {
+      statsBox.append(statCard('Skinned primitives', String(s.modelSkinned), `${s.modelJoints} joints, GPU bone texture`));
     }
     state.fpsHistory.push(s.fps);
     if (state.fpsHistory.length > 320) state.fpsHistory.shift();
@@ -1348,22 +1353,36 @@ async function renderEngine(root) {
       updateOverlay();
       updateStats();
 
-      // The sample GLB loads off the render path; when it lands, the loader's
+      // The sample GLBs load off the render path; when they land, the loader's
       // primitives are uploaded and drawn by the same PBR shader as the
-      // instances. The guard drops the result if the panel was left mid-flight.
-      const modelUrl = new URL('../assets/models/singularity-core.glb', import.meta.url);
-      loadGltf(modelUrl.href)
-        .then((meshes) => {
-          if (state.renderer !== renderer) return;
-          const summary = renderer.attachModel(meshes, { spin: 0.18 });
-          modelStatus.textContent = `sample model: ${summary.meshes} meshes, ${summary.triangles.toLocaleString()} triangles from assets/models/singularity-core.glb — parsed, uploaded and shaded by the same PBR shader as the instances.`;
-          if (reduced) renderer.frame(performance.now());
-          updateOverlay();
-          updateStats();
-        })
-        .catch((err) => {
-          if (!closed) modelStatus.textContent = `sample model failed to load: ${err.message}`;
-        });
+      // instances. One asset failing must not hide the other, so the two loads
+      // settle independently. The guard drops the result if the panel was left
+      // mid-flight.
+      const coreUrl = new URL('../assets/models/singularity-core.glb', import.meta.url);
+      const totemUrl = new URL('../assets/models/skinned-totem.glb', import.meta.url);
+      Promise.allSettled([loadGltf(coreUrl.href), loadGltf(totemUrl.href)]).then(([core, totem]) => {
+        if (state.renderer !== renderer) return;
+        const coreMeshes = core.status === 'fulfilled' ? core.value : [];
+        const totemMeshes = totem.status === 'fulfilled' ? totem.value : [];
+        const failures = [
+          core.status === 'rejected' ? `singularity-core.glb (${core.reason.message})` : '',
+          totem.status === 'rejected' ? `skinned-totem.glb (${totem.reason.message})` : '',
+        ].filter(Boolean);
+        const meshes = [...coreMeshes, ...totemMeshes];
+        if (!meshes.length) {
+          modelStatus.textContent = `sample models failed to load: ${failures.join('; ')}`;
+          return;
+        }
+        const summary = renderer.attachModel(meshes, { spin: 0.18 });
+        const skin = summary.skinned
+          ? ` The totem's ${summary.skinned} skinned primitive plays a ${summary.animation} s loop across ${summary.joints} joints from a GPU bone texture.`
+          : '';
+        const missing = failures.length ? ` Not loaded: ${failures.join('; ')}.` : '';
+        modelStatus.textContent = `sample models: ${summary.meshes} primitives, ${summary.triangles.toLocaleString()} triangles (${coreMeshes.length} from assets/models/singularity-core.glb, ${totemMeshes.length} from assets/models/skinned-totem.glb) — parsed, uploaded and shaded by the same PBR shader as the instances.${skin}${missing}`;
+        if (reduced) renderer.frame(performance.now());
+        updateOverlay();
+        updateStats();
+      });
     } catch (err) {
       renderer?.dispose();
       if (state.renderer === renderer) state.renderer = null;
@@ -1427,8 +1446,8 @@ async function renderEngine(root) {
 
   root.appendChild(
     el('div', { class: 'panel' }, [
-      moduleHead('M3', 'Custom 3D engine on WebGL2', 'Written directly against the WebGL2 API: one indexed cube drawn with hardware instancing, animated entirely in the vertex shader so per-frame CPU cost stays O(1) regardless of instance count. A real depth-only shadow pass feeds hardware PCF shadow sampling, a million particles are generated from gl_VertexID with no vertex buffers at all, and everything - the cube and the glTF sample model - is shaded with one Cook-Torrance BRDF (GGX/Smith/Schlick) plus a Reinhard tone map. Lighting has two real sources: a shadowed directional sun, and an image-based sky - src/graphics/env.js projects a deterministic procedural sky onto band-2 spherical harmonics for the diffuse irradiance cube and mip-maps the sky itself for roughness-driven specular reflections, with no HDRI downloaded.'),
-      note('The object in the middle is a real glTF 2.0 binary (assets/models/singularity-core.glb): src/graphics/gltf.js parses its buffer views, accessors, images, samplers and textures, flattens the TRS node hierarchy into world matrices, computes mikkelsen tangent frames for normal mapping, generates flat normals for the primitive that ships without them, and the engine uploads each primitive and draws it with the same PBR shader as the instances, sampling SRGB8_ALPHA8 base-colour and RGBA8 normal maps from the file. The ambient light is no longer a hand-mixed constant: it is image-based and procedural, sampled per-pixel from the sky of src/graphics/env.js, whose header declares what it is not - a measured HDRI or a GGX-prefiltered specular map. Still deliberately missing, and not faked: skeletal animation and a WebGPU backend. The measured HDRI probe below is real: a Radiance RGBE file decoded, projected to band-2 SH and scored against a direct cosine integral before it is applied.'),
+      moduleHead('M3', 'Custom 3D engine on WebGL2', 'Written directly against the WebGL2 API: one indexed cube drawn with hardware instancing, animated entirely in the vertex shader so per-frame CPU cost stays O(1) regardless of instance count. A real depth-only shadow pass feeds hardware PCF shadow sampling, a million particles are generated from gl_VertexID with no vertex buffers at all, and everything - the cube and both glTF samples - is shaded with one Cook-Torrance BRDF (GGX/Smith/Schlick) plus a Reinhard tone map. Lighting has two real sources: a shadowed directional sun, and an image-based sky - src/graphics/env.js projects a deterministic procedural sky onto band-2 spherical harmonics for the diffuse irradiance cube, and convolves it with a GGX normal distribution into a six-level specular prefilter chain that the shader samples at roughness * 5, with no HDRI downloaded.'),
+      note('The object in the middle is a real glTF 2.0 binary (assets/models/singularity-core.glb): src/graphics/gltf.js parses its buffer views, accessors, images, samplers and textures, flattens the TRS node hierarchy into world matrices, computes mikkelsen tangent frames for normal mapping, generates flat normals for the primitive that ships without them, and the engine uploads each primitive and draws it with the same PBR shader as the instances, sampling SRGB8_ALPHA8 base-colour and RGBA8 normal maps from the file. The totem to its right is a second real GLB (assets/models/skinned-totem.glb) carrying JOINTS_0/WEIGHTS_0 and a six-second rotation clip: src/graphics/skin.js samples the rig on the CPU, and the vertex shader blends four joints per vertex from an RGBA32F bone texture uploaded once per frame - the same loaders, no separate animation engine. The ambient light is no longer a hand-mixed constant: it is image-based, sampled per-pixel from the sky of src/graphics/env.js - band-2 SH for diffuse, a GGX-importance-sampled roughness chain for specular, both declared in the module header for exactly what they are. Still deliberately missing, and not faked: a WebGPU backend (declared out of scope in docs/NON_GOALS.md), glTF morph targets and CUBICSPLINE animation. The measured HDRI probe below is real: a Radiance RGBE file decoded, projected to band-2 SH, scored against a direct cosine integral, and then used to rebuild both the diffuse cube and the specular chain.'),
       card('Scene', [
         el('div', { class: 'canvas-wrap' }, [
           canvas,
@@ -1459,10 +1478,10 @@ async function renderEngine(root) {
       statsBox,
       scopeBox,
       card('Measured HDRI probe', [
-        el('p', { class: 'small dim', text: 'assets/probes/singularity-sky.hdr is a real 64x32 Radiance RGBE image, decoded by src/graphics/hdr.js, projected onto the same band-2 SH the renderer convolves, and measured against a direct cosine integral before it is applied to the diffuse cube.' }),
+        el('p', { class: 'small dim', text: 'assets/probes/singularity-sky.hdr is a real 64x32 Radiance RGBE image, decoded by src/graphics/hdr.js, projected onto the same band-2 SH the renderer convolves and measured against a direct cosine integral. Applying it rebuilds both environment cubes: the diffuse irradiance cube from the SH, and the GGX specular chain by re-running the same importance-sampled prefilter over the probe instead of the procedural sky.' }),
         el('div', { class: 'row mt-10' }, [
           button('Load + measure the probe', async () => {
-            const { parseRadianceHDR, probeIrradianceError, probePeak, probeSH } = await import('./graphics/hdr.js');
+            const { parseRadianceHDR, probeIrradianceError, probePeak, probeRadiance, probeSH } = await import('./graphics/hdr.js');
             if (closed) return;
             probeStatus.className = 'small warn';
             probeStatus.textContent = 'decoding the probe…';
@@ -1474,9 +1493,9 @@ async function renderEngine(root) {
               const coeffs = probeSH(probe, 4096);
               const error = probeIrradianceError(probe, coeffs);
               const peak = probePeak(probe);
-              const applied = renderer ? renderer.applyProbeIrradiance(coeffs) : false;
+              const applied = renderer ? renderer.applyProbeLighting(coeffs, (dir) => probeRadiance(probe, dir)) : false;
               probeStatus.className = `small ${applied ? 'ok' : 'warn'}`;
-              probeStatus.textContent = `${applied ? 'Diffuse irradiance cube rebuilt from the probe' : 'Measured, but no live renderer to apply it to'}. The specular cube stays procedural and the panel says so.`;
+              probeStatus.textContent = `${applied ? 'Diffuse SH cube and GGX specular chain rebuilt from the probe' : 'Measured, but no live renderer to apply it to'}.`;
               clear(probeReadout);
               probeReadout.append(
                 el('div', { text: `probe        ${probe.width}x${probe.height} RGBE, ${probe.data.length / 3} texels` }),
@@ -1491,9 +1510,9 @@ async function renderEngine(root) {
             }
           }),
           button('Back to procedural sky', () => {
-            const ok = renderer ? renderer.resetProceduralIrradiance() : false;
+            const ok = renderer ? renderer.resetProceduralEnvironment() : false;
             probeStatus.className = `small ${ok ? 'ok' : 'warn'}`;
-            probeStatus.textContent = ok ? 'Diffuse irradiance cube rebuilt from the procedural sky.' : 'No live renderer to reset.';
+            probeStatus.textContent = ok ? 'Diffuse SH cube and GGX specular chain rebuilt from the procedural sky.' : 'No live renderer to reset.';
             clear(probeReadout);
           }),
         ]),
@@ -3433,18 +3452,18 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 385, suites: 28, browser: 378, nodeOnly: 7 };
+const TEST_TOTALS = { total: 403, suites: 30, browser: 395, nodeOnly: 8 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
   { id: 'M2', title: 'In-browser C/C++ compiler and runtime', status: 'partial', points: 74, note: 'Self-hosted Clang 8.0.1/WASI compiles C/C++ and standard libraries locally in a killable worker, with headers, multiple sources, stdin and diagnostics. The lightweight C-subset interpreter keeps deterministic budgets. No OS APIs, threads, exceptions or standards beyond C11/C++17; compiler assets and memory overhead are explicit.' },
-  { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 84, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by a procedural-sky image-based environment, a glTF 2.0 loader with mikkelsen tangents sampling the stored model through the same BRDF, and a real HDRI probe (peak, mean and SH reconstruction error against the analytic source, shown in the panel). No skeletal animation, no WebGPU.' },
+  { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 90, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by band-2 SH diffuse plus a six-level GGX-importance-sampled specular prefilter chain, a glTF 2.0 loader with mikkelsen tangents sampling stored models through the same BRDF, a real HDRI probe whose SH and radiance rebuild both environment cubes, and glTF skins: a seven-joint looping clip sampled by src/graphics/skin.js and blended four joints per vertex in the shader from an RGBA32F bone texture. The prefilter is the split-sum second term under N=V with no BRDF LUT. No WebGPU backend (declared out of scope in docs/NON_GOALS.md), no morph targets or CUBICSPLINE animation.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 82, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD over WebCrypto; the signed prekey bundle is verified inside the handshake, and identity keys are sealed to a passphrase (PBKDF2 600k) in IndexedDB. No audited key storage.' },
   { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 78, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. No bundled TURN, so symmetric NAT on both ends still needs one.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 85, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
-  { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated; 83 structural, 66 evidence-backed, and the reviewer\'s mark is the current ceiling until the restored artifact is re-verified.' },
+  { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. The tile carries the evidence-backed score (66/100); the structural ceiling is 83/100 and the reviewer\'s latest mark is 70/100.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist enforced at the canonical host; _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
-  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 118.5 KiB gzip against a 170 KB budget, 60-minute soak ending smaller, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
+  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 125.3 KiB gzip against a 170 KB budget, 60-minute soak ending smaller, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
   { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'partial', points: 69, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
 ];
 
@@ -3544,7 +3563,7 @@ const FEATURE_ICONS = {
 const FEATURES = [
   { mod: '1', icon: 'text', title: 'Real-time collaboration', text: 'An RGA sequence CRDT with convergence and causality proven by property tests, replicated per-user undo, and cursors that converge the same way the text does. No Yjs, no OT server.' },
   { mod: '2', icon: 'code', title: 'C/C++ runtime in a worker', text: 'Local Clang/WebAssembly compilation with real headers and libraries, plus a lightweight C-subset interpreter. Separate compile/run limits and a kill switch keep runaway programs off the main thread.' },
-  { mod: '3', icon: 'cube', title: 'Hand-written 3D engine', text: 'WebGL2 instancing to 100k objects, PCF shadow maps, a million GPU particles, Cook-Torrance PBR lit by a procedural image-based sky and a real glTF 2.0 loader - no three.js anywhere.' },
+  { mod: '3', icon: 'cube', title: 'Hand-written 3D engine', text: 'WebGL2 instancing to 100k objects, PCF shadow maps, a million GPU particles, Cook-Torrance PBR lit by a procedural image-based sky, a real glTF 2.0 loader and a GPU-skinned, looping skeletal animation - no three.js anywhere.' },
   { mod: '4', icon: 'shield', title: 'End-to-end encryption', text: 'X3DH agreement and a Double Ratchet composed from WebCrypto primitives, plus a streaming AEAD path for file transfer, with a verified prekey bundle.' },
   { mod: '5', icon: 'mesh', title: 'Peer mesh and relay', text: 'Tabs find each other over BroadcastChannel, machines over WebRTC data channels, and a ciphertext-only relay with an outbox keeps messages moving through failure.' },
   { mod: '6', icon: 'cloud', title: 'Offline-first storage', text: 'IndexedDB op log with snapshots and schema migrations, a service worker for the shell, and a deterministic recovery path exercised with the server stopped.' },
@@ -3558,12 +3577,12 @@ const ROADMAP = [
   { state: 'done', what: 'M6 - Offline-first', detail: 'Full: op log, snapshots, migrations, service worker, server-stopped recovery.' },
   { state: 'done', what: 'The suite', detail: `${TEST_TOTALS.total} registered tests in ${TEST_TOTALS.suites} suites: ${TEST_TOTALS.browser} browser tests and ${TEST_TOTALS.nodeOnly} Node-only checks.` },
   { state: 'done', what: 'M2 - Runtime (74/100)', detail: 'Clang/WASI C/C++ compilation runs locally alongside the interpreter. Still partial: old standards, no OS APIs, threads or C++ exceptions.' },
-  { state: 'active', what: 'M3 - Engine (84/100)', detail: 'Declared partial: HDR diffuse lighting is shipped; HDR specular prefiltering, skeletal animation and WebGPU are not. glTF base-colour and normal-map sampling is now implemented.' },
+  { state: 'active', what: 'M3 - Engine (90/100)', detail: 'Declared partial: HDR diffuse lighting, a GGX specular prefilter chain for the procedural sky and a measured probe, and glTF skeletal animation on a GPU bone texture are shipped. WebGPU is an explicit non-goal (docs/NON_GOALS.md); morph targets and CUBICSPLINE animation are not implemented.' },
   { state: 'active', what: 'M5 - Transport (78/100)', detail: 'Declared partial: the relay runs as a local dev node; no bundled TURN server for symmetric NATs.' },
-  { state: 'active', what: 'M7 - Accessibility (66/100)', detail: 'Evidence-backed score: semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass announced all eight panel headings, read the M3 canvas description and read Bangla/Arabic text with the right language tags. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain; 83 structural, 66 evidence-backed, and the reviewer\'s mark is the current ceiling.' },
+  { state: 'active', what: 'M7 - Accessibility (66/100)', detail: 'Evidence-backed score: semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass announced all eight panel headings, read the M3 canvas description and read Bangla/Arabic text with the right language tags. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain; the tile carries 66/100 evidence-backed against an 83/100 structural ceiling, and the reviewer\'s latest mark is 70/100.' },
   { state: 'active', what: 'M8 - Hardening (72/100)', detail: 'Declared partial: no third-party red-team pass. The OWASP ZAP baseline ran (spider + active scan) and its report is archived: 0 High, 0 Medium, 0 Low.' },
   { state: 'done', what: 'WASM backend for M2', detail: 'Clang and lld compile C/C++ with a self-hosted WASI sysroot; the interpreter remains a selectable lightweight mode.' },
-  { state: 'planned', what: 'WebGPU renderer path', detail: 'A second backend behind the same engine API, with the WebGL2 path kept for compatibility.' },
+  { state: 'out', what: 'WebGPU renderer path', detail: 'Declared out of scope in docs/NON_GOALS.md: WebGL2 is the measured compatibility target, and a second backend with no requirement it uniquely satisfies would be attachment, not engineering.' },
   { state: 'planned', what: 'OPFS and SharedArrayBuffer pooling', detail: 'Faster cold start and cross-tab memory sharing where COOP/COEP allow it.' },
   { state: 'planned', what: 'Relay deployment and NAT traversal', detail: 'A hosted relay node and a TURN story, so peer tests are not confined to one machine.' },
   { state: 'planned', what: 'VoiceOver and TalkBack validation', detail: 'NVDA 2026.2 is recorded in docs/reports/nvda-session.md. Drive Safari/VoiceOver and Android/TalkBack next, then fix what they find.' },
@@ -3646,13 +3665,13 @@ const STACK = [
  * 'self', so the page makes no third-party connection at all - which also means
  * no analytics and no GitHub API call. Read these as dated facts, with GitHub
  * linked as the live source. */
-const REPO_SNAPSHOT = '19 Oct 2026';
+const REPO_SNAPSHOT = '31 Oct 2026';
 const REPO_SIGNALS = [
-  { value: '17', label: 'commits on main', hint: `snapshot ${REPO_SNAPSHOT}` },
+  { value: '58', label: 'commits on main', hint: `snapshot ${REPO_SNAPSHOT}` },
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
-  { value: '0', label: 'tagged releases', hint: 'the live deployment is the release' },
-  { value: '385', label: 'tests - 28 suites', hint: 'run them from this page' },
+  { value: '2', label: 'tags · 0 GitHub releases', hint: 'v0.1.0, v1.0.0' },
+  { value: '403', label: 'tests - 30 suites', hint: 'run them from this page' },
   { value: '0', label: 'npm dependencies', hint: 'optional self-hosted WASM toolchain' },
 ];
 
@@ -3693,13 +3712,13 @@ const CASE_STUDIES = [
     id: 'engine',
     mod: 'M3',
     title: '3D engine',
-    decisionLine: 'WebGL2 instancing, PCF shadows, a million particles, Cook-Torrance PBR lit by a procedural sky, and glTF base-colour + normal-map sampling - no Three.js.',
+    decisionLine: 'WebGL2 instancing, PCF shadows, a million particles, Cook-Torrance PBR lit by SH diffuse plus a GGX specular prefilter chain, glTF base-colour + normal-map sampling, and GPU skeletal animation - no Three.js.',
     status: 'partial',
     score: moduleMeta('M3').points,
     problem: 'Provide a real 3D scene on a strict JavaScript budget and a WebGL2-only compatibility target.',
-    decision: 'Instanced draws with vertex-shader animation, a depth-only PCF shadow pass, particles generated from gl_VertexID, and a physically based shader lit by two real sources: a shadowed directional sun and an image-based sky built from a deterministic procedural environment (band-2 SH diffuse irradiance cube, roughness-LOD specular cube). A glTF 2.0 loader parses JSON and GLB into the same pipeline, materialises images/samplers/textures, computes mikkelsen tangents, and uploads SRGB8_ALPHA8 base-colour and RGBA8 normal maps.',
-    tradeoff: 'The measured HDR probe drives diffuse irradiance only; specular light remains procedural. No skeletal animation or WebGPU path yet. Normals are generated flat when absent, and the material model is deliberately narrow.',
-    evidence: '11 renderer, 16 glTF and 9 environment tests. 100k instances and 1M particles in 4 draw calls; 60 FPS at defaults and 58 at maximum on the measured machine. 84/100.',
+    decision: 'Instanced draws with vertex-shader animation, a depth-only PCF shadow pass, particles generated from gl_VertexID, and a physically based shader lit by two real sources: a shadowed directional sun and an image-based sky built from a deterministic procedural environment (band-2 SH diffuse irradiance cube, six-level GGX-importance-sampled specular prefilter chain uploaded as explicit mip levels and sampled at roughness * 5). A glTF 2.0 loader parses JSON and GLB into the same pipeline, materialises images/samplers/textures, computes mikkelsen tangents, uploads SRGB8_ALPHA8 base-colour and RGBA8 normal maps, and parses skins and animation clips. src/graphics/skin.js evaluates the rig; the vertex shader blends four joints per vertex from an RGBA32F bone texture refreshed once per frame, so joint count is not capped by the uniform budget.',
+    tradeoff: 'The GGX prefilter is the split-sum second term under the N=V approximation with an analytic Schlick Fresnel, not a full BRDF integration LUT. The measured HDR probe rebuilds both cubes, but its specular chain uses 32 base samples against the procedural path\'s 64. Skinning is linear-blend with four influences and no dual-quaternion option; morph targets and CUBICSPLINE animation are refused, not half-implemented. WebGPU is an explicit non-goal (docs/NON_GOALS.md): the WebGL2 path is the compatibility target and a second backend would attach to nothing measurable. Normals are generated flat when absent, and the material model is deliberately narrow.',
+    evidence: '23 renderer, 25 glTF, 8 rig and 15 environment tests; a browser test drives the shipped skinned GLB through the real shader pipeline and requires gl.getError() === NO_ERROR. 100k instances and 1M particles in 4 draw calls; 60 FPS at defaults and 58 at maximum on the measured machine. 90/100.',
   },
   {
     id: 'crypto',
@@ -3747,7 +3766,7 @@ const CASE_STUDIES = [
     problem: 'An instrument-dense interface has to remain usable with a keyboard, a screen reader, high contrast and 200% text.',
     decision: 'Use semantic elements, a roving-tabindex tablist, live regions, a text alternative for the 3D scene, and preferences for motion, contrast, scale, direction, language and theme. Code stays left-to-right in RTL layouts.',
     tradeoff: 'A real NVDA 2026.2 session covers all eight panel headings, the editor, the M3 canvas and Bangla/Arabic/RTL; VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain unvalidated. Bangla and Arabic shaping in the editor is delegated to the browser text layout; the panel labels are translated, not the whole app.',
-    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. NVDA 2026.2 session: 17/17 steps, every panel heading announced, M3 canvas read, Bangla/Arabic lang tags verified. Structural score 83/100; evidence-backed score 66/100 - VoiceOver/TalkBack and deeper module flows are the remaining gap, and the reviewer\'s mark is the current ceiling.',
+    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. NVDA 2026.2 session: 17/17 steps, every panel heading announced, M3 canvas read, Bangla/Arabic lang tags verified. Evidence-backed score 66/100 against a structural ceiling of 83/100 - VoiceOver/TalkBack and deeper module flows are the remaining gap; the reviewer\'s latest mark is 70/100.',
   },
   {
     id: 'security',
@@ -3817,7 +3836,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '385 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '403 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -3955,7 +3974,7 @@ function repoSignals() {
 }
 
 function roadmapList() {
-  const word = { done: 'shipped', active: 'partial', planned: 'planned' };
+  const word = { done: 'shipped', active: 'partial', planned: 'planned', out: 'out of scope' };
   return el(
     'ul',
     { class: 'roadmap' },
@@ -4215,7 +4234,7 @@ function renderDashboard(root) {
       ]),
       card('Repository signals', [repoSignals()]),
       note('Read this first: this is not the mythical 1000-point build, which the brief itself budgets at 20 engineers for 12 months. It is a working, tested, honest slice: the modules that are full are full, the ones that are partial say exactly where they stop, and every claim is backed by a test you can re-run.', 'warn'),
-      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column this app’s strict count lands on ${achieved}, because Silver asks for four complete modules and ${full} rows say “ok”${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}; the reviewer’s independent tally (803) stamps this build Silver, and the self-assessment stays below it only where the evidence does (M3 −3, M4 −7, M8 −8). Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
+      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column this app’s strict count lands on ${achieved}, because Silver asks for four complete modules and ${full} rows say “ok”${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}; the reviewer’s independent tally (829) also stamps this build Silver on the requirement column, while its 829 points sit inside the Platinum band. The self-assessment sits below the reviewer where the evidence is deliberately thinner (M2 −14, M4 −7, M7 −4, M8 −8, Integration −7; ${score} vs 829), and above its pre-skinning M3 mark by 2: that 88 predates the skinned sample, whose rig, loader path, bone texture and real-shader draw are now covered by tests. Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
       bootSequenceCard(),
       card('Tier ladder', [tierLadder(achieved)]),
       card('Module score map', [
