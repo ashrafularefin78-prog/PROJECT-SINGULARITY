@@ -1,787 +1,787 @@
 {
-  "measuredAt": "2026-10-09T07:58:22.103Z",
+  "measuredAt": "2026-10-31T17:56:39.028Z",
   "minutes": 60,
-  "browser": "Edg/154.0.4258.62",
+  "browser": "Edg/157.0.4341.30",
   "samples": [
     {
       "minute": 1,
-      "elapsedMs": 61547,
-      "jsHeapUsedMiB": 1.1,
+      "elapsedMs": 67128,
+      "jsHeapUsedMiB": 1.45,
       "jsHeapTotalMiB": 1.75,
-      "jsHeapUsedMiBPerfMemory": 1.35,
-      "nodes": 969,
+      "jsHeapUsedMiBPerfMemory": 1.86,
+      "nodes": 2189,
       "documents": 1,
       "layoutCount": 0,
-      "domElements": 532,
-      "canvases": 0,
+      "domElements": 1217,
+      "canvases": 2,
       "module": "M0 Dashboard"
     },
     {
       "minute": 2,
-      "elapsedMs": 123113,
-      "jsHeapUsedMiB": 1.09,
+      "elapsedMs": 128751,
+      "jsHeapUsedMiB": 1.5,
       "jsHeapTotalMiB": 1.75,
-      "jsHeapUsedMiBPerfMemory": 1.34,
-      "nodes": 446,
+      "jsHeapUsedMiBPerfMemory": 1.91,
+      "nodes": 2269,
       "documents": 1,
-      "layoutCount": 987,
-      "domElements": 198,
-      "canvases": 0,
+      "layoutCount": 436,
+      "domElements": 277,
+      "canvases": 1,
       "module": "1. M1 Editor"
     },
     {
       "minute": 3,
-      "elapsedMs": 184673,
-      "jsHeapUsedMiB": 1.13,
+      "elapsedMs": 190335,
+      "jsHeapUsedMiB": 1.53,
       "jsHeapTotalMiB": 1.75,
-      "jsHeapUsedMiBPerfMemory": 1.39,
-      "nodes": 627,
+      "jsHeapUsedMiBPerfMemory": 1.95,
+      "nodes": 2514,
       "documents": 1,
-      "layoutCount": 1053,
-      "domElements": 173,
-      "canvases": 0,
-      "module": "2. M2 C Runtime"
+      "layoutCount": 505,
+      "domElements": 253,
+      "canvases": 1,
+      "module": "2. M2 C/C++ Runtime"
     },
     {
       "minute": 4,
-      "elapsedMs": 248553,
-      "jsHeapUsedMiB": 1.29,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.08,
-      "nodes": 895,
+      "elapsedMs": 260747,
+      "jsHeapUsedMiB": 2.4,
+      "jsHeapTotalMiB": 3,
+      "jsHeapUsedMiBPerfMemory": 4.81,
+      "nodes": 3018,
       "documents": 1,
-      "layoutCount": 1121,
-      "domElements": 207,
-      "canvases": 1,
+      "layoutCount": 578,
+      "domElements": 295,
+      "canvases": 2,
       "module": "3. M3 3D Engine"
     },
     {
       "minute": 5,
-      "elapsedMs": 310986,
-      "jsHeapUsedMiB": 1.44,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.23,
-      "nodes": 1076,
+      "elapsedMs": 322298,
+      "jsHeapUsedMiB": 2.22,
+      "jsHeapTotalMiB": 3,
+      "jsHeapUsedMiBPerfMemory": 2.83,
+      "nodes": 2830,
       "documents": 1,
-      "layoutCount": 1187,
-      "domElements": 198,
-      "canvases": 0,
+      "layoutCount": 671,
+      "domElements": 267,
+      "canvases": 1,
       "module": "4. M4 E2EE"
     },
     {
       "minute": 6,
-      "elapsedMs": 372561,
-      "jsHeapUsedMiB": 1.43,
-      "jsHeapTotalMiB": 1.75,
-      "jsHeapUsedMiBPerfMemory": 3.22,
-      "nodes": 939,
+      "elapsedMs": 383878,
+      "jsHeapUsedMiB": 2.25,
+      "jsHeapTotalMiB": 3,
+      "jsHeapUsedMiBPerfMemory": 2.88,
+      "nodes": 2956,
       "documents": 1,
-      "layoutCount": 1273,
-      "domElements": 235,
-      "canvases": 0,
+      "layoutCount": 745,
+      "domElements": 335,
+      "canvases": 1,
       "module": "5. M5 Mesh"
     },
     {
       "minute": 7,
-      "elapsedMs": 434123,
-      "jsHeapUsedMiB": 1.45,
-      "jsHeapTotalMiB": 1.75,
-      "jsHeapUsedMiBPerfMemory": 3.24,
-      "nodes": 1044,
+      "elapsedMs": 445488,
+      "jsHeapUsedMiB": 2.3,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 2.9,
+      "nodes": 3127,
       "documents": 1,
-      "layoutCount": 2341,
-      "domElements": 192,
-      "canvases": 0,
+      "layoutCount": 1267,
+      "domElements": 259,
+      "canvases": 1,
       "module": "6. M6 Offline"
     },
     {
       "minute": 8,
-      "elapsedMs": 495672,
-      "jsHeapUsedMiB": 1.45,
-      "jsHeapTotalMiB": 1.75,
-      "jsHeapUsedMiBPerfMemory": 3.25,
-      "nodes": 1210,
+      "elapsedMs": 507132,
+      "jsHeapUsedMiB": 2.25,
+      "jsHeapTotalMiB": 3,
+      "jsHeapUsedMiBPerfMemory": 2.89,
+      "nodes": 3260,
       "documents": 1,
-      "layoutCount": 2414,
-      "domElements": 235,
-      "canvases": 0,
+      "layoutCount": 1338,
+      "domElements": 310,
+      "canvases": 1,
       "module": "7. M7 Access"
     },
     {
       "minute": 9,
-      "elapsedMs": 557242,
-      "jsHeapUsedMiB": 1.47,
-      "jsHeapTotalMiB": 1.75,
-      "jsHeapUsedMiBPerfMemory": 3.27,
-      "nodes": 1089,
+      "elapsedMs": 568772,
+      "jsHeapUsedMiB": 2.26,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 2.9,
+      "nodes": 3100,
       "documents": 1,
-      "layoutCount": 2484,
-      "domElements": 229,
-      "canvases": 0,
+      "layoutCount": 1410,
+      "domElements": 290,
+      "canvases": 1,
       "module": "8. M8 Hardening"
     },
     {
       "minute": 10,
-      "elapsedMs": 618799,
-      "jsHeapUsedMiB": 1.48,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.27,
-      "nodes": 1569,
+      "elapsedMs": 630332,
+      "jsHeapUsedMiB": 2.53,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.48,
+      "nodes": 3422,
       "documents": 1,
-      "layoutCount": 2566,
-      "domElements": 532,
-      "canvases": 0,
-      "module": "M0 Dashboard"
+      "layoutCount": 1478,
+      "domElements": 384,
+      "canvases": 1,
+      "module": "9. M9 SINGU AI"
     },
     {
       "minute": 11,
-      "elapsedMs": 681098,
-      "jsHeapUsedMiB": 1.48,
-      "jsHeapTotalMiB": 1.75,
-      "jsHeapUsedMiBPerfMemory": 3.27,
-      "nodes": 929,
+      "elapsedMs": 693316,
+      "jsHeapUsedMiB": 2.55,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.5,
+      "nodes": 3014,
       "documents": 1,
-      "layoutCount": 3657,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "1. M1 Editor"
+      "layoutCount": 1554,
+      "domElements": 1217,
+      "canvases": 2,
+      "module": "M0 Dashboard"
     },
     {
       "minute": 12,
-      "elapsedMs": 742654,
-      "jsHeapUsedMiB": 1.48,
-      "jsHeapTotalMiB": 1.75,
-      "jsHeapUsedMiBPerfMemory": 3.27,
-      "nodes": 921,
+      "elapsedMs": 754929,
+      "jsHeapUsedMiB": 2.56,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.51,
+      "nodes": 2944,
       "documents": 1,
-      "layoutCount": 3725,
-      "domElements": 173,
-      "canvases": 0,
-      "module": "2. M2 C Runtime"
+      "layoutCount": 1979,
+      "domElements": 277,
+      "canvases": 1,
+      "module": "1. M1 Editor"
     },
     {
       "minute": 13,
-      "elapsedMs": 804250,
-      "jsHeapUsedMiB": 1.49,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.28,
-      "nodes": 989,
+      "elapsedMs": 816532,
+      "jsHeapUsedMiB": 2.56,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.51,
+      "nodes": 2992,
       "documents": 1,
-      "layoutCount": 3790,
-      "domElements": 207,
+      "layoutCount": 2050,
+      "domElements": 253,
       "canvases": 1,
-      "module": "3. M3 3D Engine"
+      "module": "2. M2 C/C++ Runtime"
     },
     {
       "minute": 14,
-      "elapsedMs": 866557,
-      "jsHeapUsedMiB": 1.49,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.28,
-      "nodes": 1048,
+      "elapsedMs": 885942,
+      "jsHeapUsedMiB": 3.38,
+      "jsHeapTotalMiB": 5.25,
+      "jsHeapUsedMiBPerfMemory": 6.77,
+      "nodes": 3306,
       "documents": 1,
-      "layoutCount": 3900,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "4. M4 E2EE"
+      "layoutCount": 2120,
+      "domElements": 295,
+      "canvases": 2,
+      "module": "3. M3 3D Engine"
     },
     {
       "minute": 15,
-      "elapsedMs": 928106,
-      "jsHeapUsedMiB": 1.49,
-      "jsHeapTotalMiB": 2.5,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 940,
+      "elapsedMs": 948160,
+      "jsHeapUsedMiB": 2.58,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.54,
+      "nodes": 3076,
       "documents": 1,
-      "layoutCount": 3987,
-      "domElements": 235,
-      "canvases": 0,
-      "module": "5. M5 Mesh"
+      "layoutCount": 2210,
+      "domElements": 267,
+      "canvases": 1,
+      "module": "4. M4 E2EE"
     },
     {
       "minute": 16,
-      "elapsedMs": 989676,
-      "jsHeapUsedMiB": 1.5,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 1044,
+      "elapsedMs": 1009747,
+      "jsHeapUsedMiB": 2.59,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.54,
+      "nodes": 3202,
       "documents": 1,
-      "layoutCount": 5003,
-      "domElements": 192,
-      "canvases": 0,
-      "module": "6. M6 Offline"
+      "layoutCount": 2284,
+      "domElements": 335,
+      "canvases": 1,
+      "module": "5. M5 Mesh"
     },
     {
       "minute": 17,
-      "elapsedMs": 1051225,
-      "jsHeapUsedMiB": 1.5,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 1210,
+      "elapsedMs": 1071333,
+      "jsHeapUsedMiB": 2.59,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.55,
+      "nodes": 3313,
       "documents": 1,
-      "layoutCount": 5074,
-      "domElements": 235,
-      "canvases": 0,
-      "module": "7. M7 Access"
+      "layoutCount": 2810,
+      "domElements": 259,
+      "canvases": 1,
+      "module": "6. M6 Offline"
     },
     {
       "minute": 18,
-      "elapsedMs": 1112773,
-      "jsHeapUsedMiB": 1.5,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 1089,
+      "elapsedMs": 1132920,
+      "jsHeapUsedMiB": 2.58,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.54,
+      "nodes": 3506,
       "documents": 1,
-      "layoutCount": 5142,
-      "domElements": 229,
-      "canvases": 0,
-      "module": "8. M8 Hardening"
+      "layoutCount": 2882,
+      "domElements": 310,
+      "canvases": 1,
+      "module": "7. M7 Access"
     },
     {
       "minute": 19,
-      "elapsedMs": 1174348,
-      "jsHeapUsedMiB": 1.5,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 1569,
+      "elapsedMs": 1194537,
+      "jsHeapUsedMiB": 2.58,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.54,
+      "nodes": 3405,
       "documents": 1,
-      "layoutCount": 5227,
-      "domElements": 532,
-      "canvases": 0,
-      "module": "M0 Dashboard"
+      "layoutCount": 2952,
+      "domElements": 290,
+      "canvases": 1,
+      "module": "8. M8 Hardening"
     },
     {
       "minute": 20,
-      "elapsedMs": 1235897,
-      "jsHeapUsedMiB": 1.5,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 929,
+      "elapsedMs": 1256101,
+      "jsHeapUsedMiB": 2.57,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.54,
+      "nodes": 3668,
       "documents": 1,
-      "layoutCount": 6248,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "1. M1 Editor"
+      "layoutCount": 3020,
+      "domElements": 384,
+      "canvases": 1,
+      "module": "9. M9 SINGU AI"
     },
     {
       "minute": 21,
-      "elapsedMs": 1297453,
-      "jsHeapUsedMiB": 1.49,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.28,
-      "nodes": 921,
+      "elapsedMs": 1317790,
+      "jsHeapUsedMiB": 2.59,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.56,
+      "nodes": 3260,
       "documents": 1,
-      "layoutCount": 6317,
-      "domElements": 173,
-      "canvases": 0,
-      "module": "2. M2 C Runtime"
+      "layoutCount": 3094,
+      "domElements": 1217,
+      "canvases": 2,
+      "module": "M0 Dashboard"
     },
     {
       "minute": 22,
-      "elapsedMs": 1359043,
-      "jsHeapUsedMiB": 1.5,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 989,
+      "elapsedMs": 1379408,
+      "jsHeapUsedMiB": 2.6,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.56,
+      "nodes": 3190,
       "documents": 1,
-      "layoutCount": 6382,
-      "domElements": 207,
+      "layoutCount": 3516,
+      "domElements": 277,
       "canvases": 1,
-      "module": "3. M3 3D Engine"
+      "module": "1. M1 Editor"
     },
     {
       "minute": 23,
-      "elapsedMs": 1420603,
-      "jsHeapUsedMiB": 1.5,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 1048,
+      "elapsedMs": 1441000,
+      "jsHeapUsedMiB": 2.59,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.56,
+      "nodes": 3179,
       "documents": 1,
-      "layoutCount": 6488,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "4. M4 E2EE"
+      "layoutCount": 3587,
+      "domElements": 253,
+      "canvases": 1,
+      "module": "2. M2 C/C++ Runtime"
     },
     {
       "minute": 24,
-      "elapsedMs": 1482141,
-      "jsHeapUsedMiB": 1.5,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 939,
+      "elapsedMs": 1510360,
+      "jsHeapUsedMiB": 3.43,
+      "jsHeapTotalMiB": 4,
+      "jsHeapUsedMiBPerfMemory": 6.81,
+      "nodes": 3492,
       "documents": 1,
-      "layoutCount": 6573,
-      "domElements": 235,
-      "canvases": 0,
-      "module": "5. M5 Mesh"
+      "layoutCount": 3658,
+      "domElements": 295,
+      "canvases": 2,
+      "module": "3. M3 3D Engine"
     },
     {
       "minute": 25,
-      "elapsedMs": 1543704,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.3,
-      "nodes": 1044,
+      "elapsedMs": 1572542,
+      "jsHeapUsedMiB": 2.65,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.61,
+      "nodes": 3382,
       "documents": 1,
-      "layoutCount": 7637,
-      "domElements": 192,
-      "canvases": 0,
-      "module": "6. M6 Offline"
+      "layoutCount": 3749,
+      "domElements": 267,
+      "canvases": 1,
+      "module": "4. M4 E2EE"
     },
     {
       "minute": 26,
-      "elapsedMs": 1605255,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.3,
-      "nodes": 1210,
+      "elapsedMs": 1634142,
+      "jsHeapUsedMiB": 2.65,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.61,
+      "nodes": 3448,
       "documents": 1,
-      "layoutCount": 7709,
-      "domElements": 235,
-      "canvases": 0,
-      "module": "7. M7 Access"
+      "layoutCount": 3823,
+      "domElements": 335,
+      "canvases": 1,
+      "module": "5. M5 Mesh"
     },
     {
       "minute": 27,
-      "elapsedMs": 1666806,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.3,
-      "nodes": 1089,
+      "elapsedMs": 1695775,
+      "jsHeapUsedMiB": 2.67,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.62,
+      "nodes": 3559,
       "documents": 1,
-      "layoutCount": 7778,
-      "domElements": 229,
-      "canvases": 0,
-      "module": "8. M8 Hardening"
+      "layoutCount": 4314,
+      "domElements": 259,
+      "canvases": 1,
+      "module": "6. M6 Offline"
     },
     {
       "minute": 28,
-      "elapsedMs": 1728379,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.31,
-      "nodes": 1569,
+      "elapsedMs": 1757436,
+      "jsHeapUsedMiB": 2.65,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.61,
+      "nodes": 3752,
       "documents": 1,
-      "layoutCount": 7861,
-      "domElements": 532,
-      "canvases": 0,
-      "module": "M0 Dashboard"
+      "layoutCount": 4384,
+      "domElements": 310,
+      "canvases": 1,
+      "module": "7. M7 Access"
     },
     {
       "minute": 29,
-      "elapsedMs": 1789946,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.3,
-      "nodes": 929,
+      "elapsedMs": 1819069,
+      "jsHeapUsedMiB": 2.65,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.61,
+      "nodes": 3592,
       "documents": 1,
-      "layoutCount": 8878,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "1. M1 Editor"
+      "layoutCount": 4453,
+      "domElements": 290,
+      "canvases": 1,
+      "module": "8. M8 Hardening"
     },
     {
       "minute": 30,
-      "elapsedMs": 1851492,
-      "jsHeapUsedMiB": 1.5,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.29,
-      "nodes": 921,
+      "elapsedMs": 1880641,
+      "jsHeapUsedMiB": 2.65,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.61,
+      "nodes": 3914,
       "documents": 1,
-      "layoutCount": 8945,
-      "domElements": 173,
-      "canvases": 0,
-      "module": "2. M2 C Runtime"
+      "layoutCount": 4523,
+      "domElements": 384,
+      "canvases": 1,
+      "module": "9. M9 SINGU AI"
     },
     {
       "minute": 31,
-      "elapsedMs": 1913475,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 7.12,
-      "nodes": 989,
+      "elapsedMs": 1942345,
+      "jsHeapUsedMiB": 2.66,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.63,
+      "nodes": 3506,
       "documents": 1,
-      "layoutCount": 9011,
-      "domElements": 207,
-      "canvases": 1,
-      "module": "3. M3 3D Engine"
+      "layoutCount": 4598,
+      "domElements": 1217,
+      "canvases": 2,
+      "module": "M0 Dashboard"
     },
     {
       "minute": 32,
-      "elapsedMs": 1975026,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.3,
-      "nodes": 1049,
+      "elapsedMs": 2003956,
+      "jsHeapUsedMiB": 2.66,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.63,
+      "nodes": 3436,
       "documents": 1,
-      "layoutCount": 9116,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "4. M4 E2EE"
+      "layoutCount": 5028,
+      "domElements": 277,
+      "canvases": 1,
+      "module": "1. M1 Editor"
     },
     {
       "minute": 33,
-      "elapsedMs": 2036574,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.3,
-      "nodes": 939,
+      "elapsedMs": 2065550,
+      "jsHeapUsedMiB": 2.66,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.62,
+      "nodes": 3485,
       "documents": 1,
-      "layoutCount": 9200,
-      "domElements": 235,
-      "canvases": 0,
-      "module": "5. M5 Mesh"
+      "layoutCount": 5099,
+      "domElements": 253,
+      "canvases": 1,
+      "module": "2. M2 C/C++ Runtime"
     },
     {
       "minute": 34,
-      "elapsedMs": 2098118,
-      "jsHeapUsedMiB": 1.52,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.31,
-      "nodes": 1044,
+      "elapsedMs": 2135120,
+      "jsHeapUsedMiB": 3.47,
+      "jsHeapTotalMiB": 4.25,
+      "jsHeapUsedMiBPerfMemory": 6.85,
+      "nodes": 3737,
       "documents": 1,
-      "layoutCount": 10217,
-      "domElements": 192,
-      "canvases": 0,
-      "module": "6. M6 Offline"
+      "layoutCount": 5171,
+      "domElements": 295,
+      "canvases": 2,
+      "module": "3. M3 3D Engine"
     },
     {
       "minute": 35,
-      "elapsedMs": 2159674,
-      "jsHeapUsedMiB": 1.52,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.31,
-      "nodes": 1210,
+      "elapsedMs": 2197348,
+      "jsHeapUsedMiB": 2.67,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.63,
+      "nodes": 3568,
       "documents": 1,
-      "layoutCount": 10290,
-      "domElements": 235,
-      "canvases": 0,
-      "module": "7. M7 Access"
+      "layoutCount": 5261,
+      "domElements": 267,
+      "canvases": 1,
+      "module": "4. M4 E2EE"
     },
     {
       "minute": 36,
-      "elapsedMs": 2221234,
-      "jsHeapUsedMiB": 1.52,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.31,
-      "nodes": 1089,
+      "elapsedMs": 2258932,
+      "jsHeapUsedMiB": 2.67,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.63,
+      "nodes": 3694,
       "documents": 1,
-      "layoutCount": 10359,
-      "domElements": 229,
-      "canvases": 0,
-      "module": "8. M8 Hardening"
+      "layoutCount": 5336,
+      "domElements": 335,
+      "canvases": 1,
+      "module": "5. M5 Mesh"
     },
     {
       "minute": 37,
-      "elapsedMs": 2282802,
-      "jsHeapUsedMiB": 1.52,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.31,
-      "nodes": 1569,
+      "elapsedMs": 2320540,
+      "jsHeapUsedMiB": 2.68,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.64,
+      "nodes": 3805,
       "documents": 1,
-      "layoutCount": 10438,
-      "domElements": 532,
-      "canvases": 0,
-      "module": "M0 Dashboard"
+      "layoutCount": 5799,
+      "domElements": 259,
+      "canvases": 1,
+      "module": "6. M6 Offline"
     },
     {
       "minute": 38,
-      "elapsedMs": 2344357,
-      "jsHeapUsedMiB": 1.52,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.31,
-      "nodes": 929,
+      "elapsedMs": 2382159,
+      "jsHeapUsedMiB": 2.67,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.63,
+      "nodes": 3998,
       "documents": 1,
-      "layoutCount": 11387,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "1. M1 Editor"
+      "layoutCount": 5869,
+      "domElements": 310,
+      "canvases": 1,
+      "module": "7. M7 Access"
     },
     {
       "minute": 39,
-      "elapsedMs": 2405906,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.3,
-      "nodes": 921,
+      "elapsedMs": 2443845,
+      "jsHeapUsedMiB": 2.67,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.63,
+      "nodes": 3838,
       "documents": 1,
-      "layoutCount": 11454,
-      "domElements": 173,
-      "canvases": 0,
-      "module": "2. M2 C Runtime"
+      "layoutCount": 5940,
+      "domElements": 290,
+      "canvases": 1,
+      "module": "8. M8 Hardening"
     },
     {
       "minute": 40,
-      "elapsedMs": 2469637,
-      "jsHeapUsedMiB": 1.51,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.3,
-      "nodes": 926,
+      "elapsedMs": 2505433,
+      "jsHeapUsedMiB": 2.7,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.66,
+      "nodes": 4160,
       "documents": 1,
-      "layoutCount": 11524,
-      "domElements": 207,
+      "layoutCount": 6009,
+      "domElements": 384,
       "canvases": 1,
-      "module": "3. M3 3D Engine"
+      "module": "9. M9 SINGU AI"
     },
     {
       "minute": 41,
-      "elapsedMs": 2531179,
-      "jsHeapUsedMiB": 1.52,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.31,
-      "nodes": 1048,
+      "elapsedMs": 2567154,
+      "jsHeapUsedMiB": 2.73,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.69,
+      "nodes": 3752,
       "documents": 1,
-      "layoutCount": 11630,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "4. M4 E2EE"
+      "layoutCount": 6085,
+      "domElements": 1217,
+      "canvases": 2,
+      "module": "M0 Dashboard"
     },
     {
       "minute": 42,
-      "elapsedMs": 2592738,
-      "jsHeapUsedMiB": 1.52,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.31,
-      "nodes": 939,
+      "elapsedMs": 2628792,
+      "jsHeapUsedMiB": 2.73,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.69,
+      "nodes": 3682,
       "documents": 1,
-      "layoutCount": 11714,
-      "domElements": 235,
-      "canvases": 0,
-      "module": "5. M5 Mesh"
+      "layoutCount": 6482,
+      "domElements": 277,
+      "canvases": 1,
+      "module": "1. M1 Editor"
     },
     {
       "minute": 43,
-      "elapsedMs": 2654290,
-      "jsHeapUsedMiB": 1.53,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.32,
-      "nodes": 1044,
+      "elapsedMs": 2690384,
+      "jsHeapUsedMiB": 2.74,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.7,
+      "nodes": 3671,
       "documents": 1,
-      "layoutCount": 12754,
-      "domElements": 192,
-      "canvases": 0,
-      "module": "6. M6 Offline"
+      "layoutCount": 6553,
+      "domElements": 253,
+      "canvases": 1,
+      "module": "2. M2 C/C++ Runtime"
     },
     {
       "minute": 44,
-      "elapsedMs": 2715859,
-      "jsHeapUsedMiB": 1.53,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.32,
-      "nodes": 1210,
+      "elapsedMs": 2757244,
+      "jsHeapUsedMiB": 2.86,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 6.82,
+      "nodes": 3870,
       "documents": 1,
-      "layoutCount": 12826,
-      "domElements": 235,
-      "canvases": 0,
-      "module": "7. M7 Access"
+      "layoutCount": 6622,
+      "domElements": 295,
+      "canvases": 2,
+      "module": "3. M3 3D Engine"
     },
     {
       "minute": 45,
-      "elapsedMs": 2777419,
-      "jsHeapUsedMiB": 1.53,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.33,
-      "nodes": 1089,
+      "elapsedMs": 2821482,
+      "jsHeapUsedMiB": 2.82,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.74,
+      "nodes": 3874,
       "documents": 1,
-      "layoutCount": 12896,
-      "domElements": 229,
-      "canvases": 0,
-      "module": "8. M8 Hardening"
+      "layoutCount": 6711,
+      "domElements": 267,
+      "canvases": 1,
+      "module": "4. M4 E2EE"
     },
     {
       "minute": 46,
-      "elapsedMs": 2839023,
-      "jsHeapUsedMiB": 1.55,
-      "jsHeapTotalMiB": 2.5,
-      "jsHeapUsedMiBPerfMemory": 3.35,
-      "nodes": 1616,
+      "elapsedMs": 2883064,
+      "jsHeapUsedMiB": 2.81,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.76,
+      "nodes": 3940,
       "documents": 1,
-      "layoutCount": 12982,
-      "domElements": 532,
-      "canvases": 0,
-      "module": "M0 Dashboard"
+      "layoutCount": 6785,
+      "domElements": 335,
+      "canvases": 1,
+      "module": "5. M5 Mesh"
     },
     {
       "minute": 47,
-      "elapsedMs": 2900582,
-      "jsHeapUsedMiB": 1.53,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.33,
-      "nodes": 929,
+      "elapsedMs": 2944669,
+      "jsHeapUsedMiB": 2.81,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.77,
+      "nodes": 4051,
       "documents": 1,
-      "layoutCount": 14154,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "1. M1 Editor"
-    },
-    {
-      "minute": 48,
-      "elapsedMs": 2962151,
-      "jsHeapUsedMiB": 1.53,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.32,
-      "nodes": 921,
-      "documents": 1,
-      "layoutCount": 14223,
-      "domElements": 173,
-      "canvases": 0,
-      "module": "2. M2 C Runtime"
-    },
-    {
-      "minute": 49,
-      "elapsedMs": 3025496,
-      "jsHeapUsedMiB": 1.54,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 7.2,
-      "nodes": 926,
-      "documents": 1,
-      "layoutCount": 14292,
-      "domElements": 207,
+      "layoutCount": 7294,
+      "domElements": 259,
       "canvases": 1,
-      "module": "3. M3 3D Engine"
-    },
-    {
-      "minute": 50,
-      "elapsedMs": 3087035,
-      "jsHeapUsedMiB": 1.55,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.34,
-      "nodes": 1048,
-      "documents": 1,
-      "layoutCount": 14406,
-      "domElements": 198,
-      "canvases": 0,
-      "module": "4. M4 E2EE"
-    },
-    {
-      "minute": 51,
-      "elapsedMs": 3148601,
-      "jsHeapUsedMiB": 1.55,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.34,
-      "nodes": 939,
-      "documents": 1,
-      "layoutCount": 14497,
-      "domElements": 235,
-      "canvases": 0,
-      "module": "5. M5 Mesh"
-    },
-    {
-      "minute": 52,
-      "elapsedMs": 3210167,
-      "jsHeapUsedMiB": 1.56,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.35,
-      "nodes": 1044,
-      "documents": 1,
-      "layoutCount": 15580,
-      "domElements": 192,
-      "canvases": 0,
       "module": "6. M6 Offline"
     },
     {
-      "minute": 53,
-      "elapsedMs": 3271708,
-      "jsHeapUsedMiB": 1.56,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.35,
-      "nodes": 1210,
+      "minute": 48,
+      "elapsedMs": 3006276,
+      "jsHeapUsedMiB": 2.8,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.76,
+      "nodes": 4244,
       "documents": 1,
-      "layoutCount": 15653,
-      "domElements": 235,
-      "canvases": 0,
+      "layoutCount": 7365,
+      "domElements": 310,
+      "canvases": 1,
       "module": "7. M7 Access"
     },
     {
-      "minute": 54,
-      "elapsedMs": 3333257,
-      "jsHeapUsedMiB": 1.56,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.35,
-      "nodes": 1089,
+      "minute": 49,
+      "elapsedMs": 3067904,
+      "jsHeapUsedMiB": 2.79,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.76,
+      "nodes": 4084,
       "documents": 1,
-      "layoutCount": 15723,
-      "domElements": 229,
-      "canvases": 0,
+      "layoutCount": 7436,
+      "domElements": 290,
+      "canvases": 1,
       "module": "8. M8 Hardening"
     },
     {
-      "minute": 55,
-      "elapsedMs": 3394811,
-      "jsHeapUsedMiB": 1.56,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.36,
-      "nodes": 1569,
+      "minute": 50,
+      "elapsedMs": 3129522,
+      "jsHeapUsedMiB": 2.83,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.75,
+      "nodes": 4494,
       "documents": 1,
-      "layoutCount": 15811,
-      "domElements": 532,
-      "canvases": 0,
+      "layoutCount": 7507,
+      "domElements": 384,
+      "canvases": 1,
+      "module": "9. M9 SINGU AI"
+    },
+    {
+      "minute": 51,
+      "elapsedMs": 3191230,
+      "jsHeapUsedMiB": 2.82,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.79,
+      "nodes": 3998,
+      "documents": 1,
+      "layoutCount": 7583,
+      "domElements": 1217,
+      "canvases": 2,
       "module": "M0 Dashboard"
     },
     {
-      "minute": 56,
-      "elapsedMs": 3456361,
-      "jsHeapUsedMiB": 1.56,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.35,
-      "nodes": 929,
+      "minute": 52,
+      "elapsedMs": 3252860,
+      "jsHeapUsedMiB": 2.81,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.78,
+      "nodes": 3928,
       "documents": 1,
-      "layoutCount": 16899,
-      "domElements": 198,
-      "canvases": 0,
+      "layoutCount": 8026,
+      "domElements": 277,
+      "canvases": 1,
       "module": "1. M1 Editor"
     },
     {
-      "minute": 57,
-      "elapsedMs": 3517926,
-      "jsHeapUsedMiB": 1.55,
-      "jsHeapTotalMiB": 2,
-      "jsHeapUsedMiBPerfMemory": 3.34,
-      "nodes": 921,
+      "minute": 53,
+      "elapsedMs": 3314440,
+      "jsHeapUsedMiB": 2.81,
+      "jsHeapTotalMiB": 3.25,
+      "jsHeapUsedMiBPerfMemory": 3.77,
+      "nodes": 3917,
       "documents": 1,
-      "layoutCount": 16966,
-      "domElements": 173,
-      "canvases": 0,
-      "module": "2. M2 C Runtime"
+      "layoutCount": 8097,
+      "domElements": 253,
+      "canvases": 1,
+      "module": "2. M2 C/C++ Runtime"
     },
     {
-      "minute": 58,
-      "elapsedMs": 3580235,
-      "jsHeapUsedMiB": 1.53,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 7.16,
-      "nodes": 926,
+      "minute": 54,
+      "elapsedMs": 3384526,
+      "jsHeapUsedMiB": 3.63,
+      "jsHeapTotalMiB": 4.25,
+      "jsHeapUsedMiBPerfMemory": 6.14,
+      "nodes": 4229,
       "documents": 1,
-      "layoutCount": 17035,
-      "domElements": 207,
-      "canvases": 1,
+      "layoutCount": 8169,
+      "domElements": 295,
+      "canvases": 2,
       "module": "3. M3 3D Engine"
     },
     {
-      "minute": 59,
-      "elapsedMs": 3641774,
-      "jsHeapUsedMiB": 1.53,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.32,
-      "nodes": 1048,
+      "minute": 55,
+      "elapsedMs": 3446715,
+      "jsHeapUsedMiB": 2.82,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.78,
+      "nodes": 4060,
       "documents": 1,
-      "layoutCount": 17144,
-      "domElements": 198,
-      "canvases": 0,
+      "layoutCount": 8268,
+      "domElements": 267,
+      "canvases": 1,
       "module": "4. M4 E2EE"
     },
     {
-      "minute": 60,
-      "elapsedMs": 3703336,
-      "jsHeapUsedMiB": 1.53,
-      "jsHeapTotalMiB": 2.25,
-      "jsHeapUsedMiBPerfMemory": 3.33,
-      "nodes": 940,
+      "minute": 56,
+      "elapsedMs": 3508301,
+      "jsHeapUsedMiB": 2.83,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.79,
+      "nodes": 4186,
       "documents": 1,
-      "layoutCount": 17230,
-      "domElements": 235,
-      "canvases": 0,
+      "layoutCount": 8340,
+      "domElements": 335,
+      "canvases": 1,
       "module": "5. M5 Mesh"
+    },
+    {
+      "minute": 57,
+      "elapsedMs": 3569924,
+      "jsHeapUsedMiB": 2.83,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.79,
+      "nodes": 4297,
+      "documents": 1,
+      "layoutCount": 8838,
+      "domElements": 259,
+      "canvases": 1,
+      "module": "6. M6 Offline"
+    },
+    {
+      "minute": 58,
+      "elapsedMs": 3631544,
+      "jsHeapUsedMiB": 2.82,
+      "jsHeapTotalMiB": 3.75,
+      "jsHeapUsedMiBPerfMemory": 3.78,
+      "nodes": 4577,
+      "documents": 1,
+      "layoutCount": 8910,
+      "domElements": 310,
+      "canvases": 1,
+      "module": "7. M7 Access"
+    },
+    {
+      "minute": 59,
+      "elapsedMs": 3693167,
+      "jsHeapUsedMiB": 2.82,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.78,
+      "nodes": 4330,
+      "documents": 1,
+      "layoutCount": 8979,
+      "domElements": 290,
+      "canvases": 1,
+      "module": "8. M8 Hardening"
+    },
+    {
+      "minute": 60,
+      "elapsedMs": 3754738,
+      "jsHeapUsedMiB": 2.82,
+      "jsHeapTotalMiB": 3.5,
+      "jsHeapUsedMiBPerfMemory": 3.78,
+      "nodes": 4652,
+      "documents": 1,
+      "layoutCount": 9050,
+      "domElements": 384,
+      "canvases": 1,
+      "module": "9. M9 SINGU AI"
     }
   ],
   "interrupted": null,
@@ -789,393 +789,397 @@
     {
       "label": "10m",
       "file": ".tools/soak/heap-10m.heapsnapshot",
-      "bytes": 6252592,
+      "bytes": 9357845,
       "summary": {
-        "nodeCount": 77490,
-        "totalSelfBytes": 7039585,
-        "reachableBytes": 7039585,
+        "nodeCount": 109373,
+        "totalSelfBytes": 8339415,
+        "reachableBytes": 8339415,
         "byType": {
-          "native": 5963321,
-          "code": 475672,
-          "object shape": 194608,
-          "array": 160048,
-          "string": 129476,
-          "closure": 83472,
-          "object": 30564,
-          "concatenated string": 1180,
-          "number": 1116,
+          "native": 6216655,
+          "code": 1245744,
+          "string": 274328,
+          "object shape": 250000,
+          "array": 180944,
+          "closure": 109936,
+          "object": 54588,
+          "concatenated string": 4540,
+          "number": 2460,
           "symbol": 80,
-          "regexp": 48,
+          "regexp": 72,
+          "bigint": 48,
+          "sliced string": 20,
           "synthetic": 0
         },
         "topRetained": [
           {
-            "name": "native system / JSArrayBufferData",
-            "bytes": 1600904,
-            "count": 8
-          },
-          {
             "name": "native system / ExternalStringData",
-            "bytes": 421889,
-            "count": 536
-          },
-          {
-            "name": "native system / FunctionTemplateInfo",
-            "bytes": 246080,
-            "count": 3847
+            "bytes": 1493235,
+            "count": 1146
           },
           {
             "name": "code system / InstructionStream",
-            "bytes": 180608,
-            "count": 119
-          },
-          {
-            "name": "native blink::GridSizingTrackCollection",
-            "bytes": 156960,
-            "count": 90
-          },
-          {
-            "name": "native blink::ImmutableCSSPropertyValueSet",
-            "bytes": 111728,
-            "count": 779
-          },
-          {
-            "name": "native blink::ComputedStyle",
-            "bytes": 111312,
-            "count": 1546
-          },
-          {
-            "name": "native blink::ComputedStyleBase::StyleMiscData",
-            "bytes": 105776,
-            "count": 1202
-          },
-          {
-            "name": "array (anonymous)",
-            "bytes": 103416,
+            "bytes": 524992,
             "count": 267
           },
           {
-            "name": "object shape system / DescriptorArray",
-            "bytes": 98776,
-            "count": 711
+            "name": "native system / FunctionTemplateInfo",
+            "bytes": 278912,
+            "count": 4360
           },
           {
-            "name": "native blink::ComputedStyleBase::StyleMiscInherited1Data",
-            "bytes": 96928,
-            "count": 466
-          },
-          {
-            "name": "native blink::ComputedStyleBase::StyleSurroundData",
-            "bytes": 94224,
-            "count": 302
-          },
-          {
-            "name": "object shape system / Map",
-            "bytes": 82864,
-            "count": 2020
-          },
-          {
-            "name": "native blink::HeapVectorBacking<blink::HarfBuzzRunGlyphData>",
-            "bytes": 81584,
-            "count": 319
-          },
-          {
-            "name": "native system / ArrayList",
-            "bytes": 77128,
-            "count": 160
+            "name": "native blink::ImmutableCSSPropertyValueSet",
+            "bytes": 192816,
+            "count": 1359
           },
           {
             "name": "native blink::UniqueElementData",
-            "bytes": 72912,
-            "count": 651
+            "bytes": 145152,
+            "count": 1296
+          },
+          {
+            "name": "code system / BytecodeArray",
+            "bytes": 132312,
+            "count": 367
+          },
+          {
+            "name": "native blink::ElementAnimations",
+            "bytes": 127424,
+            "count": 181
+          },
+          {
+            "name": "object shape system / DescriptorArray",
+            "bytes": 119512,
+            "count": 897
           },
           {
             "name": "native blink::StyleRule",
-            "bytes": 71088,
-            "count": 840
+            "bytes": 114992,
+            "count": 1446
           },
           {
-            "name": "native blink::LayoutBlockFlow",
-            "bytes": 65016,
-            "count": 387
+            "name": "object shape system / Map",
+            "bytes": 114776,
+            "count": 2807
           },
           {
-            "name": "native blink::PhysicalBoxFragment",
-            "bytes": 64560,
-            "count": 669
+            "name": "array (anonymous)",
+            "bytes": 112504,
+            "count": 576
           },
           {
-            "name": "native blink::ComputedStyleBase::StyleBoxData",
-            "bytes": 63888,
-            "count": 363
+            "name": "native Text",
+            "bytes": 106656,
+            "count": 1212
+          },
+          {
+            "name": "code system / TrustedByteArray",
+            "bytes": 105664,
+            "count": 676
+          },
+          {
+            "name": "native system / ArrayList",
+            "bytes": 90060,
+            "count": 206
+          },
+          {
+            "name": "native blink::ComputedStyleBase::StyleMiscInherited1Data",
+            "bytes": 88344,
+            "count": 409
+          },
+          {
+            "name": "native blink::ComputedStyleBase::StyleSurroundData",
+            "bytes": 85800,
+            "count": 275
+          },
+          {
+            "name": "native blink::ComputedStyle",
+            "bytes": 69552,
+            "count": 966
+          },
+          {
+            "name": "native blink::ComputedStyleBase::StyleMiscData",
+            "bytes": 65648,
+            "count": 746
+          },
+          {
+            "name": "native blink::CSSVariableData",
+            "bytes": 63912,
+            "count": 871
+          },
+          {
+            "name": "native blink::CSSValueList",
+            "bytes": 59904,
+            "count": 1248
           }
         ],
-        "nodeIdCount": 77490
+        "nodeIdCount": 109373
       }
     },
     {
       "label": "60m",
       "file": ".tools/soak/heap-60m.heapsnapshot",
-      "bytes": 5835948,
+      "bytes": 9950170,
       "summary": {
-        "nodeCount": 70231,
-        "totalSelfBytes": 6282319,
-        "reachableBytes": 6282319,
+        "nodeCount": 118441,
+        "totalSelfBytes": 9350602,
+        "reachableBytes": 9350602,
         "byType": {
-          "native": 5151695,
-          "code": 535388,
-          "object shape": 196632,
-          "array": 156324,
-          "string": 125904,
-          "closure": 83416,
-          "object": 30912,
-          "concatenated string": 1140,
-          "number": 780,
+          "native": 6957814,
+          "code": 1500220,
+          "string": 273060,
+          "object shape": 260436,
+          "array": 180100,
+          "closure": 112316,
+          "object": 60200,
+          "concatenated string": 3860,
+          "number": 2376,
           "symbol": 80,
-          "regexp": 48,
+          "regexp": 72,
+          "bigint": 48,
+          "sliced string": 20,
           "synthetic": 0
         },
         "topRetained": [
           {
-            "name": "native system / JSArrayBufferData",
-            "bytes": 1600904,
-            "count": 8
-          },
-          {
             "name": "native system / ExternalStringData",
-            "bytes": 419431,
-            "count": 489
-          },
-          {
-            "name": "native system / FunctionTemplateInfo",
-            "bytes": 246080,
-            "count": 3847
+            "bytes": 1510058,
+            "count": 1158
           },
           {
             "name": "code system / InstructionStream",
-            "bytes": 219008,
-            "count": 151
+            "bytes": 704960,
+            "count": 328
+          },
+          {
+            "name": "native system / FunctionTemplateInfo",
+            "bytes": 278912,
+            "count": 4360
+          },
+          {
+            "name": "native blink::UniqueElementData",
+            "bytes": 211232,
+            "count": 1886
           },
           {
             "name": "native blink::ImmutableCSSPropertyValueSet",
-            "bytes": 111392,
-            "count": 772
+            "bytes": 194464,
+            "count": 1386
           },
           {
-            "name": "array (anonymous)",
-            "bytes": 101368,
-            "count": 267
+            "name": "native blink::ElementAnimations",
+            "bytes": 173184,
+            "count": 246
+          },
+          {
+            "name": "code system / TrustedByteArray",
+            "bytes": 154900,
+            "count": 799
+          },
+          {
+            "name": "native Text",
+            "bytes": 140096,
+            "count": 1592
           },
           {
             "name": "object shape system / DescriptorArray",
-            "bytes": 100240,
-            "count": 717
-          },
-          {
-            "name": "native blink::ComputedStyleBase::StyleMiscInherited1Data",
-            "bytes": 89440,
-            "count": 430
-          },
-          {
-            "name": "native blink::ComputedStyleBase::StyleSurroundData",
-            "bytes": 86736,
-            "count": 278
-          },
-          {
-            "name": "object shape system / Map",
-            "bytes": 83224,
-            "count": 2029
-          },
-          {
-            "name": "native blink::ComputedStyle",
-            "bytes": 79704,
-            "count": 1107
-          },
-          {
-            "name": "native system / ArrayList",
-            "bytes": 78588,
-            "count": 160
-          },
-          {
-            "name": "native blink::ComputedStyleBase::StyleMiscData",
-            "bytes": 75504,
-            "count": 858
-          },
-          {
-            "name": "native blink::StyleRule",
-            "bytes": 71088,
-            "count": 840
-          },
-          {
-            "name": "native blink::ComputedStyleBase::StyleBoxData",
-            "bytes": 59664,
-            "count": 339
-          },
-          {
-            "name": "native blink::CachedMatchedProperties",
-            "bytes": 58344,
-            "count": 429
-          },
-          {
-            "name": "native blink::GridSizingTrackCollection",
-            "bytes": 52320,
-            "count": 30
+            "bytes": 124068,
+            "count": 947
           },
           {
             "name": "code system / BytecodeArray",
-            "bytes": 50280,
-            "count": 180
+            "bytes": 123000,
+            "count": 341
           },
           {
-            "name": "native system / DoubleStringCache",
-            "bytes": 49160,
-            "count": 1
+            "name": "object shape system / Map",
+            "bytes": 119576,
+            "count": 2927
           },
           {
-            "name": "array (object properties)",
-            "bytes": 48744,
-            "count": 80
+            "name": "native blink::StyleRule",
+            "bytes": 114992,
+            "count": 1446
+          },
+          {
+            "name": "array (anonymous)",
+            "bytes": 112504,
+            "count": 576
+          },
+          {
+            "name": "native blink::ComputedStyleBase::StyleSurroundData",
+            "bytes": 104520,
+            "count": 335
+          },
+          {
+            "name": "native blink::ComputedStyleBase::StyleMiscInherited1Data",
+            "bytes": 103248,
+            "count": 478
+          },
+          {
+            "name": "native system / ArrayList",
+            "bytes": 92760,
+            "count": 206
+          },
+          {
+            "name": "native blink::ComputedStyle",
+            "bytes": 81576,
+            "count": 1133
+          },
+          {
+            "name": "native blink::ComputedStyleBase::StyleMiscData",
+            "bytes": 76208,
+            "count": 866
+          },
+          {
+            "name": "native blink::ComputedStyleBase::StyleBoxData",
+            "bytes": 69872,
+            "count": 397
+          },
+          {
+            "name": "native blink::CSSVariableData",
+            "bytes": 64072,
+            "count": 875
           }
         ],
-        "nodeIdCount": 70231
+        "nodeIdCount": 118441
       }
     }
   ],
   "comparison": {
     "beforeLabel": "10m",
     "afterLabel": "60m",
-    "nodeCountDelta": -7259,
-    "reachableBytesDelta": -757266,
+    "nodeCountDelta": 9068,
+    "reachableBytesDelta": 1011187,
     "grewMost": [
       {
-        "name": "native blink::CachedMatchedProperties",
-        "beforeBytes": 0,
-        "afterBytes": 58344,
-        "delta": 58344,
-        "countDelta": 429
-      },
-      {
-        "name": "code system / BytecodeArray",
-        "beforeBytes": 0,
-        "afterBytes": 50280,
-        "delta": 50280,
-        "countDelta": 180
-      },
-      {
-        "name": "native system / DoubleStringCache",
-        "beforeBytes": 0,
-        "afterBytes": 49160,
-        "delta": 49160,
-        "countDelta": 1
-      },
-      {
-        "name": "array (object properties)",
-        "beforeBytes": 0,
-        "afterBytes": 48744,
-        "delta": 48744,
-        "countDelta": 80
-      },
-      {
         "name": "code system / InstructionStream",
-        "beforeBytes": 180608,
-        "afterBytes": 219008,
-        "delta": 38400,
-        "countDelta": 32
-      },
-      {
-        "name": "object shape system / DescriptorArray",
-        "beforeBytes": 98776,
-        "afterBytes": 100240,
-        "delta": 1464,
-        "countDelta": 6
-      },
-      {
-        "name": "native system / ArrayList",
-        "beforeBytes": 77128,
-        "afterBytes": 78588,
-        "delta": 1460,
-        "countDelta": 0
-      },
-      {
-        "name": "object shape system / Map",
-        "beforeBytes": 82864,
-        "afterBytes": 83224,
-        "delta": 360,
-        "countDelta": 9
-      }
-    ],
-    "shrankMost": [
-      {
-        "name": "native blink::GridSizingTrackCollection",
-        "beforeBytes": 156960,
-        "afterBytes": 52320,
-        "delta": -104640,
-        "countDelta": -60
-      },
-      {
-        "name": "native blink::ComputedStyle",
-        "beforeBytes": 111312,
-        "afterBytes": 79704,
-        "delta": -31608,
-        "countDelta": -439
-      },
-      {
-        "name": "native blink::ComputedStyleBase::StyleMiscData",
-        "beforeBytes": 105776,
-        "afterBytes": 75504,
-        "delta": -30272,
-        "countDelta": -344
-      },
-      {
-        "name": "native blink::ComputedStyleBase::StyleMiscInherited1Data",
-        "beforeBytes": 96928,
-        "afterBytes": 89440,
-        "delta": -7488,
-        "countDelta": -36
-      },
-      {
-        "name": "native blink::ComputedStyleBase::StyleSurroundData",
-        "beforeBytes": 94224,
-        "afterBytes": 86736,
-        "delta": -7488,
-        "countDelta": -24
+        "beforeBytes": 524992,
+        "afterBytes": 704960,
+        "delta": 179968,
+        "countDelta": 61
       },
       {
         "name": "native blink::ComputedStyleBase::StyleBoxData",
-        "beforeBytes": 63888,
-        "afterBytes": 59664,
-        "delta": -4224,
-        "countDelta": -24
+        "beforeBytes": 0,
+        "afterBytes": 69872,
+        "delta": 69872,
+        "countDelta": 397
+      },
+      {
+        "name": "native blink::UniqueElementData",
+        "beforeBytes": 145152,
+        "afterBytes": 211232,
+        "delta": 66080,
+        "countDelta": 590
+      },
+      {
+        "name": "code system / TrustedByteArray",
+        "beforeBytes": 105664,
+        "afterBytes": 154900,
+        "delta": 49236,
+        "countDelta": 123
+      },
+      {
+        "name": "native blink::ElementAnimations",
+        "beforeBytes": 127424,
+        "afterBytes": 173184,
+        "delta": 45760,
+        "countDelta": 65
+      },
+      {
+        "name": "native Text",
+        "beforeBytes": 106656,
+        "afterBytes": 140096,
+        "delta": 33440,
+        "countDelta": 380
+      },
+      {
+        "name": "native blink::ComputedStyleBase::StyleSurroundData",
+        "beforeBytes": 85800,
+        "afterBytes": 104520,
+        "delta": 18720,
+        "countDelta": 60
       },
       {
         "name": "native system / ExternalStringData",
-        "beforeBytes": 421889,
-        "afterBytes": 419431,
-        "delta": -2458,
-        "countDelta": -47
+        "beforeBytes": 1493235,
+        "afterBytes": 1510058,
+        "delta": 16823,
+        "countDelta": 12
       },
       {
-        "name": "array (anonymous)",
-        "beforeBytes": 103416,
-        "afterBytes": 101368,
-        "delta": -2048,
+        "name": "native blink::ComputedStyleBase::StyleMiscInherited1Data",
+        "beforeBytes": 88344,
+        "afterBytes": 103248,
+        "delta": 14904,
+        "countDelta": 69
+      },
+      {
+        "name": "native blink::ComputedStyle",
+        "beforeBytes": 69552,
+        "afterBytes": 81576,
+        "delta": 12024,
+        "countDelta": 167
+      },
+      {
+        "name": "native blink::ComputedStyleBase::StyleMiscData",
+        "beforeBytes": 65648,
+        "afterBytes": 76208,
+        "delta": 10560,
+        "countDelta": 120
+      },
+      {
+        "name": "object shape system / Map",
+        "beforeBytes": 114776,
+        "afterBytes": 119576,
+        "delta": 4800,
+        "countDelta": 120
+      },
+      {
+        "name": "object shape system / DescriptorArray",
+        "beforeBytes": 119512,
+        "afterBytes": 124068,
+        "delta": 4556,
+        "countDelta": 50
+      },
+      {
+        "name": "native system / ArrayList",
+        "beforeBytes": 90060,
+        "afterBytes": 92760,
+        "delta": 2700,
         "countDelta": 0
       },
       {
         "name": "native blink::ImmutableCSSPropertyValueSet",
-        "beforeBytes": 111728,
-        "afterBytes": 111392,
-        "delta": -336,
-        "countDelta": -7
+        "beforeBytes": 192816,
+        "afterBytes": 194464,
+        "delta": 1648,
+        "countDelta": 27
+      },
+      {
+        "name": "native blink::CSSVariableData",
+        "beforeBytes": 63912,
+        "afterBytes": 64072,
+        "delta": 160,
+        "countDelta": 4
+      }
+    ],
+    "shrankMost": [
+      {
+        "name": "code system / BytecodeArray",
+        "beforeBytes": 132312,
+        "afterBytes": 123000,
+        "delta": -9312,
+        "countDelta": -26
       }
     ]
   },
   "growth": {
-    "firstMinuteMiB": 1.1,
-    "lastMinuteMiB": 1.53,
-    "peakMiB": 1.56,
-    "peakMinute": 52,
-    "deltaMiB": 0.43,
-    "deltaPerMinuteMiB": 0.01
+    "firstMinuteMiB": 1.45,
+    "lastMinuteMiB": 2.82,
+    "peakMiB": 3.63,
+    "peakMinute": 54,
+    "deltaMiB": 1.37,
+    "deltaPerMinuteMiB": 0.02
   }
 }

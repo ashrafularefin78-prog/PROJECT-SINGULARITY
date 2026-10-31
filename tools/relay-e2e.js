@@ -116,6 +116,10 @@ async function main() {
     })()`);
     check('the M5 panel opens', opened);
 
+    // The relay block is built after the panel's deferred WebRTC/TURN import
+    // resolves, so the fields are not in the DOM the instant the tab is
+    // clicked. Wait for them instead of racing the import.
+    await page.waitFor("!!document.getElementById('relay-pass')", { timeoutMs: 30000 });
     const fields = await page.evaluate(
       `(() => ({ urls: !!document.getElementById('relay-urls'), pass: !!document.getElementById('relay-pass') }))()`,
     );

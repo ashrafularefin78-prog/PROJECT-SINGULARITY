@@ -1197,7 +1197,7 @@ async function renderCompiler(root) {
   root.appendChild(
     el('div', { class: 'panel' }, [
       moduleHead('M2', 'In-browser C and C++ compiler', 'Clang compiles C and C++ to WebAssembly locally inside a killable Web Worker. Source code is never sent to a compilation server. The lightweight C-subset interpreter remains available as a separate mode.'),
-      note('WebAssembly mode uses a self-hosted Clang toolchain and real C/C++ standard-library headers and libraries, loaded only when you run it. Programs have a 32 MiB memory cap and a 4-second execution limit; compilation has its own 120-second limit. Output is capped at 1 MiB and 4,096 runtime writes. This is not an operating system: host files, networking, GUI APIs, threads and arbitrary native libraries are unavailable. The bundled Clang 8.0.1 supports C through C11 and C++ through C++17; C++ exceptions and newer standards are unavailable. Compiler working memory is separate from the program cap. The interpreter still supports only its documented C subset; it does not run C++.', 'warn'),
+      note('WebAssembly mode uses a self-hosted Clang toolchain and real C/C++ standard-library headers and libraries, loaded only when you run it. Programs have a 32 MiB memory cap and a 4-second execution limit; compilation has its own 120-second limit. Output is capped at 1 MiB and 4,096 runtime writes. This is not an operating system: host files, networking, GUI APIs, threads and arbitrary native libraries are unavailable. The bundled Clang 8.0.1 supports C through C11 and C++ through C++17; newer standards are unavailable, and C++ exceptions are refused by the compiler with "cannot use \'throw\' with exceptions disabled". <stdatomic.h> is available: the sysroot is a pinned, hash-checked archive, so the header is added by a small in-repo overlay that implements the C11 atomic API with volatile accesses - correct in a sandbox that has no threads, no shared memory and no signal handlers, and explicitly not a lock-free implementation for a threaded target. _Atomic, the __sync_*, __atomic_* and __c11_atomic_* builtins and C++ std::atomic need an atomics backend this WebAssembly target does not have, so they are refused by name with the file, line and column instead of crashing the compiler. Compiler working memory is separate from the program cap. The interpreter still supports only its documented C subset; it does not run C++.', 'warn'),
       el('div', { class: 'grid two' }, [
         card('Source', [el('div', { class: 'row' }, [field('Compiler', mode), field('Standard', standard)]), source, el('div', { class: 'row mt-10' }, [
           runBtn,
@@ -2029,13 +2029,13 @@ async function ensureRtc() {
     id: state.peerId,
     name: state.name,
     iceServers: servers,
+    relayOnly: state.rtcRelayOnly === true,
     onState: rtcLogLine,
   });
   if (state.mesh) state.mesh.attachRtc(state.rtc);
-  rtcLogLine({
-    text: `carrier created · ${servers ? `ICE servers: ${servers.map((s) => s.urls).join(', ')}` : 'no ICE servers (host candidates only)'}`,
-    tone: 'ok',
-  });
+  const described = servers ? `ICE servers: ${servers.map((s) => s.urls).join(', ')}` : 'no ICE servers (host candidates only)';
+  const policy = state.rtcRelayOnly === true ? ' · relay-only ICE, host and srflx candidates dropped' : '';
+  rtcLogLine({ text: `carrier created · ${described}${policy}`, tone: 'ok' });
   return state.rtc;
 }
 
@@ -2285,7 +2285,7 @@ async function renderMesh(root) {
   root.appendChild(
     el('div', { class: 'panel' }, [
       moduleHead('M5', 'Peer mesh: WebRTC data channels + ciphertext-only relay', 'Three real carriers feed one mesh. BroadcastChannel connects tabs of this browser instantly and with no configuration. WebRTC data channels connect different machines over the network, with the session description exchanged as a copy-paste code instead of a signaling server. The relay carrier reaches machines with neither a shared browser nor a direct link, through a store-and-forward node that only ever holds sealed frames. Presence, liveness pruning, reconnect recovery and the relay contract are identical on all three.'),
-      note('Scope, stated plainly: STUN is on by default for candidate discovery across NATs; a TURN relay is deliberately not bundled (it costs bandwidth and is a policy choice - add one in src/collab/webrtc.js). Symmetric NAT on both ends therefore needs TURN, and the UI says so if ICE fails.', 'warn'),
+      note('Scope, stated plainly: STUN is on by default for candidate discovery across NATs; no TURN relay is hosted, because relay bandwidth is a deployment responsibility. The client path is real and tested: tools/turn-server.js is a dependency-free reference relay that runs on loopback, and the "relay only" switch below sets iceTransportPolicy to "relay", so a symmetric NAT on both ends has a documented path instead of an advice note. The UI still says so if ICE fails.', 'warn'),
       card('Same-browser room', [
         el('div', { class: 'row' }, [
           button('Open a second tab to collaborate', () => window.open(location.href, '_blank', 'noopener')),
@@ -2329,11 +2329,28 @@ async function renderMesh(root) {
           })(),
           el('span', { class: 'small dim', text: `default: ${DEFAULT_ICE_SERVERS.map((s) => s.urls).join(', ')}` }),
         ]),
-        el('p', { class: 'small dim mt-10', text: 'Optional TURN fallback. A symmetric NAT on both ends needs a relay; this project does not bundle one, but a room that has one can use it. Credentials stay in memory for this tab only - they are never written to storage, never logged, and never put in an invite code.' }),
+        el('p', { class: 'small dim mt-10', text: 'Optional TURN fallback. A symmetric NAT on both ends needs a relay; none is hosted, but a room that has one can use it - and tools/turn-server.js is one, on loopback. Credentials stay in memory for this tab only - they are never written to storage, never logged, and never put in an invite code.' }),
         el('div', { class: 'grid three' }, [
           field('TURN url', el('input', { type: 'text', id: 'turn-url', placeholder: 'turn:turn.example.org:3478', autocomplete: 'off', spellcheck: 'false' })),
           field('TURN username', el('input', { type: 'text', id: 'turn-user', autocomplete: 'off', spellcheck: 'false' })),
           field('TURN credential', el('input', { type: 'password', id: 'turn-pass', autocomplete: 'off', spellcheck: 'false' })),
+        ]),
+        el('div', { class: 'row mt-10' }, [
+          el('label', { class: 'small', for: 'rtc-relay-only', text: 'Relay only - never offer a host or reflexive candidate' }),
+          (() => {
+            const box = el('input', { type: 'checkbox', id: 'rtc-relay-only' });
+            box.checked = state.rtcRelayOnly === true;
+            box.addEventListener('change', () => {
+              state.rtcRelayOnly = box.checked;
+              rtcLogLine({
+                text: box.checked
+                  ? 'relay-only ICE - the next invite carries TURN candidates and nothing else, so it needs a TURN server'
+                  : 'relay-only off - host and reflexive candidates allowed again',
+                tone: box.checked ? 'warn' : 'dim',
+              });
+            });
+            return box;
+          })(),
         ]),
         el('div', { class: 'row mt-10' }, [
           button('Apply TURN (next invite)', () => {
@@ -3461,18 +3478,18 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 416, suites: 31, browser: 408, nodeOnly: 8 };
+const TEST_TOTALS = { total: 420, suites: 31, browser: 412, nodeOnly: 8 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
-  { id: 'M2', title: 'In-browser C/C++ compiler and runtime', status: 'partial', points: 74, note: 'Self-hosted Clang 8.0.1/WASI compiles C/C++ and standard libraries locally in a killable worker, with headers, multiple sources, stdin and diagnostics. The lightweight C-subset interpreter keeps deterministic budgets. No OS APIs, threads, exceptions or standards beyond C11/C++17; compiler assets and memory overhead are explicit.' },
+  { id: 'M2', title: 'In-browser C/C++ compiler and runtime', status: 'partial', points: 76, note: 'Self-hosted Clang 8.0.1/WASI compiles C/C++ and standard libraries locally in a killable worker, with headers, multiple sources, stdin and diagnostics. A pinned sysroot plus an in-repo header overlay adds the C11 <stdatomic.h> API (atomic_int, atomic_fetch_add, atomic_compare_exchange_strong, atomic_flag) with single-threaded semantics, and every construct the bundled backend cannot code-generate - _Atomic, the __sync_*, __atomic_* and __c11_atomic_* builtins, C++ std::atomic, C++ throw/catch - fails with a named diagnostic that carries its file, line and column. The lightweight C-subset interpreter keeps deterministic budgets. No OS APIs, no threads, no C++ exceptions and no standards beyond C11/C++17; compiler assets and memory overhead are explicit.' },
   { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 93, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by band-2 SH diffuse plus a six-level GGX-importance-sampled specular prefilter chain and a split-sum BRDF integration LUT, a glTF 2.0 loader with mikkelsen tangents sampling stored models through the same BRDF, a real HDRI probe whose SH and radiance rebuild both environment cubes, GPU skins (a seven-joint looping clip blended four joints per vertex from an RGBA32F bone texture), and up to four morph targets per primitive with normal deltas and LINEAR/STEP/CUBICSPLINE weights animation. The sample totem carries two morph targets and a CUBICSPLINE weights track. No WebGPU backend (declared out of scope in docs/NON_GOALS.md); TANGENT/UV morph deltas, more than four targets and non-joint node animation remain declared gaps.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 82, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD over WebCrypto; the signed prekey bundle is verified inside the handshake, and identity keys are sealed to a passphrase (PBKDF2 600k) in IndexedDB. No audited key storage.' },
-  { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 78, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. No bundled TURN, so symmetric NAT on both ends still needs one.' },
+  { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 78, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. A reference TURN relay and a relay-only ICE switch ship in the repo; no relay is hosted.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 85, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. The tile carries the evidence-backed score (66/100); the structural ceiling is 83/100 and the reviewer\'s latest mark is 70/100.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist enforced at the canonical host; _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
-  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 125.8 KiB gzip against a 170 KB budget, 60-minute soak ending smaller, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
+  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 126.7 KiB gzip against a 170 KB budget, 60-minute soak ending smaller, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
   { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'partial', points: 69, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
 ];
 
@@ -3585,15 +3602,15 @@ const ROADMAP = [
   { state: 'done', what: 'M4 - Secure communication', detail: 'Full: X3DH, Double Ratchet, streaming file AEAD, key verification.' },
   { state: 'done', what: 'M6 - Offline-first', detail: 'Full: op log, snapshots, migrations, service worker, server-stopped recovery.' },
   { state: 'done', what: 'The suite', detail: `${TEST_TOTALS.total} registered tests in ${TEST_TOTALS.suites} suites: ${TEST_TOTALS.browser} browser tests and ${TEST_TOTALS.nodeOnly} Node-only checks.` },
-  { state: 'done', what: 'M2 - Runtime (74/100)', detail: 'Clang/WASI C/C++ compilation runs locally alongside the interpreter. Still partial: old standards, no OS APIs, threads or C++ exceptions.' },
+  { state: 'done', what: 'M2 - Runtime (76/100)', detail: 'Clang/WASI C/C++ compilation runs locally alongside the interpreter, with the C11 <stdatomic.h> API available as a single-threaded overlay. Still partial: old standards, no OS APIs, no threads and no C++ exceptions - each refused with a named diagnostic.' },
   { state: 'active', what: 'M3 - Engine (93/100)', detail: 'Declared partial: HDR diffuse lighting, a GGX specular prefilter chain for the procedural sky and a measured probe, a split-sum BRDF integration LUT, glTF skeletal animation on a GPU bone texture, and morph targets with CUBICSPLINE weights animation are shipped. WebGPU is an explicit non-goal (docs/NON_GOALS.md); TANGENT/UV morph deltas and non-joint node animation are still declared gaps.' },
-  { state: 'active', what: 'M5 - Transport (78/100)', detail: 'Declared partial: the relay runs as a local dev node; no bundled TURN server for symmetric NATs.' },
+  { state: 'active', what: 'M5 - Transport (78/100)', detail: 'Declared partial: the relay runs as a local dev node; the TURN path is implemented and proven against the in-repo reference relay, but no relay is hosted.' },
   { state: 'active', what: 'M7 - Accessibility (66/100)', detail: 'Evidence-backed score: semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass announced all eight panel headings, read the M3 canvas description and read Bangla/Arabic text with the right language tags. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain; the tile carries 66/100 evidence-backed against an 83/100 structural ceiling, and the reviewer\'s latest mark is 70/100.' },
   { state: 'active', what: 'M8 - Hardening (72/100)', detail: 'Declared partial: no third-party red-team pass. The OWASP ZAP baseline ran (spider + active scan) and its report is archived: 0 High, 0 Medium, 0 Low.' },
   { state: 'done', what: 'WASM backend for M2', detail: 'Clang and lld compile C/C++ with a self-hosted WASI sysroot; the interpreter remains a selectable lightweight mode.' },
   { state: 'out', what: 'WebGPU renderer path', detail: 'Declared out of scope in docs/NON_GOALS.md: WebGL2 is the measured compatibility target, and a second backend with no requirement it uniquely satisfies would be attachment, not engineering.' },
   { state: 'planned', what: 'OPFS and SharedArrayBuffer pooling', detail: 'Faster cold start and cross-tab memory sharing where COOP/COEP allow it.' },
-  { state: 'planned', what: 'Relay deployment and NAT traversal', detail: 'A hosted relay node and a TURN story, so peer tests are not confined to one machine.' },
+  { state: 'planned', what: 'Relay deployment and NAT traversal', detail: 'A hosted relay node, and a hosted TURN alongside the reference relay, so peer tests are not confined to one machine.' },
   { state: 'planned', what: 'VoiceOver and TalkBack validation', detail: 'NVDA 2026.2 is recorded in docs/reports/nvda-session.md. Drive Safari/VoiceOver and Android/TalkBack next, then fix what they find.' },
   { state: 'planned', what: 'URL-addressable playgrounds', detail: 'Standalone sample pages for the C runtime and the engine, so each can be tried without the full shell.' },
 ];
@@ -3680,7 +3697,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '2', label: 'tags · 0 GitHub releases', hint: 'v0.1.0, v1.0.0' },
-  { value: '416', label: 'tests - 31 suites', hint: 'run them from this page' },
+  { value: '420', label: 'tests - 31 suites', hint: 'run them from this page' },
   { value: '0', label: 'npm dependencies', hint: 'optional self-hosted WASM toolchain' },
 ];
 
@@ -3713,9 +3730,9 @@ const CASE_STUDIES = [
     status: 'partial',
     score: moduleMeta('M2').points,
     problem: 'Compile real C and C++ locally without sending source to a server, while keeping the page responsive.',
-    decision: 'Clang 8.0.1 and lld compile against a self-hosted WASI sysroot inside a disposable worker. Generated programs get restricted console, clock and random capabilities. The hand-written interpreter separately keeps step, heap and depth budgets.',
-    tradeoff: 'About 18.4 MiB of compressed toolchain assets on first compile, compiler memory overhead, and older C/C++ standards. Native APIs, threads and C++ exceptions are unavailable. The interpreter is explicitly a C subset.',
-    evidence: '19 compiler, 21 language and 51 stdlib tests, plus fuzzing. An overflowing strcpy fails closed rather than corrupting the heap. 74/100.',
+    decision: 'Clang 8.0.1 and lld compile against a self-hosted WASI sysroot inside a disposable worker. Generated programs get restricted console, clock and random capabilities. The sysroot is pinned and hash-checked, so a missing standard header is added by a small in-repo overlay instead of repacking the archive: <stdatomic.h> ships there with the full C11 atomic API. The hand-written interpreter separately keeps step, heap and depth budgets.',
+    tradeoff: 'About 18.4 MiB of compressed toolchain assets on first compile, compiler memory overhead, and older C++ standards. The atomic overlay is single-threaded by construction - atomic types are volatile scalars, which is trivially sequentially consistent while the sandbox has no threads, no shared memory and no signal handlers, and it is not a lock-free implementation for a threaded target. Where the bundled backend cannot emit code (_Atomic, the __sync_*, __atomic_* and __c11_atomic_* builtins, C++ std::atomic) and where it has no exception personality (C++ throw/catch), the run fails with a named, positioned diagnostic rather than an LLVM selector dump. Native APIs and threads are unavailable. The interpreter is explicitly a C subset.',
+    evidence: '36 compiler and WASI tests, 23 language, 51 stdlib and 11 fuzz tests. A C11 program using atomic_int, atomic_fetch_add, atomic_compare_exchange_strong, atomic_exchange and atomic_flag compiles, links and runs to the expected values; _Atomic, __sync_*, C++ std::atomic and C++ throw each fail with a named diagnostic that points at the offending line. An overflowing strcpy fails closed rather than corrupting the heap. 76/100.',
   },
   {
     id: 'engine',
@@ -3750,7 +3767,7 @@ const CASE_STUDIES = [
     score: moduleMeta('M5').points,
     problem: 'Peers must collaborate without a signaling server, a TURN fleet or a trusted relay.',
     decision: 'Three carriers feed one mesh: BroadcastChannel for tabs, WebRTC data channels with copy-paste invite and answer codes for machines, and a ciphertext relay with an HKDF room key, sender outbox, URL failover and sealed-frame-id dedupe.',
-    tradeoff: 'Copy-paste signaling is not seamless, and a symmetric NAT on both ends still needs a TURN server. The relay is a dev-node contract today, not a deployed fleet.',
+    tradeoff: 'Copy-paste signaling is not seamless, and a symmetric NAT on both ends still needs a relay somebody hosts - the client path and a reference relay are in this repo now. The relay is a dev-node contract today, not a deployed fleet.',
     evidence: 'Mesh and WebRTC regressions include retryable backpressure and terminal rejection. 1,000 relay clients, 50k envelopes, 0 lost; a SIGKILL replay of 20k accepted envelopes, 0 lost, 256 ms outage; two-node failover with 0 lost and 0 duplicated. 78/100.',
   },
   {
@@ -3845,7 +3862,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '416 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '420 automated tests, 41 published measurements, 0 axe violations.' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -4223,7 +4240,13 @@ function renderDashboard(root) {
           el('a', { href: 'CONTRIBUTING.md', target: '_blank', rel: 'noopener', text: 'Contributing guide' }),
           el('a', { href: 'CHANGELOG.md', target: '_blank', rel: 'noopener', text: 'Full changelog' }),
         ]),
-        el('pre', { id: 'changelog-preview', class: 'changelog-preview' }, ['Loading changelog…']),
+        el('pre', {
+          id: 'changelog-preview',
+          class: 'changelog-preview',
+          tabindex: '0',
+          role: 'region',
+          'aria-label': 'Recent changelog entries (scrollable)',
+        }, ['Loading changelog…']),
       ]),
       showcaseCard(),
       card('Capabilities in the shipped build', [
@@ -4243,7 +4266,7 @@ function renderDashboard(root) {
       ]),
       card('Repository signals', [repoSignals()]),
       note('Read this first: this is not the mythical 1000-point build, which the brief itself budgets at 20 engineers for 12 months. It is a working, tested, honest slice: the modules that are full are full, the ones that are partial say exactly where they stop, and every claim is backed by a test you can re-run.', 'warn'),
-      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column this app’s strict count lands on ${achieved}, because Silver asks for four complete modules and ${full} rows say “ok”${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}; the reviewer’s independent tally (829) also stamps this build Silver on the requirement column, while its 829 points sit inside the Platinum band. The self-assessment sits below the reviewer where the evidence is deliberately thinner (M2 −14, M4 −7, M7 −4, M8 −8, Integration −7; ${score} vs 829), and above its pre-skinning M3 mark by 2: that 88 predates the skinned sample, whose rig, loader path, bone texture and real-shader draw are now covered by tests. Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
+      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column this app’s strict count lands on ${achieved}, because Silver asks for four complete modules and ${full} rows say “ok”${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}; the reviewer’s independent tally (829) also stamps this build Silver on the requirement column, while its 829 points sit inside the Platinum band. The self-assessment sits below the reviewer where the evidence is deliberately thinner (M2 −12, M4 −7, M7 −4, M8 −8, Integration −7; ${score} vs 829), and above its pre-skinning M3 mark by 2: that 88 predates the skinned sample, whose rig, loader path, bone texture and real-shader draw are now covered by tests. Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
       bootSequenceCard(),
       card('Tier ladder', [tierLadder(achieved)]),
       card('Module score map', [

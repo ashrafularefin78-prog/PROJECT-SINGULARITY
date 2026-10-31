@@ -37,8 +37,9 @@ export const DEFAULT_ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 /**
  * Validate a TURN configuration and return an RTCIceServer list.
  *
- * TURN is not bundled (it costs bandwidth and is a policy choice), but a room
- * that has one should be able to use it. URLs must really be TURN, and a
+ * No TURN relay is hosted (relay bandwidth is a deployment responsibility), but
+ * a room that has one should be able to use it - tools/turn-server.js is a
+ * dependency-free one, for tests. URLs must really be TURN, and a
  * username without a credential is a configuration error rather than a silent
  * unauthenticated allocation attempt that fails minutes later during ICE.
  */
@@ -241,6 +242,7 @@ export class RtcCarrier {
    * @param {Function} options.onEnvelope  called with each received envelope
    * @param {Function} options.onState     called with human-readable log lines
    * @param {Array}    options.iceServers  STUN/TURN list
+   * @param {boolean}  options.relayOnly   use relay candidates and nothing else
    */
   constructor(options = {}) {
     this.id = options.id || 'peer';
@@ -252,6 +254,9 @@ export class RtcCarrier {
       : options.iceServers
         ? options.iceServers
         : iceServersWithTurn(options.turn);
+    // Relay-only is the setting a symmetric NAT forces on you: host and
+    // server-reflexive candidates are dropped, so it cannot connect without TURN.
+    this.relayOnly = options.relayOnly === true;
     /** @type {Map<string, Link>} */
     this.links = new Map();
     /** PCs whose data channel has not arrived yet (the answering side). */
@@ -272,8 +277,19 @@ export class RtcCarrier {
     this.onState({ text, tone, at: Date.now() });
   }
 
+  /**
+   * The RTCConfiguration this carrier would hand to a peer connection. Kept
+   * separate from the connection itself so the ICE policy is checkable without
+   * a browser.
+   */
+  pcConfig() {
+    const config = { iceServers: this.iceServers };
+    if (this.relayOnly) config.iceTransportPolicy = 'relay';
+    return config;
+  }
+
   _pc() {
-    const pc = new RTCPeerConnection({ iceServers: this.iceServers });
+    const pc = new RTCPeerConnection(this.pcConfig());
     pc.addEventListener('datachannel', (event) => {
       // Adopt the placeholder created by acceptInvite if there is one, so the
       // answering side counts exactly one link per connection - not one empty

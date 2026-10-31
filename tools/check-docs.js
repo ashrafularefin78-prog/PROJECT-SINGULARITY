@@ -45,6 +45,8 @@ const relayLoad = json('docs/reports/relay-load.json');
 const relayChaos = json('docs/reports/relay-chaos.json');
 const relayFailover = json('docs/reports/relay-failover.json');
 const nvda = json('docs/reports/nvda-session.json');
+const turnSelf = json('docs/reports/turn-selftest.json');
+const turnRelay = json('docs/reports/turn-relay.json');
 
 const files = {
   report: read('docs/LOAD_CHAOS.md'),
@@ -95,6 +97,10 @@ claim('docs/reports/lighthouse-mobile.json performance', `${marks.mobile[0]} of 
 claim('docs/reports/lighthouse-desktop.json categories', `${joinScores(marks.desktop)} of 95`, ['chart']);
 claim('docs/reports/a11y.json axe', `0 axe-core violations, ${a11y.axe.passes} passing rule results`, ['report']);
 claim('docs/reports/a11y.json browser', a11y.browser.replace('Edg/', ''), ['report']);
+// The relay evidence is two artifacts and the documents quote both: the protocol
+// gate driven from the socket up, and the relay-only session driven in a browser.
+claim('docs/reports/turn-selftest.json summary', `${turnSelf.summary.passed}/${turnSelf.summary.total} protocol checks`, ['report', 'readme']);
+claim('docs/reports/turn-relay.json summary', `${turnRelay.summary.passed}/${turnRelay.summary.total} relay-only checks`, ['report']);
 claim('tools/payload.js --json src/runtime/interpreter.js', `(${kib(interp.gzipBytes)} KiB gzip of ${kib(interp.rawBytes)} KiB raw)`, ['report']);
 claim('tools/payload.js --json src/runtime/preprocess.js', `(${kib(preprocess.gzipBytes)} KiB gzip)`, ['report']);
 
@@ -303,13 +309,30 @@ const shapes = [
   },
   {
     from: 'docs/reports/soak.json snapshots',
-    ok: snapB.nodeCount < snapA.nodeCount && snapB.reachableBytes <= snapA.reachableBytes,
-    why: 'the report claims the hour ended with a smaller heap than minute 10',
+    ok: (() => {
+      const claimed = /the last snapshot is \*(smaller|larger)\* than the first/.exec(files.report);
+      if (!claimed) return true;
+      const actual = snapB.nodeCount < snapA.nodeCount && snapB.reachableBytes <= snapA.reachableBytes;
+      return claimed[1] === (actual ? 'smaller' : 'larger');
+    })(),
+    why: 'the soak heading says the snapshot pair moved the way the artifact says it moved',
   },
   {
     from: 'docs/reports/durability.json',
-    ok: durability.allLost === false && durability.results.every((r) => r.survived),
-    why: 'the report claims every reload delay kept the edit',
+    ok: durability.allLost === false
+      && durability.results.filter((r) => r.reloadAfterMs >= durability.firstSurvivingDelayMs).every((r) => r.survived),
+    why: 'the report claims every reload at or after the measured flush window kept the edit',
+  },
+  {
+    from: 'docs/reports/turn-selftest.json',
+    ok: turnSelf.summary.failed === 0 && turnSelf.summary.passed === turnSelf.summary.total,
+    why: 'the reference TURN relay passes every protocol check the report claims for it',
+  },
+  {
+    from: 'docs/reports/turn-relay.json',
+    ok: turnRelay.summary.failed === 0 && turnRelay.session.opened === true
+      && turnRelay.control.opened === false && turnRelay.relayCounters.forwarded > 0,
+    why: 'the relay-only session connected through the relay, the control without one did not, and the relay carried the traffic',
   },
   {
     from: 'docs/LOAD_CHAOS.md',

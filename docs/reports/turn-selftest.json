@@ -1,0 +1,420 @@
+{
+  "schema": 1,
+  "kind": "turn-protocol-self-test",
+  "date": "2026-10-31",
+  "generatedAt": "2026-10-31T17:19:37.540Z",
+  "environment": {
+    "node": "v27.0.0-alpha.0.0.0",
+    "platform": "win32",
+    "transport": "udp/loopback"
+  },
+  "relay": {
+    "url": "turn:127.0.0.1:58610",
+    "realm": "singularity.local",
+    "username": "demo",
+    "software": "singularity-turn/1"
+  },
+  "counters": {
+    "forwarded": 2,
+    "forwardedBytes": 23,
+    "channelled": 2,
+    "indications": 1,
+    "dropped": 1,
+    "errors": 7
+  },
+  "summary": {
+    "total": 17,
+    "passed": 17,
+    "failed": 0
+  },
+  "limitations": [
+    "Loopback only: the NAT topology is simulated by separate UDP endpoints, not by crossing a real symmetric NAT.",
+    "This proves the relay protocol. The browser claim is proved separately by tools/turn-relay-e2e.js.",
+    "It is not a hosted service and carries none of the availability or abuse controls one would need."
+  ],
+  "checks": [
+    {
+      "id": "TURN-S1",
+      "area": "stun layer",
+      "attempt": "an unauthenticated Binding request answers with the client transport address",
+      "expected": "success whose XOR-MAPPED-ADDRESS equals the bound socket",
+      "observed": {
+        "class": 256,
+        "mapped": {
+          "port": 58611,
+          "ip": "127.0.0.1"
+        },
+        "bound": "127.0.0.1:58611"
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S2",
+      "area": "long-term credentials",
+      "attempt": "Allocate with no MESSAGE-INTEGRITY is refused with 401 plus REALM and NONCE",
+      "expected": "error 401 carrying the realm and a nonce the client then uses",
+      "observed": {
+        "code": 401,
+        "realm": "singularity.local",
+        "adoptedNonce": true
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S3",
+      "area": "long-term credentials",
+      "attempt": "Allocate signed with the wrong password is refused rather than downgraded",
+      "expected": "error 401 and no allocation recorded",
+      "observed": {
+        "code": 401,
+        "allocations": 0
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S4",
+      "area": "fingerprint",
+      "attempt": "an Allocate whose FINGERPRINT was altered in flight is refused",
+      "expected": "error 401 and still no allocation",
+      "observed": {
+        "code": 401,
+        "lastError": "Unauthorized"
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S5",
+      "area": "allocation",
+      "attempt": "an authenticated Allocate returns an even relay address and echoes the transport address",
+      "expected": "success with an even XOR-RELAY-ADDRESS, XOR-MAPPED-ADDRESS of this socket, LIFETIME 600, verified MESSAGE-INTEGRITY",
+      "observed": {
+        "relay": {
+          "port": 49200,
+          "ip": "127.0.0.1"
+        },
+        "mapped": {
+          "port": 58611,
+          "ip": "127.0.0.1"
+        },
+        "lifetime": 600,
+        "authentic": true,
+        "origin": true
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S6",
+      "area": "allocation",
+      "attempt": "a second Allocate from the same 5-tuple with no reservation is refused",
+      "expected": "error 437 Allocate Mismatch",
+      "observed": {
+        "code": 437,
+        "reason": "Allocate Mismatch Between Request and Answer"
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S7",
+      "area": "even-port reservation",
+      "attempt": "a reservation is offered and the next Allocate from that transport consumes the port above it",
+      "expected": "first response RESERVATION 0x00000000, second relay port equal to the first plus one",
+      "observed": {
+        "first": 49202,
+        "second": 49203,
+        "reservation": 0
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S8",
+      "area": "permission filter",
+      "attempt": "a peer with no permission is dropped and never reaches the client",
+      "expected": "the drop counter increments and no Data indication arrives",
+      "observed": {
+        "dropped": 1,
+        "leaked": null
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S9",
+      "area": "permission filter",
+      "attempt": "CreatePermission installs a peer-IP permission on the allocation",
+      "expected": "success and the peer IP visible in relay stats",
+      "observed": {
+        "class": 256,
+        "permissions": [
+          "127.0.0.1"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S10",
+      "area": "relay path",
+      "attempt": "a Send indication is forwarded to the peer from the relay address",
+      "expected": "the peer sees the payload with the relay transport as its source, not the client port",
+      "observed": {
+        "text": "SINGULARITY-PING",
+        "from": "127.0.0.1:49200",
+        "relay": "127.0.0.1:49200",
+        "client": "127.0.0.1:58611"
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S11",
+      "area": "relay path",
+      "attempt": "the reply from the peer comes back as a Data indication naming the peer",
+      "expected": "indication whose XOR-PEER-ADDRESS is the peer, whose DATA is the payload, and which arrived from the relay address",
+      "observed": {
+        "peer": {
+          "port": 58613,
+          "ip": "127.0.0.1"
+        },
+        "text": "SINGULARITY-PONG",
+        "from": "127.0.0.1:49200"
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S12",
+      "area": "channel binding",
+      "attempt": "ChannelBind pairs a channel number with the peer and implies its permission",
+      "expected": "success and the binding visible in relay stats",
+      "observed": {
+        "class": 256,
+        "channels": [
+          {
+            "channel": 16385,
+            "peer": "127.0.0.1:58613"
+          }
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S13",
+      "area": "channel framing",
+      "attempt": "ChannelData travels both ways with the length field counting the payload, not the padding",
+      "expected": "the peer gets exactly 7 bytes; the client gets a 0x4001 frame of wire length 12 holding 5 bytes, from the relay address",
+      "observed": {
+        "toPeer": 7,
+        "fromPeer": "127.0.0.1:49200",
+        "wire": 12,
+        "channel": 16385,
+        "data": "5byte",
+        "arrived": "127.0.0.1:49200"
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S14",
+      "area": "nonce window",
+      "attempt": "a signed request with a nonce outside the window gets 438 and the retry with the offered nonce succeeds",
+      "expected": "error 438 carrying a different nonce, then a Refresh success echoing lifetime 100",
+      "observed": {
+        "first": 438,
+        "offered": true,
+        "then": 256,
+        "lifetime": 100
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S15",
+      "area": "method dispatch",
+      "attempt": "a request for a method this relay does not implement is refused rather than ignored",
+      "expected": "error 400 for type 0x000b",
+      "observed": {
+        "code": 400,
+        "reason": "Bad Request"
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S16",
+      "area": "deallocation",
+      "attempt": "Refresh with lifetime 0 deletes the allocation and stops the relay port",
+      "expected": "success with lifetime 0, that relay port gone from the table, nothing forwarded afterwards",
+      "observed": {
+        "lifetime": 0,
+        "remainingPorts": [
+          49202,
+          49203
+        ],
+        "newIndications": 0
+      },
+      "ok": true
+    },
+    {
+      "id": "TURN-S17",
+      "area": "two transports",
+      "attempt": "the second client keeps both of its allocations while the first holds none",
+      "expected": "every remaining allocation belongs to the second transport address, and Binding still answers it",
+      "observed": {
+        "owners": [
+          "127.0.0.1:58612",
+          "127.0.0.1:58612"
+        ],
+        "released": "127.0.0.1:58611",
+        "pairMapped": 58612
+      },
+      "ok": true
+    }
+  ],
+  "events": [
+    {
+      "kind": "error",
+      "code": 401,
+      "method": "allocate",
+      "from": "127.0.0.1:58612",
+      "reason": "Unauthorized"
+    },
+    {
+      "kind": "binding",
+      "from": "127.0.0.1:58611"
+    },
+    {
+      "kind": "error",
+      "code": 401,
+      "method": "allocate",
+      "from": "127.0.0.1:58611",
+      "reason": "Unauthorized"
+    },
+    {
+      "kind": "error",
+      "code": 401,
+      "method": "allocate",
+      "from": "127.0.0.1:58611",
+      "reason": "Unauthorized"
+    },
+    {
+      "kind": "error",
+      "code": 401,
+      "method": "allocate",
+      "from": "127.0.0.1:58611",
+      "reason": "Unauthorized"
+    },
+    {
+      "kind": "allocate",
+      "account": "demo",
+      "relayPort": 49200,
+      "reserved": null,
+      "from": "127.0.0.1:58611"
+    },
+    {
+      "kind": "error",
+      "code": 437,
+      "method": "allocate",
+      "from": "127.0.0.1:58611",
+      "reason": "Allocate Mismatch Between Request and Answer"
+    },
+    {
+      "kind": "allocate",
+      "account": "demo",
+      "relayPort": 49202,
+      "reserved": 49203,
+      "from": "127.0.0.1:58612"
+    },
+    {
+      "kind": "allocate",
+      "account": "demo",
+      "relayPort": 49203,
+      "reserved": 49204,
+      "from": "127.0.0.1:58612"
+    },
+    {
+      "kind": "dropped",
+      "peer": "127.0.0.1:58614",
+      "relayPort": 49200,
+      "reason": "no permission"
+    },
+    {
+      "kind": "permission",
+      "added": [
+        "127.0.0.1"
+      ],
+      "relayPort": 49200
+    },
+    {
+      "kind": "forwarded",
+      "to": "127.0.0.1:58613",
+      "bytes": 16,
+      "relayPort": 49200,
+      "via": "send-indication"
+    },
+    {
+      "kind": "data-indication",
+      "from": "127.0.0.1:58613",
+      "bytes": 16
+    },
+    {
+      "kind": "channel-bind",
+      "channel": 16385,
+      "peer": "127.0.0.1:58613",
+      "relayPort": 49200
+    },
+    {
+      "kind": "forwarded",
+      "to": "127.0.0.1:58613",
+      "bytes": 7,
+      "relayPort": 49200,
+      "via": "channel"
+    },
+    {
+      "kind": "channel-out",
+      "channel": 16385,
+      "bytes": 7
+    },
+    {
+      "kind": "channel-in",
+      "from": "127.0.0.1:58613",
+      "channel": 16385,
+      "bytes": 5
+    },
+    {
+      "kind": "error",
+      "code": 438,
+      "method": "refresh",
+      "from": "127.0.0.1:58611",
+      "reason": "Stale Nonce"
+    },
+    {
+      "kind": "refresh",
+      "relayPort": 49200,
+      "lifetime": 100
+    },
+    {
+      "kind": "error",
+      "code": 400,
+      "method": "0xb",
+      "from": "127.0.0.1:58611",
+      "reason": "Bad Request"
+    },
+    {
+      "kind": "expired",
+      "relayPort": 49200,
+      "reason": "client deallocation"
+    },
+    {
+      "kind": "deallocate",
+      "relayPort": 49200,
+      "from": "127.0.0.1:58611"
+    },
+    {
+      "kind": "binding",
+      "from": "127.0.0.1:58612"
+    },
+    {
+      "kind": "expired",
+      "relayPort": 49202,
+      "reason": "server shutdown"
+    },
+    {
+      "kind": "expired",
+      "relayPort": 49203,
+      "reason": "server shutdown"
+    }
+  ]
+}

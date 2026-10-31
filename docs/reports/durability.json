@@ -1,11 +1,11 @@
 {
-  "measuredAt": "2026-10-09T18:36:29.540Z",
+  "measuredAt": "2026-10-31T16:37:20.882Z",
   "url": "http://127.0.0.1:5203/",
   "note": "Each attempt types a unique marker into the M1 editor, reloads after the stated delay, and checks the marker came back from IndexedDB.",
   "results": [
     {
       "reloadAfterMs": 0,
-      "survived": true
+      "survived": false
     },
     {
       "reloadAfterMs": 100,
@@ -36,6 +36,6 @@
       "survived": true
     }
   ],
-  "firstSurvivingDelayMs": 0,
+  "firstSurvivingDelayMs": 100,
   "allLost": false
 }

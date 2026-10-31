@@ -41,6 +41,13 @@ jobs:
       # SIGKILL. Spawns short-lived relay processes on loopback, no browser.
       - name: relay protocol and durability self-check
         run: node tools/load-relay.js --self-check
+      # The TURN relay's own contract, from the socket up: the 401 challenge,
+      # message-integrity, allocations with even-port reservation, permissions,
+      # Send/Data indications, ChannelData, stale nonces and every refusal path.
+      # Loopback UDP only, no browser - the browser-side half lives in the
+      # `browser` job as tools/turn-relay-e2e.js.
+      - name: TURN relay protocol self-check
+        run: node tools/turn-selftest.js
       # The report publishes numbers; this asserts they are still the numbers
       # the repository produces. It needs no browser, so it belongs here: a
       # one-line code change that moves the payload fails the build instead of

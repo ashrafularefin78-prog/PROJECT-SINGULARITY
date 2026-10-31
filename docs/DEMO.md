@@ -52,7 +52,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
 4. Press the backslash key: the **module dial** opens with all eight modules on a
    ring, each labelled with the score it is actually carrying. Arrow keys turn
    it, digits jump straight to a module, Enter opens it, Escape closes.
-5. Point at the score ring: **794 / 1000**, points band **Platinum** by raw
+5. Point at the score ring: **796 / 1000**, points band **Platinum** by raw
    points (the bundled recording was captured when the ring read 668; the ring
    animates to the current total). Say that the requirement column is the one
    that grades, and it still reads **Silver**.
@@ -61,10 +61,10 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    the Platinum band, past the Gold ceiling. Say out loud that the leading
    column is the brief's points band and the ladder grades the *requirements*,
    which is why the two readings disagree.
-7. Point at the budget table: the current payload is **met** (125.8 KiB gzip
-   cold-load JavaScript plus 26.9 KiB gzip CSS = 152.7 KiB gzip / 494.8 KiB raw
+7. Point at the budget table: the current payload is **met** (126.7 KiB gzip
+   cold-load JavaScript plus 26.9 KiB gzip CSS = 153.6 KiB gzip / 497.0 KiB raw
    across 15 initial files: 14 JS and the stylesheet, against a 170 KB JS ceiling).
-   The 24-file deferred graph is 161.2 KiB gzip JS; the approximately 18.4 MiB
+   The 25-file deferred graph is 164.3 KiB gzip JS; the approximately 18.4 MiB
    compressed toolchain asset set is separate and loads on the first compiler run.
    Label the hour-long memory soak and frame rate as **historical evidence**
    under the recorded conditions, not new runs of the corrected app; the snapshot
@@ -167,8 +167,9 @@ assets, not a compilation service. Program source is not uploaded.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run. Browser eligibility: 408 tests; 8 Node-only checks are skipped.
-Then name the remaining gaps: no independent crypto audit, no bundled TURN,
+Open **/tests/browser.html** and let the suite run. Browser eligibility: 412 tests; 8 Node-only checks are skipped.
+Then name the remaining gaps: no independent crypto audit, no hosted TURN
+relay (a reference one and a relay-only ICE path ship in-repo),
 no WebGPU backend (an explicit non-goal, see [NON_GOALS.md](NON_GOALS.md)),
 no VoiceOver/TalkBack validation and no 10,000-browser fleet.
 Internal red-team, NVDA, relay load/chaos and real Clang/WebAssembly evidence exist;

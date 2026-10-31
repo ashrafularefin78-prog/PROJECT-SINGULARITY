@@ -3,6 +3,50 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-10-31 - C11 atomics on a toolchain that has none, and named refusals
+
+### Added
+- **`<stdatomic.h>` for the bundled toolchain.** The pinned, hash-checked WASI
+  sysroot ships no `stdatomic.h`, and Clang 8.0.1's WASI backend has no atomics
+  feature at all, so `src/runtime/sysroot-overlay.js` installs a reviewable
+  in-repo header into the virtual filesystem at build time instead of repacking
+  a third-party archive. It provides the full C11 atomic surface - scalar and
+  `atomic_flag` types, `atomic_load`/`store`/`exchange`, the
+  `fetch_add`/`sub`/`and`/`or`/`xor` family, both compare-exchange forms, the
+  `_explicit` variants, `atomic_is_lock_free`, fences and the init macros.
+  Every operation is a GNU statement expression over a `volatile` scalar, so
+  the API is real C11 source on this backend.
+- **Named diagnostics for what the backend cannot code-generate.** A `_Atomic`
+  qualifier, a `__c11_atomic_*`, `__sync_*` or `__atomic_*` builtin call or C++
+  `std::atomic` previously surfaced as an LLVM selector dump. They now report
+  the construct, the file, the line and the column, and point at the overlay.
+  Comments and string literals are masked before the position is resolved, so
+  the caret lands on real code.
+- **Three compiler tests.** A C11 program using `atomic_int`,
+  `atomic_fetch_add_explicit`, `atomic_compare_exchange_strong`,
+  `atomic_exchange` and `atomic_flag_test_and_set` now compiles, links and runs
+  to the expected values; the refused constructs are asserted by stage, file,
+  line and column; and C++ `throw` is confirmed to fail at the frontend with
+  "exceptions disabled".
+
+### Changed
+- **M2's self-score moves 74 → 76.** The eight-core-module total moves 637 →
+  639 / 800, so the in-app total is 796 / 1000 with the budget (88) and
+  integration (69) rows. The module stays declared partial: no OS APIs, no
+  threads, no C++ exceptions and nothing beyond C11/C++17.
+- **The overlay is single-threaded by construction.** `atomic_*` operations
+  order accesses within one thread and are not lock-free for a threaded target;
+  `ATOMIC_*_LOCK_FREE` reports 2 and the panel says so rather than implying
+  otherwise.
+- **Test counts move to 420 tests across 31 suites** (389 pass + 30 browser-only
+  skips in bare Node; 411 browser-eligible).
+- **The service worker precaches `src/runtime/sysroot-overlay.js`** and the
+  cache version moves to `singularity-v15`, so the compiler stays offline-capable.
+- **The deferred graph grows by one module**: 25 files, 164.3 KiB gzip JS. The
+  M2 copy and the new diagnostics also grow `src/app.js`, so cold load moves
+  125.8 → 126.7 KiB gzip JS, 152.7 → 153.6 KiB gzip and 494.8 → 497.0 KiB raw
+  over the same 15 initial files - still inside the 170 KB ceiling at 76.3%.
+
 ## 2026-10-31 - Morph targets, cubic animation and a split-sum BRDF LUT
 
 ### Added

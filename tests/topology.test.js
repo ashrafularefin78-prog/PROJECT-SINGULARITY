@@ -8,7 +8,7 @@
  */
 import { test, assert, assertEquals, assertDeepEquals } from './harness.js';
 import { describeTopology, forwardTargets, neighbors, planTopology } from '../src/collab/topology.js';
-import { DEFAULT_ICE_SERVERS, iceServersWithTurn, turnServers } from '../src/collab/webrtc.js';
+import { DEFAULT_ICE_SERVERS, RtcCarrier, iceServersWithTurn, turnServers } from '../src/collab/webrtc.js';
 
 test('M5 topology: a small room is a full mesh', () => {
   const plan = planTopology(['c', 'a', 'b'], { meshLimit: 6 });
@@ -87,4 +87,14 @@ test('M5 TURN: a non-TURN url and a half-configured credential are rejected', ()
   }
   assert(badUrl, 'a STUN url is not accepted as TURN');
   assert(badCredential, 'username without credential is rejected');
+});
+
+test('M5 ICE policy: relay-only reaches the peer connection config only when asked', () => {
+  const turn = { urls: 'turn:relay.example.org:3478', username: 'u', credential: 'c' };
+  const open = new RtcCarrier({ id: 'a', turn });
+  assertEquals(open.pcConfig().iceTransportPolicy, undefined, 'the default leaves the policy to the browser');
+  assertDeepEquals(open.pcConfig().iceServers, iceServersWithTurn(turn), 'the carrier builds the list the panel builds');
+  assertEquals(new RtcCarrier({ id: 'a', turn, relayOnly: true }).pcConfig().iceTransportPolicy, 'relay');
+  assertEquals(new RtcCarrier({ id: 'a', turn, relayOnly: 'yes' }).pcConfig().iceTransportPolicy, undefined, 'only a true flag flips the policy');
+  assertDeepEquals(new RtcCarrier({ id: 'a', iceServers: null }).pcConfig().iceServers, [], 'null means no ICE servers at all');
 });

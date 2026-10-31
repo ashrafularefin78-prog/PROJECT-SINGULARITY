@@ -31,6 +31,28 @@ interrupted = report.get("interrupted")
 minutes = report.get("minutes", last["minute"])
 max_nodes = max(s["nodes"] for s in samples)
 
+# The judgement this file writes is derived from the artifact, never assumed. An
+# earlier version hard-coded "the last snapshot is smaller", which was true of one
+# run and would have published the opposite of the next one.
+shrunk = bool(comparison) and comparison.get("reachableBytesDelta", 0) < 0
+has_pair = len(snapshots) >= 2 and bool(comparison)
+first_snap = snapshots[0]["summary"] if has_pair else None
+last_snap = snapshots[-1]["summary"]
+top_retained = (last_snap["topRetained"][0] if last_snap and last_snap.get("topRetained") else None)
+snap_labels = " and ".join(s["label"].rstrip("m") for s in snapshots)
+snap_sentence = (
+    f"It then takes real heap snapshots at minutes {snap_labels}, both of which "
+    "survived on disk."
+    if len(snapshots) >= 2
+    else (
+        f"It then takes a real heap snapshot at minute {snap_labels}, which survived "
+        "on disk."
+        if snapshots
+        else "No heap snapshot was taken in this run."
+    )
+)
+last_snap_minute = snapshots[-1]["label"].rstrip("m") if snapshots else str(minutes)
+
 
 def mib(value):
     return f"{value:.2f} MiB"
@@ -63,15 +85,23 @@ def comparison_text():
     after = snapshots[-1]["label"].rstrip("m")
     node_delta = comparison.get("nodeCountDelta", 0)
     byte_delta = comparison.get("reachableBytesDelta", 0)
+    reading = (
+        "That is what rules a leak out; a flat line alone could also be a heap "
+        "nothing ever touched.\n"
+        if shrunk
+        else
+        "A working set that is still filling in grows like this too, so the run is "
+        "reported as growth that the budget absorbs, not as a leak that was proven — "
+        "and not, as it was not, as evidence that rules one out.\n"
+    )
     lines = [
         f"The minute-{before} and minute-{after} snapshots, compared object type by "
         f"object type. Across the whole heap the minute-{after} snapshot holds "
         f"**{abs(node_delta):,} {'fewer' if node_delta < 0 else 'more'} nodes** and "
         f"**{abs(byte_delta) / 1048576:.2f} MiB {'less' if byte_delta < 0 else 'more'} "
         f"reachable memory** than the minute-{before} one — {int(after) - int(before)} more minutes "
-        f"of clicking "
-        f"through nine modules left the heap *smaller*. That is what rules a leak out; "
-        f"a flat line alone could also be a heap nothing ever touched.\n",
+        f"of clicking through nine modules left the heap *{'smaller' if shrunk else 'larger'}*. "
+        + reading,
         f"| Grew most | min {before} | min {after} | Delta | Count delta |",
         "|---|---|---|---|---|",
     ]
@@ -95,6 +125,43 @@ def comparison_text():
     return "\n".join(lines) + "\n"
 
 
+def attribution_text():
+    """The paragraph that names where the retained bytes are, read from the artifact."""
+    if not top_retained:
+        return ""
+    name = top_retained["name"]
+    buffer_like = "JSArrayBufferData" in name
+    where = (
+        ": the ArrayBuffers behind the WebGL context and the module panels' backings, "
+        "not JS objects the app keeps allocating. That split is why the per-minute "
+        "series is the growth evidence and the snapshot is the attribution - a working "
+        "set of a few MiB that does not grow is a working set, not a leak."
+        if buffer_like
+        else ". The by-type table above is the attribution, and no category is assumed "
+        "from a name. The per-minute series is the growth evidence."
+    )
+    grew = comparison.get("grewMost", [])
+    shrank = comparison.get("shrankMost", [])
+    sentence = (
+        f"The single largest retained item is `{name}` "
+        f"({top_retained['bytes']:,} bytes over {top_retained['count']:,} objects){where} "
+    )
+    if grew:
+        grew_kib = sum(row["delta"] for row in grew) / 1024
+        sentence += f"The {len(grew)} object types that grew between the two snapshots total ~{grew_kib:.0f} KiB"
+        if shrank:
+            back = min(shrank, key=lambda row: row["delta"])
+            sentence += (
+                f", while the single largest that shrank (`{back['name']}`) gave back "
+                f"{abs(back['delta']) / 1024:.0f} KiB.\n"
+            )
+        else:
+            sentence += ", and no object type gave memory back between them.\n"
+    else:
+        sentence += "No object type grew between the two snapshots.\n"
+    return sentence
+
+
 def live_type_table():
     if not snapshots:
         return ""
@@ -115,25 +182,38 @@ if interrupted:
     )
     heading = (
         f"### 3. Memory soak — {last['minute']} of {minutes} minutes (interrupted), "
-        f"still flat"
+        f"{growth.get('deltaMiB', 0):+.2f} MiB over the sampled minutes"
     )
 else:
     verdict = f"it completed all {minutes} of its minutes"
     heading = (
         f"### 3. Memory soak — {minutes} minutes, and the last snapshot is "
-        f"*smaller* than the first"
+        f"*{'smaller' if shrunk else 'larger'}* than the first"
+        if has_pair
+        else
+        f"### 3. Memory soak — {minutes} minutes, "
+        f"{growth.get('deltaMiB', 0):+.2f} MiB of heap after GC"
     )
 
-if len(snapshots) >= 2:
-    big, small = snapshots[0]["summary"], snapshots[-1]["summary"]
+if has_pair:
     verdict_tail = (
         f"#### The strongest evidence is the pair of snapshots, not the line\n\n"
-        f"An hour of runtime with object churn left the heap smaller: "
-        f"**{small['reachableBytes'] / 1048576:.2f} MiB reachable over "
-        f"{small['nodeCount']:,} nodes** at minute {minutes}, against "
-        f"{big['reachableBytes'] / 1048576:.2f} MiB over {big['nodeCount']:,} nodes at "
-        f"minute 10. A leak cannot survive that comparison; a heap nothing ever touched "
-        f"could fake a flat line but not a shrinking one.\n"
+        f"An hour of runtime with object churn left the heap "
+        f"{'smaller' if shrunk else 'larger'}: "
+        f"**{last_snap['reachableBytes'] / 1048576:.2f} MiB reachable over "
+        f"{last_snap['nodeCount']:,} nodes** at minute {minutes}, against "
+        f"{first_snap['reachableBytes'] / 1048576:.2f} MiB over {first_snap['nodeCount']:,} nodes at "
+        f"minute 10. "
+        + (
+            "A leak cannot survive that comparison; a heap nothing ever touched "
+            "could fake a flat line but not a shrinking one.\n"
+            if shrunk
+            else
+            f"The per-type table below names where those bytes sit, and the budget "
+            f"verdict is unchanged, but this run does not close the leak question the "
+            f"way a shrinking pair does — the object types that grew are the place to "
+            f"look next.\n"
+        )
     )
 else:
     verdict_tail = (
@@ -143,13 +223,12 @@ else:
 
 section = f"""{heading}
 
-`node tools/perf.js soak --minutes={minutes} --snapshot-at=10,60` opens the app,
+`node tools/perf.js soak --minutes={minutes} --snapshot-at=10,{minutes}` opens the app,
 clicks through the nine module tabs one per minute (each panel builds and tears down
 its own DOM, canvases and workers — an idle page would prove far less), forces a full
 GC every minute, resizes the window every minute (a renderer re-creating its drawing
 buffer is a classic leak path), and records the JS heap *after* that GC, the V8 node
-count and the DOM size. It then takes real heap snapshots at minutes 10 and
-{minutes}, both of which survived on disk. Raw samples:
+count and the DOM size. {snap_sentence} Raw samples:
 `.tools/soak/samples.jsonl`; report: `docs/reports/soak.json`.
 
 | Metric | First minute | Last minute | Peak | Delta |
@@ -175,17 +254,10 @@ excludes GPU memory. Nothing here is extrapolated past minute {minutes}.
 
 {snapshot_table()}
 {comparison_text()}
-The minute-{minutes} snapshot by retained type:
+The minute-{last_snap_minute} snapshot by retained type:
 
 {live_type_table()}
-The single largest retained item is `native system / JSArrayBufferData`: the
-ArrayBuffers behind the WebGL context and the module panels' backings, not JS objects
-the app keeps allocating. That split is why the per-minute series is the growth
-evidence and the snapshot is the attribution — a working set of a few MiB that does
-not grow is a working set, not a leak. The eight object types that grew between the
-two snapshots total ~{sum(r['delta'] for r in comparison.get('grewMost', [])) / 1024:.0f} KiB,
-while the single largest that shrank (`blink::GridSizingTrackCollection`) gave back
-{abs(min((r['delta'] for r in comparison.get('shrankMost', [])), default=0)) / 1024:.0f} KiB.
+{attribution_text()}
 
 #### The earlier runs, and why each was rerun
 

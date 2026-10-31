@@ -21,7 +21,7 @@ decorative.
 
 ## 1. Where the project stands
 
-- 8 modules, 3 full and 5 declared partial; self-assessed 794/1000.
+- 8 modules, 3 full and 5 declared partial; self-assessed 796/1000.
 - 416 tests across 31 suites (386 pass + 30 browser-only skips in bare Node).
 - Canonical deployment: <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/>.
 - The remaining module gaps are named: no third-party red-team and no

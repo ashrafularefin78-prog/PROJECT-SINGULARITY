@@ -1,24 +1,25 @@
 {
-  "measuredAt": "2026-10-20T20:01:52.391Z",
+  "measuredAt": "2026-10-31T16:34:28.512Z",
   "url": "http://127.0.0.1:5198/",
-  "browser": "Edg/156.0.4314.36",
+  "browser": "Edg/157.0.4341.30",
   "note": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
   "tabs": [
     "M0 Dashboard",
     "1. M1 Editor",
-    "2. M2 C Runtime",
+    "2. M2 C/C++ Runtime",
     "3. M3 3D Engine",
     "4. M4 E2EE",
     "5. M5 Mesh",
     "6. M6 Offline",
     "7. M7 Access",
-    "8. M8 Hardening"
+    "8. M8 Hardening",
+    "9. M9 SINGU AI"
   ],
   "perModule": [
     {
       "module": "M0 Dashboard",
       "axe": {
-        "version": "4.10.2",
+        "version": "4.14.0",
         "violations": [],
         "incomplete": [
           {
@@ -36,7 +37,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 454,
+            "count": 476,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -59,16 +60,20 @@
             ]
           }
         ],
-        "passCount": 52
+        "passCount": 53
       },
       "axTree": {
-        "totalNodes": 2095,
-        "liveNodes": 1638,
-        "ignoredNodes": 457,
-        "interactiveCount": 34,
+        "totalNodes": 2227,
+        "liveNodes": 1733,
+        "ignoredNodes": 494,
+        "interactiveCount": 35,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
+          {
+            "name": "Live system constellation",
+            "level": 2
+          },
           {
             "name": "What this is, why it exists, who it is for",
             "level": 2
@@ -179,6 +184,8 @@
           "region",
           "region",
           "region",
+          "region",
+          "region",
           "region"
         ],
         "liveRegions": [
@@ -198,7 +205,7 @@
     {
       "module": "1. M1 Editor",
       "axe": {
-        "version": "4.10.2",
+        "version": "4.14.0",
         "violations": [],
         "incomplete": [
           {
@@ -216,7 +223,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 100,
+            "count": 102,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -239,13 +246,13 @@
             ]
           }
         ],
-        "passCount": 45
+        "passCount": 46
       },
       "axTree": {
-        "totalNodes": 409,
-        "liveNodes": 282,
+        "totalNodes": 412,
+        "liveNodes": 285,
         "ignoredNodes": 127,
-        "interactiveCount": 22,
+        "interactiveCount": 23,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -300,9 +307,9 @@
       }
     },
     {
-      "module": "2. M2 C Runtime",
+      "module": "2. M2 C/C++ Runtime",
       "axe": {
-        "version": "4.10.2",
+        "version": "4.14.0",
         "violations": [],
         "incomplete": [
           {
@@ -320,7 +327,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 68,
+            "count": 78,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -343,18 +350,18 @@
             ]
           }
         ],
-        "passCount": 43
+        "passCount": 45
       },
       "axTree": {
-        "totalNodes": 531,
-        "liveNodes": 426,
-        "ignoredNodes": 105,
-        "interactiveCount": 18,
+        "totalNodes": 540,
+        "liveNodes": 431,
+        "ignoredNodes": 109,
+        "interactiveCount": 30,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
           {
-            "name": "In-browser C compiler and runtime",
+            "name": "In-browser C and C++ compiler",
             "level": 1
           },
           {
@@ -392,7 +399,7 @@
     {
       "module": "3. M3 3D Engine",
       "axe": {
-        "version": "4.10.2",
+        "version": "4.14.0",
         "violations": [],
         "incomplete": [
           {
@@ -433,13 +440,13 @@
             ]
           }
         ],
-        "passCount": 45
+        "passCount": 46
       },
       "axTree": {
-        "totalNodes": 407,
-        "liveNodes": 290,
-        "ignoredNodes": 117,
-        "interactiveCount": 19,
+        "totalNodes": 417,
+        "liveNodes": 301,
+        "ignoredNodes": 116,
+        "interactiveCount": 20,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -482,7 +489,7 @@
     {
       "module": "4. M4 E2EE",
       "axe": {
-        "version": "4.10.2",
+        "version": "4.14.0",
         "violations": [],
         "incomplete": [
           {
@@ -523,13 +530,13 @@
             ]
           }
         ],
-        "passCount": 45
+        "passCount": 46
       },
       "axTree": {
-        "totalNodes": 406,
-        "liveNodes": 286,
+        "totalNodes": 409,
+        "liveNodes": 289,
         "ignoredNodes": 120,
-        "interactiveCount": 17,
+        "interactiveCount": 18,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -582,7 +589,7 @@
     {
       "module": "5. M5 Mesh",
       "axe": {
-        "version": "4.10.2",
+        "version": "4.14.0",
         "violations": [],
         "incomplete": [
           {
@@ -600,7 +607,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 130,
+            "count": 132,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -623,13 +630,13 @@
             ]
           }
         ],
-        "passCount": 46
+        "passCount": 47
       },
       "axTree": {
-        "totalNodes": 537,
-        "liveNodes": 390,
+        "totalNodes": 540,
+        "liveNodes": 393,
         "ignoredNodes": 147,
-        "interactiveCount": 30,
+        "interactiveCount": 31,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -697,7 +704,7 @@
     {
       "module": "6. M6 Offline",
       "axe": {
-        "version": "4.10.2",
+        "version": "4.14.0",
         "violations": [],
         "incomplete": [
           {
@@ -738,13 +745,13 @@
             ]
           }
         ],
-        "passCount": 42
+        "passCount": 43
       },
       "axTree": {
-        "totalNodes": 405,
-        "liveNodes": 289,
+        "totalNodes": 408,
+        "liveNodes": 292,
         "ignoredNodes": 116,
-        "interactiveCount": 15,
+        "interactiveCount": 16,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -787,7 +794,7 @@
     {
       "module": "7. M7 Access",
       "axe": {
-        "version": "4.10.2",
+        "version": "4.14.0",
         "violations": [],
         "incomplete": [
           {
@@ -805,7 +812,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 102,
+            "count": 103,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -828,13 +835,13 @@
             ]
           }
         ],
-        "passCount": 47
+        "passCount": 48
       },
       "axTree": {
-        "totalNodes": 420,
-        "liveNodes": 311,
+        "totalNodes": 424,
+        "liveNodes": 315,
         "ignoredNodes": 109,
-        "interactiveCount": 41,
+        "interactiveCount": 42,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -887,7 +894,7 @@
     {
       "module": "8. M8 Hardening",
       "axe": {
-        "version": "4.10.2",
+        "version": "4.14.0",
         "violations": [],
         "incomplete": [
           {
@@ -905,7 +912,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 110,
+            "count": 111,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -928,13 +935,13 @@
             ]
           }
         ],
-        "passCount": 47
+        "passCount": 48
       },
       "axTree": {
-        "totalNodes": 434,
-        "liveNodes": 328,
+        "totalNodes": 440,
+        "liveNodes": 334,
         "ignoredNodes": 106,
-        "interactiveCount": 15,
+        "interactiveCount": 16,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -973,62 +980,197 @@
           }
         ]
       }
+    },
+    {
+      "module": "9. M9 SINGU AI",
+      "axe": {
+        "version": "4.14.0",
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-prohibited-attr",
+            "impact": "serious",
+            "help": "Elements must only use permitted ARIA attributes",
+            "count": 1,
+            "targets": [
+              [
+                "#telemetry"
+              ]
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 113,
+            "targets": [
+              [
+                ".fx-rain > i:nth-child(1)"
+              ],
+              [
+                "i:nth-child(2)"
+              ],
+              [
+                ".fx-rain > i:nth-child(3)"
+              ],
+              [
+                "i:nth-child(4)"
+              ],
+              [
+                "i:nth-child(5)"
+              ],
+              [
+                "i:nth-child(6)"
+              ]
+            ]
+          }
+        ],
+        "passCount": 47
+      },
+      "axTree": {
+        "totalNodes": 697,
+        "liveNodes": 572,
+        "ignoredNodes": 125,
+        "interactiveCount": 33,
+        "unnamedInteractive": [],
+        "unnamedImages": [],
+        "headings": [
+          {
+            "name": "SINGU AI",
+            "level": 1
+          },
+          {
+            "name": "Brief",
+            "level": 2
+          },
+          {
+            "name": "Plan and hazards",
+            "level": 2
+          },
+          {
+            "name": "FIXED BITSET",
+            "level": 3
+          },
+          {
+            "name": "PLAN",
+            "level": 4
+          },
+          {
+            "name": "KEY DECISIONS",
+            "level": 4
+          },
+          {
+            "name": "HAZARDS IN REAL C",
+            "level": 4
+          },
+          {
+            "name": "ACCEPTANCE",
+            "level": 4
+          },
+          {
+            "name": "ALTERNATIVES",
+            "level": 4
+          },
+          {
+            "name": "Generated C",
+            "level": 2
+          },
+          {
+            "name": "Sandbox and diagnostics",
+            "level": 2
+          }
+        ],
+        "headingLevelJumps": [],
+        "landmarks": [
+          "banner",
+          "navigation",
+          "main",
+          "contentinfo",
+          "region",
+          "region",
+          "region",
+          "region"
+        ],
+        "liveRegions": [
+          {
+            "role": "status",
+            "name": "System status",
+            "politeness": "polite"
+          },
+          {
+            "role": "log",
+            "name": "SINGU sandbox output",
+            "politeness": "polite"
+          },
+          {
+            "role": "status",
+            "name": "",
+            "politeness": "polite"
+          }
+        ]
+      }
     }
   ],
   "axe": {
-    "passes": 412,
+    "passes": 469,
     "violations": [],
     "perModule": [
       {
         "module": "M0 Dashboard",
         "violations": 0,
-        "passes": 52,
+        "passes": 53,
         "incomplete": 2
       },
       {
         "module": "1. M1 Editor",
         "violations": 0,
-        "passes": 45,
+        "passes": 46,
         "incomplete": 2
       },
       {
-        "module": "2. M2 C Runtime",
+        "module": "2. M2 C/C++ Runtime",
         "violations": 0,
-        "passes": 43,
+        "passes": 45,
         "incomplete": 2
       },
       {
         "module": "3. M3 3D Engine",
         "violations": 0,
-        "passes": 45,
+        "passes": 46,
         "incomplete": 2
       },
       {
         "module": "4. M4 E2EE",
         "violations": 0,
-        "passes": 45,
+        "passes": 46,
         "incomplete": 2
       },
       {
         "module": "5. M5 Mesh",
         "violations": 0,
-        "passes": 46,
+        "passes": 47,
         "incomplete": 2
       },
       {
         "module": "6. M6 Offline",
         "violations": 0,
-        "passes": 42,
+        "passes": 43,
         "incomplete": 2
       },
       {
         "module": "7. M7 Access",
         "violations": 0,
-        "passes": 47,
+        "passes": 48,
         "incomplete": 2
       },
       {
         "module": "8. M8 Hardening",
+        "violations": 0,
+        "passes": 48,
+        "incomplete": 2
+      },
+      {
+        "module": "9. M9 SINGU AI",
         "violations": 0,
         "passes": 47,
         "incomplete": 2
@@ -1038,12 +1180,16 @@
   "axTree": [
     {
       "module": "M0 Dashboard",
-      "liveNodes": 1638,
-      "interactiveCount": 34,
+      "liveNodes": 1733,
+      "interactiveCount": 35,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
       "headings": [
+        {
+          "name": "Live system constellation",
+          "level": 2
+        },
         {
           "name": "What this is, why it exists, who it is for",
           "level": 2
@@ -1136,8 +1282,8 @@
     },
     {
       "module": "1. M1 Editor",
-      "liveNodes": 282,
-      "interactiveCount": 22,
+      "liveNodes": 285,
+      "interactiveCount": 23,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1169,15 +1315,15 @@
       ]
     },
     {
-      "module": "2. M2 C Runtime",
-      "liveNodes": 426,
-      "interactiveCount": 18,
+      "module": "2. M2 C/C++ Runtime",
+      "liveNodes": 431,
+      "interactiveCount": 30,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
       "headings": [
         {
-          "name": "In-browser C compiler and runtime",
+          "name": "In-browser C and C++ compiler",
           "level": 1
         },
         {
@@ -1192,8 +1338,8 @@
     },
     {
       "module": "3. M3 3D Engine",
-      "liveNodes": 290,
-      "interactiveCount": 19,
+      "liveNodes": 301,
+      "interactiveCount": 20,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1218,8 +1364,8 @@
     },
     {
       "module": "4. M4 E2EE",
-      "liveNodes": 286,
-      "interactiveCount": 17,
+      "liveNodes": 289,
+      "interactiveCount": 18,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1252,8 +1398,8 @@
     },
     {
       "module": "5. M5 Mesh",
-      "liveNodes": 390,
-      "interactiveCount": 30,
+      "liveNodes": 393,
+      "interactiveCount": 31,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1290,8 +1436,8 @@
     },
     {
       "module": "6. M6 Offline",
-      "liveNodes": 289,
-      "interactiveCount": 15,
+      "liveNodes": 292,
+      "interactiveCount": 16,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1316,8 +1462,8 @@
     },
     {
       "module": "7. M7 Access",
-      "liveNodes": 311,
-      "interactiveCount": 41,
+      "liveNodes": 315,
+      "interactiveCount": 42,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1350,8 +1496,8 @@
     },
     {
       "module": "8. M8 Hardening",
-      "liveNodes": 328,
-      "interactiveCount": 15,
+      "liveNodes": 334,
+      "interactiveCount": 16,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1370,6 +1516,60 @@
         },
         {
           "name": "STRIDE threat model - top entries",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "module": "9. M9 SINGU AI",
+      "liveNodes": 572,
+      "interactiveCount": 33,
+      "unnamedInteractive": [],
+      "unnamedImages": [],
+      "headingLevelJumps": [],
+      "headings": [
+        {
+          "name": "SINGU AI",
+          "level": 1
+        },
+        {
+          "name": "Brief",
+          "level": 2
+        },
+        {
+          "name": "Plan and hazards",
+          "level": 2
+        },
+        {
+          "name": "FIXED BITSET",
+          "level": 3
+        },
+        {
+          "name": "PLAN",
+          "level": 4
+        },
+        {
+          "name": "KEY DECISIONS",
+          "level": 4
+        },
+        {
+          "name": "HAZARDS IN REAL C",
+          "level": 4
+        },
+        {
+          "name": "ACCEPTANCE",
+          "level": 4
+        },
+        {
+          "name": "ALTERNATIVES",
+          "level": 4
+        },
+        {
+          "name": "Generated C",
+          "level": 2
+        },
+        {
+          "name": "Sandbox and diagnostics",
           "level": 2
         }
       ]

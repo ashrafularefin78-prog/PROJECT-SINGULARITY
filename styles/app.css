@@ -2627,6 +2627,7 @@ html[data-theme='light'] .repo-stat {
   overflow: auto;
   contain: layout paint;
 }
+.changelog-preview:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .measured-budget {
   min-height: 520px;

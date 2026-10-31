@@ -178,13 +178,19 @@ async function main() {
       headers.csp,
       csp.includes('trusted-types singularity-script-url'),
     );
+    // A CSP source expression is a whitespace-separated token list, so
+    // `'wasm-unsafe-eval'` — which the local Clang/WASI toolchain needs to
+    // compile and instantiate WebAssembly, and which permits no string
+    // evaluation at all — is not the bare `'unsafe-eval'` this check is about.
+    // Substring matching used to call the shipped policy a violation.
+    const sources = csp.split(';').flatMap((directive) => directive.trim().split(/\s+/).slice(1));
     check(
       'RT-H2',
       'transport policy',
-      'served CSP has no unsafe-inline or unsafe-eval',
-      'neither token present',
-      csp,
-      !/unsafe-inline|unsafe-eval/.test(csp),
+      'served CSP has no unsafe-inline and no bare unsafe-eval',
+      "no 'unsafe-inline' / 'unsafe-eval' token; 'wasm-unsafe-eval' present for the local compiler",
+      { inline: sources.includes("'unsafe-inline'"), eval: sources.includes("'unsafe-eval'"), wasmEval: sources.includes("'wasm-unsafe-eval'") },
+      !sources.includes("'unsafe-inline'") && !sources.includes("'unsafe-eval'") && sources.includes("'wasm-unsafe-eval'"),
     );
     check(
       'RT-H3',
@@ -339,7 +345,13 @@ async function main() {
     await session.waitFor('navigator.serviceWorker && navigator.serviceWorker.controller', { timeoutMs: 60000 });
     const poisoned = await session.evaluate(`(async () => {
       const keys = await caches.keys();
-      const key = keys.find((name) => name.startsWith('singularity-v'));
+      // The live cache is qualified by the worker directory and the scope
+      // (singularity-cache:DIR:SCOPE:singularity-vNN); an unqualified
+      // singularity-vNN name is a legacy predecessor the worker deletes on
+      // activate. Matching on the full shape is what makes this poison the
+      // cache the app actually reads instead of creating a phantom one.
+      const key = keys.find((name) => /^singularity-cache:.*:singularity-v\\d+$/.test(name));
+      if (!key) return { key: null, text: 'no live cache in ' + JSON.stringify(keys) };
       const cache = await caches.open(key);
       await cache.put(new Request('/src/app.js'), new Response('window.__rtPoisoned = true;', {
         headers: { 'content-type': 'text/javascript' },
@@ -353,7 +365,7 @@ async function main() {
       'write a poisoned response for the app shell into the live cache',
       'cache accepts the write (same-origin code already controls the cache)',
       { key: poisoned.key, marker: poisoned.marker },
-      poisoned.text.includes('__rtPoisoned'),
+      poisoned.key !== null && poisoned.text.includes('__rtPoisoned'),
     );
 
     await session.navigate(site.origin + '/');
@@ -361,11 +373,13 @@ async function main() {
     await sleep(800);
     const repaired = await session.evaluate(`(async () => {
       const keys = await caches.keys();
-      const key = keys.find((name) => name.startsWith('singularity-v'));
+      const key = keys.find((name) => /^singularity-cache:.*:singularity-v\\d+$/.test(name));
       const cache = await caches.open(key);
       const hit = await cache.match('/src/app.js');
-      const text = await hit.text();
-      return { marker: Boolean(window.__rtPoisoned), hasPoison: text.includes('__rtPoisoned'), length: text.length };
+      const cached = await hit.text();
+      const served = await (await fetch('/src/app.js')).text();
+      return { marker: Boolean(window.__rtPoisoned), hasPoison: cached.includes('__rtPoisoned'),
+        servedPoison: served.includes('__rtPoisoned'), length: cached.length };
     })()`);
     check(
       'RT-S2',
@@ -373,7 +387,7 @@ async function main() {
       'reload online after the cache poison',
       'network-first refresh replaces the poison and the page boots',
       repaired,
-      !repaired.marker && !repaired.hasPoison,
+      !repaired.marker && !repaired.hasPoison && !repaired.servedPoison,
     );
 
     await session.evaluate("document.getElementById('tab-compiler').click()");
@@ -386,8 +400,24 @@ async function main() {
       return true;
     })()`);
     check('RT-W1', 'worker policy', 'find the M2 Compile button', 'present', started, started);
-    await session.waitFor("document.querySelector('.terminal')?.textContent.includes('done.')", { timeoutMs: 30000 });
-    const terminal = await session.evaluate("document.querySelector('.terminal').textContent");
+    // On this machine a fresh `.gz` toolchain download can be captured by the
+    // Internet Download Manager extension, which answers HTTP 204 before the
+    // compiler ever loads (documented in docs/PLAN.md section 4). That must not
+    // abort the remaining checks: wait for the run, and if it never arrives,
+    // report the terminal the page actually shows so the cause is on the record.
+    let terminal = '';
+    try {
+      await session.waitFor("document.querySelector('.terminal')?.textContent.includes('done.')", { timeoutMs: 30000 });
+    } catch {
+      terminal = '';
+    }
+    if (!terminal) {
+      terminal = await session.evaluate(`(() => {
+        const panel = document.getElementById('panel-compiler');
+        const readout = panel ? [...panel.querySelectorAll('p, .note, .terminal')].map((node) => node.textContent).join(' | ') : '';
+        return (document.querySelector('.terminal')?.textContent || '') + ' || ' + readout.slice(-320);
+      })()`);
+    }
     check(
       'RT-W2',
       'worker policy',
