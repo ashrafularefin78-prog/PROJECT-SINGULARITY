@@ -103,7 +103,7 @@ const PANELS = [
   { id: 'offline', label: 'M6 Offline', render: renderOffline },
   { id: 'a11y', label: 'M7 Access', render: renderA11y },
   { id: 'security', label: 'M8 Hardening', render: renderSecurity },
-  { id: 'assistant', label: 'M9 SINGU AI', render: renderAssistant, preload: () => import('./assistant/singu.js') },
+  { id: 'assistant', label: 'SINGU AI (unscored)', render: renderAssistant, preload: () => import('./assistant/singu.js') },
 ];
 
 const refs = {
@@ -3488,8 +3488,8 @@ const MODULE_STATUS = [
   { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 78, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. A reference TURN relay and a relay-only ICE switch ship in the repo; no relay is hosted.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 85, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. The tile carries the evidence-backed score (66/100); the structural ceiling is 83/100 and the reviewer\'s latest mark is 70/100.' },
-  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist enforced at the canonical host; _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
-  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 126.7 KiB gzip against a 170 KB budget, 60-minute soak ending smaller, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
+  { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist; on the canonical GitHub Pages host the policy arrives only as a meta tag, where the header-only directives cannot be confirmed as enforced. _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
+  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 127.3 KiB gzip against a 170 KB budget, a 60-minute soak two orders of magnitude under the memory budget that ends above where it started, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
   { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'partial', points: 69, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
 ];
 
@@ -3780,7 +3780,7 @@ const CASE_STUDIES = [
     problem: 'The app must keep working when the network disappears and survive a reload.',
     decision: 'An IndexedDB op log plus compacted snapshots, versioned migrations and a service worker. Compaction uses a watermark and keeps a snapshot fallback for peers catching up.',
     tradeoff: 'The browser owns quota and can evict storage. Text snapshots retain durable causal history, so the log can grow; in-memory trimming is separate. There is no cloud sync: this is local-first, not multi-device backup.',
-    evidence: '8 storage tests cover round-trip, compaction, file frames and v1 to v2 migration. Offline was verified with the server stopped; a 60-minute soak ends with a smaller heap than it started. 85/100.',
+    evidence: '8 storage tests cover round-trip, compaction, file frames and v1 to v2 migration. Offline was verified with the server stopped; a 60-minute soak ends two orders of magnitude under the memory budget, with reachable memory still moving. 85/100.',
   },
   {
     id: 'a11y',
@@ -3792,7 +3792,7 @@ const CASE_STUDIES = [
     problem: 'An instrument-dense interface has to remain usable with a keyboard, a screen reader, high contrast and 200% text.',
     decision: 'Use semantic elements, a roving-tabindex tablist, live regions, a text alternative for the 3D scene, and preferences for motion, contrast, scale, direction, language and theme. Code stays left-to-right in RTL layouts.',
     tradeoff: 'A real NVDA 2026.2 session covers all eight panel headings, the editor, the M3 canvas and Bangla/Arabic/RTL; VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain unvalidated. Bangla and Arabic shaping in the editor is delegated to the browser text layout; the panel labels are translated, not the whole app.',
-    evidence: 'axe-core: 0 violations and 412 passing checks. 8 motion tests; 194 interactive controls with accessible names. NVDA 2026.2 session: 17/17 steps, every panel heading announced, M3 canvas read, Bangla/Arabic lang tags verified. Evidence-backed score 66/100 against a structural ceiling of 83/100 - VoiceOver/TalkBack and deeper module flows are the remaining gap; the reviewer\'s latest mark is 70/100.',
+    evidence: 'axe-core: 0 violations and 469 passing checks. 8 motion tests; 194 interactive controls with accessible names. NVDA 2026.2 session: 17/17 steps, every panel heading announced, M3 canvas read, Bangla/Arabic lang tags verified. Evidence-backed score 66/100 against a structural ceiling of 83/100 - VoiceOver/TalkBack and deeper module flows are the remaining gap; the reviewer\'s latest mark is 70/100.',
   },
   {
     id: 'security',
@@ -3803,7 +3803,7 @@ const CASE_STUDIES = [
     score: moduleMeta('M8').points,
     problem: 'Ship a hostile-environment app with no build server, no third-party scripts and no markup sinks.',
     decision: 'Enforce a strict CSP and Trusted Types, isolate the runtime in a Worker, rate-limit per-peer ingress, generate SRI at deploy time, and build against a written STRIDE model. The canonical deployment is GitHub Pages, which sends no custom response headers, so the policy that arrives there is the meta CSP in index.html: enforced, but without frame-ancestors, COOP or COEP, which the HTML spec forbids in a meta policy. _headers carries the full set, and tools/verify-headers.js proves the local server and the built artifact deliver it; a host that reads _headers activates the rest.',
-    tradeoff: 'No third-party red-team session. An internal 22-check adversarial pass is recorded in docs/reports/red-team-session.md and found the missing Trusted Types policy allowlist, but it shares an author with the code, so the independent-review gap stays declared. The OWASP ZAP baseline has run and is archived (reports/zap-baseline.html): 0 High, 0 Medium, 0 Low, 2 informational - but a scanner run is not a human adversarial pass either. SRI covers entry subresources, not the transitive import graph. Clickjacking and cross-origin isolation therefore depend on a host that reads _headers, which the canonical GitHub Pages deployment is not; the meta policy it does have is still enforced.',
+    tradeoff: 'No third-party red-team session. An internal 22-check adversarial pass is recorded in docs/reports/red-team-session.md and found the missing Trusted Types policy allowlist, but it shares an author with the code, so the independent-review gap stays declared. The OWASP ZAP baseline has run and is archived (reports/zap-baseline.html): 0 High, 0 Medium, 0 Low, 2 informational - but a scanner run is not a human adversarial pass either. SRI covers entry subresources, not the transitive import graph. Clickjacking and cross-origin isolation therefore depend on a host that reads _headers, which the canonical GitHub Pages deployment is not; the meta policy it does have restricts script and style sources, but no measurement yet shows that a meta-delivered policy gates the Trusted Types sinks.',
     evidence: '11 fuzz tests, 0 markup sinks, 0 axe violations, every rule in _headers verified against the local server and the built artifact by tools/verify-headers.js, an internal 22/22 adversarial pass with a Trusted Types allowlist enforced, and the archived ZAP 2.17.0 scan (spider + 1,077-request active scan; 0 High, 0 Medium, 0 Low, 2 Informational). 72/100.',
   },
 ];
@@ -3862,7 +3862,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '420 automated tests, 41 published measurements, 0 axe violations.' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '420 automated tests, 19 published measurements, 0 axe violations.' }), el('a', { href: new URL('../docs/reports/measurements.json', import.meta.url).href, target: '_blank', rel: 'noopener', text: 'the evidence index behind those numbers' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -4193,14 +4193,15 @@ function renderDashboard(root) {
         target: '≤ 400 MB, no leaks',
         // The hour is measured outside the page: `tools/perf.js soak` samples the
         // heap once a minute for a full hour and snapshots it at minutes 10 and
-        // 60. That run ended with *fewer* nodes and less reachable memory than it
-        // started, which is the row's real evidence (docs/reports/soak.json); the
-        // live number here is only this tab's JS heap, so it is shown beside the
-        // citation rather than used as the score.
+        // 60. That run ends *above* where it started - both the sampled heap and
+        // the reachable bytes in the snapshot pair grew (docs/reports/soak.json) -
+        // so the size half of the target is met and the "no leaks" half is not
+        // demonstrated. The live number here is only this tab's JS heap, so it is
+        // shown beside the citation rather than used as the score.
         value: state.perf.memory
-          ? `${bytes(state.perf.memory)} JS heap in this tab; the 60-minute soak finished smaller than it started`
+          ? `${bytes(state.perf.memory)} JS heap in this tab; the measured hour ends above where it started, inside the budget - and a pair that grew does not rule a leak out`
           : 'measuring…',
-        verdict: 'met',
+        verdict: 'partial',
       },
       { metric: 'Concurrent users', target: '10,000 @ p95 < 200 ms', value: '1,000 relay clients, p95 12.2 ms; no 10,000-session rig', verdict: 'partial' },
       { metric: 'Chaos survival', target: 'kill any node, zero data loss', value: 'relay SIGKILLed mid-backlog: 20,000/20,000 replayed, 0 lost; failover run: the whole backlog re-posted to a standby node, 0 lost, 0 duplicated', verdict: 'partial' },
@@ -4849,7 +4850,7 @@ export async function waitForBoot() {
 }
 
 
-// ---------------------------------------------------------------- M9 SINGU AI
+// ------------------------------------------------- SINGU AI (unscored panel)
 
 /**
  * SINGU AI - a local C engineer with two engines and a verifier.

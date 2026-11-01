@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 452" width="780" height="452" role="img" aria-labelledby="title desc">
   <title id="title">Performance budget: measured values against the brief's targets</title>
-  <desc id="desc">One row per budget row. Each bar is the measured value as a share of the brief's target, so the right-hand end of every track is the target itself: a bar that reaches it meets the row, a bar that stops short falls short, and a bar that would overrun it is clamped and labelled with its ratio. The 10,000-user row is drawn as a one-tenth bar: 1,000 simulated clients is what was actually driven through the ciphertext relay, which delivered every envelope with p95 12.2 ms. The chaos row is green because the relay was SIGKILLed mid-backlog and every one of its 20,000 accepted envelopes replayed from the log without loss - met for the single node that exists, not a fleet. The payload is re-measured from the current import graph; all other rows retain historical evidence under the recorded conditions in docs/LOAD_CHAOS.md and are not new audits, browser runs or device guarantees. The payload row is the cold load: the 164.3 KiB gzip module graph fetched on first panel open (M2, M3, M4, M9 SINGU AI, WebRTC/relay) is reported separately in LOAD_CHAOS.md rather than hidden inside the bar. The only row that reaches its full target and still falls short is the frame rate at maximum settings, two frames short, and it is labelled as such. The historical soak row is a full hour of samples whose minute-60 snapshot is smaller than the minute-10 snapshot; the per-minute heap after GC rose from 1.10 to 1.53 MiB. Columns are: row, value, and target.</desc>
+  <desc id="desc">One row per budget row. Each bar is the measured value as a share of the brief's target, so the right-hand end of every track is the target itself: a bar that reaches it meets the row, a bar that stops short falls short, and a bar that would overrun it is clamped and labelled with its ratio. The 10,000-user row is drawn as a one-tenth bar: 1,000 simulated clients is what was actually driven through the ciphertext relay, which delivered every envelope with p95 12.2 ms. The chaos row is green because the relay was SIGKILLed mid-backlog and every one of its 20,000 accepted envelopes replayed from the log without loss - met for the single node that exists, not a fleet. The payload is re-measured from the current import graph; all other rows retain historical evidence under the recorded conditions in docs/LOAD_CHAOS.md and are not new audits, browser runs or device guarantees. The payload row is the cold load: the 164.5 KiB gzip module graph fetched on first panel open (M2, M3, M4, the SINGU AI panel, WebRTC/relay) is reported separately in LOAD_CHAOS.md rather than hidden inside the bar. The only row that reaches its full target and still falls short is the frame rate at maximum settings, two frames short, and it is labelled as such. The soak row is a full hour of samples on this build: the per-minute heap after GC rose from 1.51 to 2.82 MiB, and the minute-60 snapshot holds more nodes and more reachable memory than the minute-10 one, so the bar meets its size target while the leak question stays open. Columns are: row, value, and target.</desc>
   <style>
     .bg { fill: #0d131c; }
     .label { fill: #c9d4e2; font: 12px ui-monospace, monospace; }
@@ -19,9 +19,9 @@
   <text class="small" x="20" y="44">The right-hand end of each track is the target. Bars are clamped at the target; the ratio beside them is the real one.</text>
   <line class="axis" x1="20" y1="56" x2="768" y2="56" />
 
-  <!-- Current initial payload: 15 files (14 JS + CSS), JS 126.7 KiB gzip + CSS 26.9 = 153.6 KiB gzip / 497.0 KiB raw; 25 deferred files are 164.3 KiB gzip JS, plus separate approximately 18.4 MiB compressed toolchain assets. JS ratio uses decimal 170 KB. -->
+  <!-- Current initial payload: 15 files (14 JS + CSS), JS 127.3 KiB gzip + CSS 26.9 = 154.2 KiB gzip / 499.2 KiB raw; 25 deferred files are 164.5 KiB gzip JS, plus separate approximately 18.4 MiB compressed toolchain assets. JS ratio uses decimal 170 KB. -->
   <text class="label" x="20" y="82">Initial JS payload (gzip)</text>
-  <text class="value" x="768" y="82" text-anchor="end">126.7 KiB of 170 KB - met</text>
+  <text class="value" x="768" y="82" text-anchor="end">127.3 KiB of 170 KB - met</text>
   <rect class="track" x="20" y="88" width="748" height="9" />
   <rect class="met" x="20" y="88" width="571" height="9" />
 
@@ -61,9 +61,9 @@
   <rect class="track" x="20" y="280" width="748" height="9" />
   <rect class="unmet" x="20" y="280" width="723" height="9" />
 
-  <!-- Memory after a full 60-minute soak: 1.53 MiB vs 400 MB (met) -->
+  <!-- Memory after a full 60-minute soak: 2.82 MiB vs 400 MB (met on size) -->
   <text class="label" x="20" y="306">Memory after a 60-minute soak (JS heap after GC)</text>
-  <text class="value" x="768" y="306" text-anchor="end">1.53 MiB of 400 MB after 60/60 minutes - met</text>
+  <text class="value" x="768" y="306" text-anchor="end">2.82 MiB of 400 MB after 60/60 minutes - met on size</text>
   <rect class="track" x="20" y="312" width="748" height="9" />
   <rect class="met" x="20" y="312" width="3" height="9" />
 

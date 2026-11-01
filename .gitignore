@@ -25,11 +25,9 @@ __pycache__/
 Thumbs.db
 *.swp
 # Editor / AI-tool state that must never be part of the app or the deploy:
-# Kiro's settings tree and the local deploy helper's project marker. Both are
-# machine-local tool configuration, not project files - see tools/build-site.py,
-# which already skips them when assembling dist/.
+# Kiro's settings tree. It is machine-local tool configuration, not a project
+# file - see tools/build-site.py, which already skips it when assembling dist/.
 .kiro/
-.freebuff/
 # Throwaway browser profiles from the measurement tools (tools/cdp.js) and the
 # ad-hoc `--user-data-dir=./cdp-probe-XXXX` probes. These are complete Chrome
 # profiles - Cookies, Login Data, History, crash dumps, session logs - and must

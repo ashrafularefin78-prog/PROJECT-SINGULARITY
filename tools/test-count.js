@@ -48,6 +48,20 @@ const { pass, fail, skip, total, suites, nodeOnly, suiteTotals } = counts;
 if (fail) throw new Error(`cannot publish counts from a failing suite (${fail} failures)`);
 const browserEligible = total - nodeOnly;
 
+// "N published measurements" is a count of files in docs/reports, so it comes
+// from tools/measurements.js rather than from a typed number: an artifact can be
+// added, deleted or renamed and the sentence follows the directory it describes.
+function publishedMeasurementCount() {
+  const stdout = execFileSync(process.execPath, [join(root, 'tools/measurements.js'), '--json'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  const index = JSON.parse(stdout);
+  if (!Number.isInteger(index.counts.measurements)) throw new Error('the evidence index has no measurement count');
+  return index.counts.measurements;
+}
+const measurements = publishedMeasurementCount();
+
 const targets = {
   index: 'index.html',
   app: 'src/app.js',
@@ -55,6 +69,7 @@ const targets = {
   changelog: 'CHANGELOG.md',
   contributing: 'CONTRIBUTING.md',
   plan: 'docs/PLAN.md',
+  roadmap: 'docs/ROADMAP.md',
   demo: 'docs/DEMO.md',
   load: 'docs/LOAD_CHAOS.md',
   security: 'docs/SECURITY_REPORT.md',
@@ -102,8 +117,8 @@ function transform(name, text) {
   switch (name) {
     case 'index':
       return text
-        .replace(/\b\d+ tests green in your browser/g, `${b} tests runnable in your browser`)
-        .replace(/\b\d+ tests runnable in your browser/g, `${b} tests runnable in your browser`)
+        .replace(/\b\d+(?: of \d+)? tests green in your browser/g, `${b} of ${n} tests runnable in your browser`)
+        .replace(/\b\d+(?: of \d+)? tests runnable in your browser/g, `${b} of ${n} tests runnable in your browser`)
         .replace(/(id="hero-tests">)\d+( tests GREEN)/g, `$1${b}$2`)
         .replace(/(RUN )\d+( tests IN THIS BROWSER)/g, `$1${b}$2`);
     case 'app':
@@ -122,7 +137,7 @@ function transform(name, text) {
           /\{ value: '\d+', label: 'tests[\s\S]*?hint: 'run them from this page' \}/,
           `{ value: '${n}', label: 'tests - ${s} suites', hint: 'run them from this page' }`,
         )
-        .replace(/\b\d+ automated tests, 41 published measurements, 0 axe violations\./g, `${n} automated tests, 41 published measurements, 0 axe violations.`);
+        .replace(/\b\d+ automated tests, \d+ published measurements, 0 axe violations\./g, `${n} automated tests, ${measurements} published measurements, 0 axe violations.`);
     case 'readme':
       return text
         .replace(/tests-\d+_across_\d+_suites/g, `tests-${n}_across_${s}_suites`)
@@ -136,7 +151,13 @@ function transform(name, text) {
         .replace(/\b\d+ suites hold \d+ tests\b/g, `${s} suites hold ${n} tests`)
         .replace(/\*\*\d+ pass \+ \d+(\s+)browser-only skips\*\*/g, `**${p} pass + ${k}$1browser-only skips**`);
     case 'changelog-entry':
-      return text.replace(/\b\d+ tests across \d+ suites\b/g, `${n} tests across ${s} suites`);
+      // The newest entry describes *this* runner, so its pass/skip/eligible
+      // figures follow it too. Entries below the newest are dated records and are
+      // never rewritten.
+      return text
+        .replace(/\b\d+ tests across \d+ suites\b/g, `${n} tests across ${s} suites`)
+        .replace(/\b\d+ pass \+ \d+ browser-only\b/g, `${p} pass + ${k} browser-only`)
+        .replace(/\b\d+ browser-eligible\b/g, `${b} browser-eligible`);
     case 'contributing':
       return text
         .replace(/\bAll \d+ tests green\b/g, `All ${b} tests green`)
@@ -151,6 +172,10 @@ function transform(name, text) {
       return text
         .replace(/\b\d+ tests, \d+ suites\b/g, `${n} tests, ${s} suites`)
         .replace(/\b\d+ tests\b(?=,? all green)/g, `${n} tests`);
+    case 'roadmap':
+      return text
+        .replace(/\b\d+ tests across \d+ suites\b/g, `${n} tests across ${s} suites`)
+        .replace(/\b\d+ pass \+ \d+ browser-only skips\b/g, `${p} pass + ${k} browser-only skips`);
     case 'load':
       return text
         .replace(/\bruns \d+ of the \d+ tests\b/g, `runs ${p} of the ${n} tests`)

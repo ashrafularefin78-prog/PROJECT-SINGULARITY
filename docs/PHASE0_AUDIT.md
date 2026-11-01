@@ -96,3 +96,20 @@ because M8 is not deployed on a header-capable host.
   373 Node pass + 30 skip; 395 browser pass + 8 skip. The `skin.test.js` suite
   was silently absent from the browser registry; a new `suite-registry.test.js`
   fails if the two runners' lists ever diverge again.
+
+## Correction, 1 Nov 2026 - the axe gate had never actually run in CI
+
+The phase map above says the axe gate "already runs in the browser suite and CI".
+It runs in the browser suite. In CI it could only ever have crashed:
+`tools/a11y.js` loads its engine from `.tools/vendor/axe.min.js`, and `.tools/` is
+git-ignored, so a fresh checkout has no axe-core and the step dies on `ENOENT` -
+which the runner reports exactly as it reports a violation, as "exit code 1", and
+the difference is only visible in a step log behind a login.
+
+`tools/a11y.js` now provisions the pinned engine itself (axe-core 4.14.0 over
+HTTPS, SHA-256 verified before a single rule is evaluated) and writes the engine
+version into `docs/reports/a11y.json`. Two consequences worth stating: the audit
+step needs network egress on a cold `.tools`, and the axe numbers in this
+baseline and in `LOAD_CHAOS.md` were measured on a machine that already had the
+file, so they are unchanged by the fix - the first CI run to pass is what will
+confirm the gate measures the same thing there.

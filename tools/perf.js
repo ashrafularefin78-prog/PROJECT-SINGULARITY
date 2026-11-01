@@ -49,8 +49,8 @@ async function waitForServer(origin, timeoutMs = 20000) {
 async function startServer() {
   const proc = spawn(process.execPath, ['tools/serve.js', String(PORT)], {
     stdio: ['ignore', 'pipe', 'pipe'],
-    // The host environment may define PORT (Freebuff sets PORT=0); the port this
-    // tool chose is the one the measurements refer to.
+    // An inherited PORT from the host environment can be 0 or already taken;
+    // the port this tool chose is the one the measurements refer to.
     env: { ...process.env, PORT: String(PORT) },
   });
   const origin = `http://127.0.0.1:${PORT}`;

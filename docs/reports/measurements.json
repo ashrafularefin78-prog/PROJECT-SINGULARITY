@@ -1,0 +1,295 @@
+{
+  "generatedAt": "2026-10-31T19:44:55.242Z",
+  "directory": "docs/reports",
+  "counts": {
+    "artifacts": 28,
+    "measurements": 19,
+    "records": 9,
+    "errors": 0
+  },
+  "entries": [
+    {
+      "file": "a11y.json",
+      "kind": "json",
+      "bytes": 37361,
+      "sha256": "e22856dd86b43872b00aaccf72baeea6c7a3c0f0f138ebebbc0eac3ebab4bb80",
+      "what": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-31T19:43:13.233Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "cls-legacy.json",
+      "kind": "json",
+      "bytes": 2355,
+      "sha256": "5e6c4af74742c46eb3be54bfdac30e0398d349b9e7df2260af969bda1265a286",
+      "what": "layout-shift PerformanceObserver installed before first paint; the layout viewport is resized twice to imitate the mobile URL bar moving",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-09T06:22:58.039Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "cls.json",
+      "kind": "json",
+      "bytes": 2697,
+      "sha256": "dbec49763925376e2b8ea960d5f41f429e5d2ef413ca41b7ffeb40399ce01526",
+      "what": "layout-shift PerformanceObserver installed before first paint; the layout viewport is resized twice to imitate the mobile URL bar moving",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-18T04:25:38.286Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "crdt-scale.json",
+      "kind": "json",
+      "bytes": 778,
+      "sha256": "0ebc8aa3b15df6097c4bec0fa3e3b00c75001f9f8031efa0f6024db059734892",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-19T20:46:48.631Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "demo.json",
+      "kind": "json",
+      "bytes": 4987,
+      "sha256": "cf8b8b52e6769bfb75032103cdd9d08fad6b5b8a3f734730999236a783bddd14",
+      "stamp": {
+        "key": "generatedAt",
+        "value": "2026-10-09T06:54:48.427Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "durability.json",
+      "kind": "json",
+      "bytes": 813,
+      "sha256": "f76f46942a9939bd21e7470b079890ec455e2ab0c0673cb3e53d49c75998b2f1",
+      "what": "Each attempt types a unique marker into the M1 editor, reloads after the stated delay, and checks the marker came back from IndexedDB.",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-31T18:26:20.504Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "file-stream.json",
+      "kind": "json",
+      "bytes": 1866,
+      "sha256": "54340293e6eff7eac2ec76c87e2586642a29c46de190cf77456fe5fa499ddc58",
+      "stamp": {
+        "key": "generatedAt",
+        "value": "2026-10-20T00:00:00.000Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "headers-github-pages.txt",
+      "kind": "txt",
+      "bytes": 1118,
+      "sha256": "44b0c202b78cc5904c160bbbe7c624b8191c62c7ce90c9c05b611ed23bc8529e",
+      "category": "record"
+    },
+    {
+      "file": "lcp.json",
+      "kind": "json",
+      "bytes": 3336,
+      "sha256": "a86d7ab48cf4d592948d1282c751adf7fe9575d2391d848f406bf7cee26fa4fd",
+      "what": "{\"viewport\":\"412x915 @2.625 (mobile)\",\"throttled\":\"CDP Slow 4G: 150 ms RTT, 1.6 Mbps down, 750 Kbps up; 4x CPU slowdown\",\"unthrottled\":\"no network or CPU throttling (loopback reference)\",\"server\":\"tools/serve.js with the production security headers\",\"lcpSource\":\"PerformanceObserver largest-contentful-paint (buffered)\"}",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-31T16:30:02.761Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "lighthouse-desktop.json",
+      "kind": "json",
+      "bytes": 704960,
+      "sha256": "32f35b28874b881d6b60a3c5457fcf2e6614acc9c8b8e9d567701bd0c143fc6e",
+      "stamp": {
+        "key": "fetchTime",
+        "value": "2026-10-21T20:26:43.598Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "lighthouse-mobile-legacy.json",
+      "kind": "json",
+      "bytes": 595779,
+      "sha256": "95fdca7d3d50639f72fc13df3ea372a88977e8f07fce8f07d7e4eb74a3893550",
+      "stamp": {
+        "key": "fetchTime",
+        "value": "2026-10-09T06:23:37.253Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "lighthouse-mobile.json",
+      "kind": "json",
+      "bytes": 697854,
+      "sha256": "a4844d66343732f527523daf51b0ccff4ab014d5a185ebb564c072d1d6ebbe8e",
+      "stamp": {
+        "key": "fetchTime",
+        "value": "2026-10-21T19:54:08.929Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "nvda-session.json",
+      "kind": "json",
+      "bytes": 115735,
+      "sha256": "a01f247022b4210c4ffb870d132121d853e40fc8ffe9f86110bfac0bebaf73e0",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-21T22:53:59.900Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "nvda-session.md",
+      "kind": "md",
+      "bytes": 7642,
+      "sha256": "fed88549a7d16479db0f86e979b0025dda8d191f724978eed94007ff2c6d192f",
+      "category": "record"
+    },
+    {
+      "file": "red-team-session.json",
+      "kind": "json",
+      "bytes": 10209,
+      "sha256": "4c086feb5b370a8a13b9e99199ca27f9aed02ddb7dbc171715fe7beb3622282b",
+      "what": "internal-adversarial-review",
+      "stamp": {
+        "key": "generatedAt",
+        "value": "2026-10-31T16:44:20.205Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "red-team-session.md",
+      "kind": "md",
+      "bytes": 5938,
+      "sha256": "0fbccd17aef2d1cccb64929417e54cbf836b2bd71f95465230f734fd6055a8aa",
+      "category": "record"
+    },
+    {
+      "file": "relay-chaos.json",
+      "kind": "json",
+      "bytes": 2074,
+      "sha256": "a96af17d2be02176ee35c1996168f3a9f798ea67c4c7d47c968c8a3e3db82d44",
+      "what": "{\"clients\":1000,\"shards\":1,\"sendPerClient\":25,\"burstPerClient\":20,\"intervalMs\":500,\"payloadBytes\":256,\"ctChars\":380,\"seed\":42,\"transport\":\"loopback http/1.1, keep-alive, one relay process, no TLS\",\"fsync\":false}",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-18T17:37:32.317Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "relay-failover.json",
+      "kind": "json",
+      "bytes": 2283,
+      "sha256": "f7cf1b4540bb1b00b898f22f69ef9ad73706528b8715b14ae2348a6b862d7023",
+      "what": "{\"clients\":1000,\"shards\":1,\"sendPerClient\":25,\"burstPerClient\":0,\"intervalMs\":500,\"payloadBytes\":256,\"ctChars\":380,\"seed\":42,\"transport\":\"loopback http/1.1, keep-alive, two relay processes (primary + standby, separate data dirs), no TLS\",\"fsync\":false}",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-18T17:37:58.264Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "relay-load.json",
+      "kind": "json",
+      "bytes": 2384,
+      "sha256": "f5b32af57b31227dcb17c7509b030a136701dee0abaf633fb5c65e5e88469e05",
+      "what": "{\"clients\":1000,\"clientsPerShard\":250,\"shards\":4,\"sendPerClient\":50,\"burstPerClient\":0,\"intervalMs\":250,\"payloadBytes\":256,\"seed\":42,\"transport\":\"loopback http/1.1, keep-alive, one relay process, no TLS\",\"generator\":\"4 processes x 250 clients\",\"fsync\":false,\"ctChars\":380}",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-17T19:46:26.594Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "soak.json",
+      "kind": "json",
+      "bytes": 28856,
+      "sha256": "3c054bc0c0bfd168272ed94c1f5268ad46bb1b26cba3b733cc527a5b4411e47e",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-10-31T19:33:56.959Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "sri-deployed.txt",
+      "kind": "txt",
+      "bytes": 671,
+      "sha256": "7b1379df77a36fdb47a12af88bd4de51653c4e9940b568719b0076d397495535",
+      "category": "record"
+    },
+    {
+      "file": "stream-2gb.json",
+      "kind": "json",
+      "bytes": 3059,
+      "sha256": "f08edfad5ed7dfc30e9ef75abb3915598fc4f832b994956774f9513c9f4d4898",
+      "stamp": {
+        "key": "generatedAt",
+        "value": "2026-10-19T13:29:36.396Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "turn-selftest.json",
+      "kind": "json",
+      "bytes": 11091,
+      "sha256": "e7ce1862fa09d1c188f2b853c78e6bdfe404c909859622897724dc157902ed66",
+      "what": "turn-protocol-self-test",
+      "stamp": {
+        "key": "generatedAt",
+        "value": "2026-10-31T19:44:27.310Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "verify-headers-github-pages.txt",
+      "kind": "txt",
+      "bytes": 2620,
+      "sha256": "07d0eba5ec0464a4472371982c39907b66ce7a0eab166f24a33f3f1ef4b45a8a",
+      "category": "record"
+    },
+    {
+      "file": "verify-headers-tunnel.txt",
+      "kind": "txt",
+      "bytes": 1464,
+      "sha256": "d361dc64d6ddab4c9d4f9a8d717091cebb781a3b014f1cbf32db2d0feda1eeed",
+      "category": "record"
+    },
+    {
+      "file": "zap-alerts.json",
+      "kind": "json",
+      "bytes": 15407,
+      "sha256": "e5eece3d98623ab1d576d6461988ac5e2c412fc46ff450e9e0e918ad73044e6b",
+      "utf8Bom": true,
+      "category": "record"
+    },
+    {
+      "file": "zap-baseline.html",
+      "kind": "html",
+      "bytes": 39337,
+      "sha256": "0c0a713453eab04dbfea22df0975151558d2d810cffee2c497ab386c1e5f564f",
+      "category": "record"
+    },
+    {
+      "file": "zap-deployed.html",
+      "kind": "html",
+      "bytes": 109651,
+      "sha256": "a824970d4b2704e05e65c88dd7111318bbb869f4fb2c2edda622975ae66c103b",
+      "category": "record"
+    }
+  ]
+}

@@ -3,6 +3,138 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-11-01 - The gate that crashed, the claims it could not see, and a table that answers the brief
+
+### Fixed
+- **`tools/check-docs.js` crashed before it could report.** It read
+  `docs/reports/turn-relay.json` - an artifact that has never existed anywhere in
+  this repository's history - so the CI job "published numbers still match their
+  artifacts" died with ENOENT on every push since the claim was added. A crash is
+  worse than a failure: it says nothing about every other claim the gate was
+  supposed to check. The load,
+  the claim and its shape assertion are gone. The TURN evidence that does exist
+  (17/17 protocol checks from the socket up, `docs/reports/turn-selftest.json`)
+  stays published, and `docs/LOAD_CHAOS.md` now carries its own section saying
+  plainly that the stronger claim - a relay-only browser session through the
+  shipped relay - has never produced a passing artifact.
+- **Fourteen published numbers were stale, and nobody could tell.** The gate
+  reported them the moment the crash stopped hiding them. Nine were the payload,
+  critical-block and axe-core figures - cold-load 126.7 → 127.1 KiB gzip, the
+  initial 15 files 153.6 → 154.0 KiB gzip / 497.0 → 498.6 KiB raw, `src/app.js`
+  249.7 → 251.2 KiB raw / 78.3 → 78.7 KiB gzip, the deferred graph
+  164.3 → 164.5 KiB, the inline critical block 37.5 KiB raw / 8.2 KiB gzip and
+  axe-core's passing-rule count. Each was re-derived from the tool that owns it -
+  `tools/payload.js`, `tools/critical-css.py --check`,
+  `docs/reports/a11y.json` - and the documents were updated from that output,
+  never hand-edited. The other five were the memory-soak figures, which no
+  document may state until the run finishes: `docs/LOAD_CHAOS.md` section 3 is
+  generated from `docs/reports/soak.json` by `tools/gen-soak-section.py`, so they
+  arrive with the artifact or not at all. The hour was then re-measured on this
+  build, and the next entry is what it found.
+- **The re-measured hour says something different about memory.** The 60-minute
+  soak on this build records JS heap after GC **1.51 → 2.82 MiB** (peak 3.64 MiB
+  at minute 54), and its minute-60 snapshot holds **118,637 nodes over 8.93 MiB**
+  of reachable memory against minute 10's **109,456 over 7.96 MiB** - more nodes
+  and more memory, where the archived run it replaced ended with a *smaller* pair.
+  Nothing was re-typed to fit: `tools/gen-soak-section.py` rebuilt section 3 from
+  the new artifact, the budget row and `docs/charts/budget.svg` moved to the
+  measured figures, and the three claims inside the app that said the soak
+  "finished smaller than it started" now say what the hour actually shows - with
+  the dashboard's `Memory after 1 hour` row moved from **met** to **partial**,
+  because the brief's row is "≤ 400 MB, no leaks" and this pair demonstrates the
+  first half and not the second. The generator's own prose was part of the
+  problem: its V8-node row asserted "rises and falls with the active module, and
+  returns" whatever the samples said, and on this run the last minute *is* the
+  peak, so the sentence is now derived from the series. Two gaps in the gate made
+  the drift possible: `docs/charts/budget.svg` carried no claim for the soak
+  figure at all (that is how the chart stayed at 1.53 MiB while the artifact said
+  2.82), and `src/app.js` was not a target of the payload claim even though it
+  publishes the cold-load number. Both are claims now.
+- **The accessibility gate could never have passed in CI.** `tools/a11y.js` reads
+  its engine from `.tools/vendor/axe.min.js`, and `.tools/` is git-ignored - so
+  the `accessibility audit (axe-core)` step died on ENOENT in every run since it
+  was added, while passing on any machine that had ever fetched the file. The
+  only place that difference was visible is the step log, which needs a login; the
+  public annotation says "exit code 1" for a crash and for a violation alike. The
+  tool now provisions the pinned copy itself - axe-core 4.14.0 over HTTPS, digest
+  checked before the first rule runs - so a fresh checkout measures instead of
+  crashing, and `docs/reports/a11y.json` records the engine version, which is what
+  makes a count like "469 rule results passed" attributable to something. Verified
+  by deleting the vendored file and watching the fetch rebuild it byte-for-byte.
+- **A published type declaration described a function that does not exist.**
+  `types/graphics.d.ts` advertised `identityMath()`. With no TypeScript anywhere in
+  the repository nothing compiled the surface, so the phantom survived until
+  `tools/check-types.js` was written to read `package.json`'s advertised `types`
+  against the exports `src/` really has. It is removed, and the check now runs
+  inside `tools/check-docs.js`, so a declaration that stops naming a real export
+  fails CI instead of autocompleting into a runtime error.
+- **The hero printed one number for two metrics.** "412 tests" is browser
+  eligibility and "420" is the suite total; a reader comparing the page with the
+  README reasonably concluded one of them was wrong. The meta descriptions now say
+  "412 of 420 tests runnable in your browser", and `tools/test-count.js`'s index
+  rewrite reproduces that shape so a future sync cannot silently flatten it back.
+- **`docs/ROADMAP.md` published 416 tests / 386 pass against a runner reporting
+  420 / 390**, and the newest CHANGELOG entry published 389 pass / 411
+  browser-eligible. Neither was a drift the gate could see: ROADMAP was not a
+  rewrite target at all. Both documents are now covered by `tools/test-count.js`.
+
+### Added
+- **The evidence is now queryable data.** `tools/measurements.js` walks
+  `docs/reports`, classifies each artifact as a measurement (valid JSON that
+  records its own timestamp) or a record, and publishes
+  `docs/reports/measurements.json` - hashes, sizes, byte counts and the timestamp
+  each artifact claims for itself. It also reports the UTF-8 BOM on the archived
+  ZAP export that `tools/zap-verdict.js` strips on read but a reviewer's
+  `JSON.parse` does not. The dashboard's published-measurement count is derived
+  from it, which is how the typed "41" became a measured 19.
+- **`tools/brief-table.js` generates the README's "Against the brief" table** from
+  the module deck, the suite totals, `package.json`, a scan of every static import
+  edge in `src/` and the non-goals document - so the brief's own criteria are
+  answered in one place instead of being inferred from eight case studies. The
+  rows that quote a file or a mechanism make the generator read that file first:
+  if `src/collab/relay.js` ever held key material, or `docs/NON_GOALS.md` stopped
+  declaring WebGPU, the table refuses to publish rather than assert it.
+- **`docs/release-notes/v1.1.0.md`** is written to be used as `body_path`: with
+  `generate_release_notes: true` and zero pull requests, GitHub would publish a
+  commit list titled "Latest update" where the brief expects a release to state
+  dependencies, modules, tests, the live URL and the evidence. It also explains,
+  in the open, why three tags were needed to publish the first release.
+
+### Changed
+- **`tools/check-docs.js` now runs the generators over their own output** -
+  `test-count.js --check`, `measurements.js --check`, `brief-table.js --check` and
+  `check-types.js` - so the counts, the evidence index, the brief table and the
+  type surface each fail the build when they stop describing the tree.
+- **The assistant panel is no longer called M9.** Its tab label was `M9 SINGU AI`
+  while the deck's M9 row is the cross-cutting performance budget, so a reviewer
+  opening "M9" and a reviewer reading "M9 88/100" were looking at two different
+  things. The panel is `SINGU AI (unscored)`, the case study, PLAN, LOAD_CHAOS and
+  the budget chart call it the SINGU AI panel, and the scored deck keeps the M9/M10
+  ids to themselves. The CHANGELOG entries that named it M9 in October are left as
+  written. `docs/reports/a11y.json` was re-recorded against the renamed panel: 10
+  module views, 266 interactive controls, 0 without an accessible name, 0 heading
+  jumps, **0 axe-core violations and 469 passing rule results**, with no page or
+  console errors.
+- **Three sentences about Trusted Types on the deployed origin say less than they
+  used to.** `curl -sI https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/`
+  returns no `Content-Security-Policy` and no `Require-Tusted-Types-For` - GitHub
+  Pages sends no custom headers - so the policy on that URL is the meta tag in
+  `index.html` alone, and `trustedTypesActive()` in `src/security/policy.js:49`
+  returns true whenever the browser exposes `trustedTypes.createPolicy`, which is
+  presence, not enforcement. The README's M8 row, `docs/SECURITY_REPORT.md`,
+  `docs/DEPLOY.md` and the two in-app notes now state what is delivered and leave
+  the enforcement question open instead of answering it by assumption.
+- **The dashboard links its evidence.** The case-study `Proof` line points at
+  <docs/reports/measurements.json>, so the 19 published measurements are one click
+  from the claim that cites them rather than one `git clone` away.
+- **"3 full, 5 partial" became "3 complete, 5 with declared scope boundaries"** in
+  the README's at-a-glance table and the roadmap, and the modules row now names
+  the two cross-cutting rows (M9 88, M10 69) that the old wording hid. Nothing was
+  reclassified; the labels were the thing that was wrong.
+- **Repository signals refreshed** (commit count and snapshot date), and the
+  tooling no longer names a third-party deploy helper that is not part of this
+  project.
+
 ## 2026-10-31 - C11 atomics on a toolchain that has none, and named refusals
 
 ### Added
@@ -38,8 +170,8 @@ Each entry is derived from the commit history; the newest comes first.
   order accesses within one thread and are not lock-free for a threaded target;
   `ATOMIC_*_LOCK_FREE` reports 2 and the panel says so rather than implying
   otherwise.
-- **Test counts move to 420 tests across 31 suites** (389 pass + 30 browser-only
-  skips in bare Node; 411 browser-eligible).
+- **Test counts move to 420 tests across 31 suites** (390 pass + 30 browser-only
+  skips in bare Node; 412 browser-eligible).
 - **The service worker precaches `src/runtime/sysroot-overlay.js`** and the
   cache version moves to `singularity-v15`, so the compiler stays offline-capable.
 - **The deferred graph grows by one module**: 25 files, 164.3 KiB gzip JS. The

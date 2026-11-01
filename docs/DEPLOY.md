@@ -80,10 +80,14 @@ curl -sI https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/ \
   | grep -iE 'content-security-policy|cross-origin|referrer-policy'
 ```
 
-Today the command prints nothing, which is the honest result: GitHub Pages
-sends no CSP, COOP, COEP, CORP or `Referrer-Policy` header. The policy in force
-on that URL is the meta CSP in `index.html`. The `Strict-Transport-Security`
-header GitHub Pages does send is host-level and outside this repository.
+Today the command prints nothing (re-run with `curl -sI` on 1 Nov 2026), which is
+the honest result: GitHub Pages sends no CSP, COOP, COEP, CORP or
+`Referrer-Policy` header. The only policy that URL carries is the meta CSP in
+`index.html`, and whether a meta-delivered policy can enforce the
+`require-trusted-types-for` directive is not something this repository has
+measured - no tool has yet run a browser against a static-hosting page.
+The `Strict-Transport-Security` header GitHub Pages does send is host-level and
+outside this repository.
 
 ## Cloudflare Pages
 

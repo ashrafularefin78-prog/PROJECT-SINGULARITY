@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-31T16:34:28.512Z",
+  "measuredAt": "2026-10-31T19:43:13.233Z",
   "url": "http://127.0.0.1:5198/",
   "browser": "Edg/157.0.4341.30",
   "note": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
@@ -13,7 +13,7 @@
     "6. M6 Offline",
     "7. M7 Access",
     "8. M8 Hardening",
-    "9. M9 SINGU AI"
+    "9. SINGU AI (unscored)"
   ],
   "perModule": [
     {
@@ -37,7 +37,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 476,
+            "count": 477,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -63,10 +63,10 @@
         "passCount": 53
       },
       "axTree": {
-        "totalNodes": 2227,
-        "liveNodes": 1733,
+        "totalNodes": 2218,
+        "liveNodes": 1724,
         "ignoredNodes": 494,
-        "interactiveCount": 35,
+        "interactiveCount": 36,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -507,7 +507,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 94,
+            "count": 95,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -607,7 +607,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 132,
+            "count": 133,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -633,10 +633,10 @@
         "passCount": 47
       },
       "axTree": {
-        "totalNodes": 540,
-        "liveNodes": 393,
-        "ignoredNodes": 147,
-        "interactiveCount": 31,
+        "totalNodes": 545,
+        "liveNodes": 395,
+        "ignoredNodes": 150,
+        "interactiveCount": 32,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -982,7 +982,7 @@
       }
     },
     {
-      "module": "9. M9 SINGU AI",
+      "module": "9. SINGU AI (unscored)",
       "axe": {
         "version": "4.14.0",
         "violations": [],
@@ -1112,6 +1112,7 @@
     }
   ],
   "axe": {
+    "engine": "4.14.0",
     "passes": 469,
     "violations": [],
     "perModule": [
@@ -1170,7 +1171,7 @@
         "incomplete": 2
       },
       {
-        "module": "9. M9 SINGU AI",
+        "module": "9. SINGU AI (unscored)",
         "violations": 0,
         "passes": 47,
         "incomplete": 2
@@ -1180,8 +1181,8 @@
   "axTree": [
     {
       "module": "M0 Dashboard",
-      "liveNodes": 1733,
-      "interactiveCount": 35,
+      "liveNodes": 1724,
+      "interactiveCount": 36,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1398,8 +1399,8 @@
     },
     {
       "module": "5. M5 Mesh",
-      "liveNodes": 393,
-      "interactiveCount": 31,
+      "liveNodes": 395,
+      "interactiveCount": 32,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1521,7 +1522,7 @@
       ]
     },
     {
-      "module": "9. M9 SINGU AI",
+      "module": "9. SINGU AI (unscored)",
       "liveNodes": 572,
       "interactiveCount": 33,
       "unnamedInteractive": [],

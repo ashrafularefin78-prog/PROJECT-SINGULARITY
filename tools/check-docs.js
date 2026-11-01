@@ -46,7 +46,6 @@ const relayChaos = json('docs/reports/relay-chaos.json');
 const relayFailover = json('docs/reports/relay-failover.json');
 const nvda = json('docs/reports/nvda-session.json');
 const turnSelf = json('docs/reports/turn-selftest.json');
-const turnRelay = json('docs/reports/turn-relay.json');
 
 const files = {
   report: read('docs/LOAD_CHAOS.md'),
@@ -80,7 +79,7 @@ const claim = (from, value, where = ['report']) => claims.push({ from, value, wh
 
 // The bare number is the one every document agrees on; the fuller phrase only
 // the report uses. Both are checked, so a stale copy in any of them fails.
-claim('tools/payload.js --json jsGzip', `${kib(payload.jsGzip)} KiB`, ['report', 'readme', 'demo', 'plan', 'chart']);
+claim('tools/payload.js --json jsGzip', `${kib(payload.jsGzip)} KiB`, ['report', 'readme', 'demo', 'plan', 'chart', 'source']);
 claim('tools/payload.js --json jsGzip', `${kib(payload.jsGzip)} KiB gzip JS`, ['report']);
 claim('tools/payload.js --json totalRaw', `${kib(payload.totalRaw)} KiB raw`, ['report']);
 claim('tools/payload.js --json cssGzip', `${kib(payload.cssGzip)} KiB gzip CSS`, ['report']);
@@ -88,6 +87,7 @@ claim('tools/payload.js --json src/app.js', `(${kib(app.gzipBytes)} KiB gzip of 
 claim('docs/reports/soak.json heap series', `${soakFirst.jsHeapUsedMiB.toFixed(2)} → ${soakLast.jsHeapUsedMiB.toFixed(2)} MiB`, ['report', 'readme']);
 claim('docs/reports/soak.json heap peak', `(peak ${soakPeak.jsHeapUsedMiB.toFixed(2)} MiB at minute ${soakPeak.minute})`, ['report']);
 claim('docs/reports/soak.json samples', `${soak.samples.length}-sample run`, ['report']);
+claim('docs/reports/soak.json last sample against the 400 MB row', `${soakLast.jsHeapUsedMiB.toFixed(2)} MiB of 400 MB after ${soak.minutes}/${soak.minutes} minutes`, ['chart']);
 claim('docs/reports/soak.json snapshots', `${snapB.nodeCount.toLocaleString('en-US')} vs ${snapA.nodeCount.toLocaleString('en-US')}`, ['report']);
 claim('docs/reports/soak.json snapshots', `${mib(snapB.reachableBytes)} vs ${mib(snapA.reachableBytes)} MiB`, ['report']);
 claim('docs/reports/soak.json browser', soak.browser.replace('Edg/', ''), ['report']);
@@ -97,10 +97,11 @@ claim('docs/reports/lighthouse-mobile.json performance', `${marks.mobile[0]} of 
 claim('docs/reports/lighthouse-desktop.json categories', `${joinScores(marks.desktop)} of 95`, ['chart']);
 claim('docs/reports/a11y.json axe', `0 axe-core violations, ${a11y.axe.passes} passing rule results`, ['report']);
 claim('docs/reports/a11y.json browser', a11y.browser.replace('Edg/', ''), ['report']);
-// The relay evidence is two artifacts and the documents quote both: the protocol
-// gate driven from the socket up, and the relay-only session driven in a browser.
+// The relay evidence is the protocol gate driven from the socket up. The
+// relay-only browser session (tools/turn-relay-e2e.js) is written but has never
+// produced a passing artifact, so no number is published for it and none is
+// claimed here - see docs/LOAD_CHAOS.md.
 claim('docs/reports/turn-selftest.json summary', `${turnSelf.summary.passed}/${turnSelf.summary.total} protocol checks`, ['report', 'readme']);
-claim('docs/reports/turn-relay.json summary', `${turnRelay.summary.passed}/${turnRelay.summary.total} relay-only checks`, ['report']);
 claim('tools/payload.js --json src/runtime/interpreter.js', `(${kib(interp.gzipBytes)} KiB gzip of ${kib(interp.rawBytes)} KiB raw)`, ['report']);
 claim('tools/payload.js --json src/runtime/preprocess.js', `(${kib(preprocess.gzipBytes)} KiB gzip)`, ['report']);
 
@@ -283,6 +284,50 @@ try {
   zapVerdict.text = `${error.stdout || ''}${error.stderr || ''}`.trim();
 }
 
+// The evidence index and the against-the-brief table are both generated from the
+// tree they describe, so each is checked by its own generator: the index against
+// the files actually in docs/reports, the table against the module deck, the suite
+// totals and the import edges. Either one drifting is a published claim that no
+// longer matches what is in the repo, which is exactly what this gate exists to catch.
+let evidenceIndex = { ok: true, text: '' };
+try {
+  evidenceIndex.text = execFileSync(process.execPath, [join(root, 'tools/measurements.js'), '--check'], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+} catch (error) {
+  evidenceIndex.ok = false;
+  evidenceIndex.text = `${error.stdout || ''}${error.stderr || ''}`.trim();
+}
+
+let briefTable = { ok: true, text: '' };
+try {
+  briefTable.text = execFileSync(process.execPath, [join(root, 'tools/brief-table.js'), '--check'], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+} catch (error) {
+  briefTable.ok = false;
+  briefTable.text = `${error.stdout || ''}${error.stderr || ''}`.trim();
+}
+
+// types/*.d.ts is the surface package.json advertises as `types`, and no TypeScript
+// compiles it here, so the only thing that can notice a declaration describing a
+// function that does not exist is this check.
+let typeSurface = { ok: true, text: '' };
+try {
+  typeSurface.text = execFileSync(process.execPath, [join(root, 'tools/check-types.js')], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+} catch (error) {
+  typeSurface.ok = false;
+  typeSurface.text = `${error.stdout || ''}${error.stderr || ''}`.trim();
+}
+
 // The soak's headline is a shape, not a number: the run must have completed and
 // the last snapshot must not be bigger than the first. A checker that only
 // matches strings would pass on a report that says the opposite.
@@ -301,6 +346,21 @@ const shapes = [
     from: 'tools/test-count.js --check',
     ok: testCounts.ok,
     why: 'every published test count matches the tests/run.js summary',
+  },
+  {
+    from: 'tools/measurements.js --check',
+    ok: evidenceIndex.ok,
+    why: 'docs/reports/measurements.json still describes the artifacts that are actually in docs/reports',
+  },
+  {
+    from: 'tools/brief-table.js --check',
+    ok: briefTable.ok,
+    why: 'the against-the-brief table still matches the module deck, the suite totals and the import graph',
+  },
+  {
+    from: 'tools/check-types.js',
+    ok: typeSurface.ok,
+    why: 'every declaration in types/*.d.ts names an export that actually exists in src/',
   },
   {
     from: 'docs/reports/soak.json interrupted',
@@ -327,12 +387,6 @@ const shapes = [
     from: 'docs/reports/turn-selftest.json',
     ok: turnSelf.summary.failed === 0 && turnSelf.summary.passed === turnSelf.summary.total,
     why: 'the reference TURN relay passes every protocol check the report claims for it',
-  },
-  {
-    from: 'docs/reports/turn-relay.json',
-    ok: turnRelay.summary.failed === 0 && turnRelay.session.opened === true
-      && turnRelay.control.opened === false && turnRelay.relayCounters.forwarded > 0,
-    why: 'the relay-only session connected through the relay, the control without one did not, and the relay carried the traffic',
   },
   {
     from: 'docs/LOAD_CHAOS.md',
@@ -431,11 +485,17 @@ for (const { from, ok, why } of shapes) {
   else {
     failures += 1;
     console.log(`  FAIL ${why} (${from})`);
-    if (from === 'tools/test-count.js --check' && testCounts.text) {
-      console.log(testCounts.text.split(/\r?\n/).map((line) => `       ${line}`).join('\n'));
-    }
-    if (from === 'node --check src/app.js' && appParses.text) {
-      console.log(appParses.text.split(/\r?\n/).map((line) => `       ${line}`).join('\n'));
+    // A gate that runs in a child process has already explained itself there; the
+    // reason is useless without that output.
+    const output = {
+      'tools/test-count.js --check': testCounts,
+      'node --check src/app.js': appParses,
+      'tools/measurements.js --check': evidenceIndex,
+      'tools/brief-table.js --check': briefTable,
+      'tools/check-types.js': typeSurface,
+    }[from];
+    if (output?.text) {
+      console.log(output.text.split(/\r?\n/).map((line) => `       ${line}`).join('\n'));
     }
   }
 }

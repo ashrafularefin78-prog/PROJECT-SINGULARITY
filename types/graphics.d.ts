@@ -44,4 +44,3 @@ export declare class Renderer {
   [key: string]: any;
   stats(): any;
 }
-export declare function identityMath(...args: any[]): any;

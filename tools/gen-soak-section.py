@@ -221,6 +221,15 @@ else:
         "claim on its own.\n"
     )
 
+# The node row used to assert "and returns" whatever the samples said. On this run
+# the last minute is also the peak, so the sentence has to come from the numbers.
+if last["nodes"] == max_nodes:
+    node_reading = "ends at its peak: it never returned to the minute-1 level"
+elif last["nodes"] <= 1.25 * first["nodes"]:
+    node_reading = "rises and falls with the active module, and returns"
+else:
+    node_reading = "rises and falls with the active module, and ends above the first minute"
+
 section = f"""{heading}
 
 `node tools/perf.js soak --minutes={minutes} --snapshot-at=10,{minutes}` opens the app,
@@ -235,7 +244,7 @@ count and the DOM size. {snap_sentence} Raw samples:
 |--------|--------------|-------------|------|-------|
 | JS heap after GC | {mib(first['jsHeapUsedMiB'])} | {mib(last['jsHeapUsedMiB'])} | {mib(peak['jsHeapUsedMiB'])} (minute {peak['minute']}) | {growth.get('deltaMiB', 0):+.2f} MiB over {minutes} minutes |
 | Per minute | — | — | — | {growth.get('deltaPerMinuteMiB', 0):+.3f} MiB/min |
-| V8 nodes | {first['nodes']:,} | {last['nodes']:,} | {max_nodes:,} | rises and falls with the active module, and returns |
+| V8 nodes | {first['nodes']:,} | {last['nodes']:,} | {max_nodes:,} | {node_reading} |
 | DOM elements | {first['domElements']} | {last['domElements']} | {max(s['domElements'] for s in samples)} | rises and falls with the active module |
 | Canvases | {first['canvases']} | {last['canvases']} | {max(s['canvases'] for s in samples)} | the 3D panel is the only module that allocates one |
 | Documents | {max(s['documents'] for s in samples)} | {max(s['documents'] for s in samples)} | {max(s['documents'] for s in samples)} | constant: nothing opens a document it forgets to close |
@@ -271,6 +280,7 @@ saved are named below.
 | idle page, `--tabs=0` | 20 | 1.04 → 1.16 MiB (peak 1.16) | same flaw, longer: it proved the idle page is stable, which was never the question |
 | module rotation, first attempt | 20 | 1.10 → 1.50 MiB (peak 1.52) | rotation worked; the run was still capped at 20 samples by a bad argument |
 | module rotation, machine restarted mid-run | 35 | 1.04 → 1.57 MiB (peak 1.57) | killed at minute 35 by the restart; the report was rebuilt from the samples already on disk (`tools/perf.js analyse`) |
+| module rotation, the build before this one | 60 | 1.10 → 1.53 MiB (peak 1.56) | nothing was wrong with it; it was superseded on 1 Nov 2026 because the heap after GC ends higher on this build, so its "last snapshot smaller than the first" headline no longer holds and every document quoting it had to be re-derived |
 | **this run** | **{len(samples)}** | **{mib(first['jsHeapUsedMiB'])} → {mib(last['jsHeapUsedMiB'])} (peak {mib(peak['jsHeapUsedMiB'])} at minute {peak['minute']})** | —; heap snapshots at minutes {', '.join(s['label'].rstrip('m') for s in snapshots)} |
 """
 

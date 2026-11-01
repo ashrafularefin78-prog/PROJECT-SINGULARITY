@@ -18,13 +18,22 @@
  * headless CI machine. The AX-tree pass is the closest honest substitute - it
  * audits the same tree a screen reader consumes - and the report says so.
  */
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { dirname } from 'node:path';
 import { Browser, parseArgs, startProjectServer } from './cdp.js';
 
 const args = parseArgs();
 const PORT = Number(args.port || 5198);
 const OUT_DIR = args['out-dir'] || 'docs/reports';
 const AXE = args.axe || '.tools/vendor/axe.min.js';
+// `.tools/` is git-ignored, so a fresh CI checkout has no axe-core on disk and
+// the audit used to die on ENOENT before it could measure anything. The pinned
+// copy is fetched on first run and its digest checked, because a published rule
+// count like "469 rule results passed" only means something if the engine that
+// produced it is named.
+const AXE_VERSION = '4.14.0';
+const AXE_SHA256 = '20c09fe157a8a34a30e241aaa1fcdade657734f08ab379ecfbeb7d45cc46e878';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const INTERACTIVE_ROLES = new Set([
@@ -36,8 +45,34 @@ const INTERACTIVE_ROLES = new Set([
 /** Roles whose whole purpose is to be announced with a name. */
 const NAMED_ROLES = new Set([...INTERACTIVE_ROLES, 'image', 'img', 'figure', 'region', 'heading', 'group', 'tabpanel', 'dialog']);
 
-async function axeAudit(session) {
-  const source = readFileSync(AXE, 'utf8');
+/**
+ * The axe-core source the audit runs with. The default path is provisioned on
+ * demand and digest-checked; a reviewer who names `--axe` themselves gets that
+ * file unread, and the engine version it reports is recorded in the artifact.
+ */
+async function ensureAxeCore() {
+  if (args.axe) return readFileSync(AXE, 'utf8');
+  if (!existsSync(AXE)) {
+    const url = `https://cdn.jsdelivr.net/npm/axe-core@${AXE_VERSION}/axe.min.js`;
+    console.log(`# no axe-core in this checkout (.tools/ is git-ignored): fetching ${url}`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`axe-core fetch failed: HTTP ${res.status} from ${url}`);
+    const dir = dirname(AXE);
+    if (dir) mkdirSync(dir, { recursive: true });
+    writeFileSync(AXE, Buffer.from(await res.arrayBuffer()));
+  }
+  const bytes = readFileSync(AXE);
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  if (digest !== AXE_SHA256) {
+    throw new Error(
+      `${AXE} is not the pinned engine: sha256 ${digest}, expected ${AXE_SHA256} (axe-core ${AXE_VERSION}). ` +
+      'A different axe-core reports a different set of rules, so the published rule counts would no longer describe this run.',
+    );
+  }
+  return bytes.toString('utf8');
+}
+
+async function axeAudit(session, source) {
   await session.send('Page.setBypassCSP', { enabled: true });
   await session.evaluate(source);
   const raw = await session.evaluate(`axe.run(document, {
@@ -208,12 +243,14 @@ function mergeAxe(reports) {
     }
   }
   return {
+    engine: [...new Set(reports.map((r) => r.axe.version))].join('/') || null,
     passes,
     violations: [...byRule.values()].sort((a, b) => b.nodes.length - a.nodes.length),
   };
 }
 
 async function main() {
+  const axeSource = await ensureAxeCore();
   const { proc, origin } = await startProjectServer({ port: PORT });
   const browser = await Browser.launch({ width: 1280, height: 900, scale: 1 });
   const report = { measuredAt: new Date().toISOString(), url: origin + '/', browser: null, note: 'axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)' };
@@ -229,7 +266,7 @@ async function main() {
     const perModule = [];
     for (const tab of tabs) {
       await selectTab(session, tab.i);
-      const axe = await axeAudit(session);
+      const axe = await axeAudit(session, axeSource);
       const axTree = await axTreeAudit(session);
       perModule.push({ module: tab.label || `tab ${tab.i}`, axe, axTree });
     }
@@ -259,7 +296,7 @@ async function main() {
 
     console.log(`# Accessibility: ${report.browser} against ${report.url}`);
     console.log(`# modules audited: ${tabs.map((t) => t.label).join(' | ')}`);
-    console.log(`# axe-core ${perModule[0] ? (perModule[0].axe.version || '') : ''}: ${report.axe.violations.length} rules violated, ${report.axe.passes} rule results passed`);
+    console.log(`# axe-core ${report.axe.engine}: ${report.axe.violations.length} rules violated, ${report.axe.passes} rule results passed`);
     for (const v of report.axe.violations) {
       console.log(`  [${v.impact || 'n/a'}] ${v.id}: ${v.help} - ${v.nodes.length} node(s) in ${v.modules.join(', ')}`);
       for (const n of v.nodes.slice(0, 3)) console.log(`      ${n.module}: ${n.target.join(' ')}  ${n.summary.split('\n')[0]}`);

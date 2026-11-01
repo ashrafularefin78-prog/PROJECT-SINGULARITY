@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "kind": "turn-protocol-self-test",
-  "date": "2026-10-31",
-  "generatedAt": "2026-10-31T17:19:37.540Z",
+  "date": "2026-11-01",
+  "generatedAt": "2026-10-31T19:44:27.310Z",
   "environment": {
     "node": "v27.0.0-alpha.0.0.0",
     "platform": "win32",
     "transport": "udp/loopback"
   },
   "relay": {
-    "url": "turn:127.0.0.1:58610",
+    "url": "turn:127.0.0.1:60845",
     "realm": "singularity.local",
     "username": "demo",
     "software": "singularity-turn/1"
@@ -41,10 +41,10 @@
       "observed": {
         "class": 256,
         "mapped": {
-          "port": 58611,
+          "port": 60846,
           "ip": "127.0.0.1"
         },
-        "bound": "127.0.0.1:58611"
+        "bound": "127.0.0.1:60846"
       },
       "ok": true
     },
@@ -93,7 +93,7 @@
           "ip": "127.0.0.1"
         },
         "mapped": {
-          "port": 58611,
+          "port": 60846,
           "ip": "127.0.0.1"
         },
         "lifetime": 600,
@@ -158,7 +158,7 @@
         "text": "SINGULARITY-PING",
         "from": "127.0.0.1:49200",
         "relay": "127.0.0.1:49200",
-        "client": "127.0.0.1:58611"
+        "client": "127.0.0.1:60846"
       },
       "ok": true
     },
@@ -169,7 +169,7 @@
       "expected": "indication whose XOR-PEER-ADDRESS is the peer, whose DATA is the payload, and which arrived from the relay address",
       "observed": {
         "peer": {
-          "port": 58613,
+          "port": 60848,
           "ip": "127.0.0.1"
         },
         "text": "SINGULARITY-PONG",
@@ -187,7 +187,7 @@
         "channels": [
           {
             "channel": 16385,
-            "peer": "127.0.0.1:58613"
+            "peer": "127.0.0.1:60848"
           }
         ]
       },
@@ -254,11 +254,11 @@
       "expected": "every remaining allocation belongs to the second transport address, and Binding still answers it",
       "observed": {
         "owners": [
-          "127.0.0.1:58612",
-          "127.0.0.1:58612"
+          "127.0.0.1:60847",
+          "127.0.0.1:60847"
         ],
-        "released": "127.0.0.1:58611",
-        "pairMapped": 58612
+        "released": "127.0.0.1:60846",
+        "pairMapped": 60847
       },
       "ok": true
     }
@@ -268,32 +268,32 @@
       "kind": "error",
       "code": 401,
       "method": "allocate",
-      "from": "127.0.0.1:58612",
+      "from": "127.0.0.1:60847",
       "reason": "Unauthorized"
     },
     {
       "kind": "binding",
-      "from": "127.0.0.1:58611"
+      "from": "127.0.0.1:60846"
     },
     {
       "kind": "error",
       "code": 401,
       "method": "allocate",
-      "from": "127.0.0.1:58611",
+      "from": "127.0.0.1:60846",
       "reason": "Unauthorized"
     },
     {
       "kind": "error",
       "code": 401,
       "method": "allocate",
-      "from": "127.0.0.1:58611",
+      "from": "127.0.0.1:60846",
       "reason": "Unauthorized"
     },
     {
       "kind": "error",
       "code": 401,
       "method": "allocate",
-      "from": "127.0.0.1:58611",
+      "from": "127.0.0.1:60846",
       "reason": "Unauthorized"
     },
     {
@@ -301,13 +301,13 @@
       "account": "demo",
       "relayPort": 49200,
       "reserved": null,
-      "from": "127.0.0.1:58611"
+      "from": "127.0.0.1:60846"
     },
     {
       "kind": "error",
       "code": 437,
       "method": "allocate",
-      "from": "127.0.0.1:58611",
+      "from": "127.0.0.1:60846",
       "reason": "Allocate Mismatch Between Request and Answer"
     },
     {
@@ -315,18 +315,18 @@
       "account": "demo",
       "relayPort": 49202,
       "reserved": 49203,
-      "from": "127.0.0.1:58612"
+      "from": "127.0.0.1:60847"
     },
     {
       "kind": "allocate",
       "account": "demo",
       "relayPort": 49203,
       "reserved": 49204,
-      "from": "127.0.0.1:58612"
+      "from": "127.0.0.1:60847"
     },
     {
       "kind": "dropped",
-      "peer": "127.0.0.1:58614",
+      "peer": "127.0.0.1:60849",
       "relayPort": 49200,
       "reason": "no permission"
     },
@@ -339,25 +339,25 @@
     },
     {
       "kind": "forwarded",
-      "to": "127.0.0.1:58613",
+      "to": "127.0.0.1:60848",
       "bytes": 16,
       "relayPort": 49200,
       "via": "send-indication"
     },
     {
       "kind": "data-indication",
-      "from": "127.0.0.1:58613",
+      "from": "127.0.0.1:60848",
       "bytes": 16
     },
     {
       "kind": "channel-bind",
       "channel": 16385,
-      "peer": "127.0.0.1:58613",
+      "peer": "127.0.0.1:60848",
       "relayPort": 49200
     },
     {
       "kind": "forwarded",
-      "to": "127.0.0.1:58613",
+      "to": "127.0.0.1:60848",
       "bytes": 7,
       "relayPort": 49200,
       "via": "channel"
@@ -369,7 +369,7 @@
     },
     {
       "kind": "channel-in",
-      "from": "127.0.0.1:58613",
+      "from": "127.0.0.1:60848",
       "channel": 16385,
       "bytes": 5
     },
@@ -377,7 +377,7 @@
       "kind": "error",
       "code": 438,
       "method": "refresh",
-      "from": "127.0.0.1:58611",
+      "from": "127.0.0.1:60846",
       "reason": "Stale Nonce"
     },
     {
@@ -389,7 +389,7 @@
       "kind": "error",
       "code": 400,
       "method": "0xb",
-      "from": "127.0.0.1:58611",
+      "from": "127.0.0.1:60846",
       "reason": "Bad Request"
     },
     {
@@ -400,11 +400,11 @@
     {
       "kind": "deallocate",
       "relayPort": 49200,
-      "from": "127.0.0.1:58611"
+      "from": "127.0.0.1:60846"
     },
     {
       "kind": "binding",
-      "from": "127.0.0.1:58612"
+      "from": "127.0.0.1:60847"
     },
     {
       "kind": "expired",

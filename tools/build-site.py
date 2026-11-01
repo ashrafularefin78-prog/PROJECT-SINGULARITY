@@ -55,7 +55,7 @@ COMPATIBILITY_DATE = "2026-10-01"
 #: tooling (this build script included), and docs/DEPLOY.md's commands refer to a
 #: repository checkout. `tests/` and `docs/` DO ship, because the deployed site
 #: advertises a runnable test suite and links its own reports.
-SKIP_DIRS = {".git", ".tools", ".freebuff", "dist", "dist-site", "__pycache__", "node_modules", "tools"}
+SKIP_DIRS = {".git", ".tools", "dist", "dist-site", "__pycache__", "node_modules", "tools"}
 SKIP_FILES = {"deploy.site.json"}
 SKIP_SUFFIX = (".heapsnapshot", ".pyc")
 
@@ -106,7 +106,7 @@ def public_files():
         rel = os.path.relpath(dirpath, ROOT)
         if rel == ".":
             rel = ""
-        # Dot-directories are tooling/state (`.git`, `.wrangler`, `.freebuff`),
+        # Dot-directories are tooling/state (`.git`, `.wrangler`),
         # never site content, and some of them appear inside build output.
         dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS and not d.startswith("."))
         for name in sorted(filenames):
