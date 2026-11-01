@@ -74,7 +74,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **127.4 KiB gzip JS** + 26.9 KiB gzip CSS = **154.3 KiB gzip / 499.5 KiB raw** over 15 initial files (14 JS + stylesheet), measured from the current import graph; 25 deferred modules total 164.5 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
+| Initial JS payload | ≤ 170 KB gzip | **127.6 KiB gzip JS** + 26.9 KiB gzip CSS = **154.5 KiB gzip / 499.8 KiB raw** over 15 initial files (14 JS + stylesheet), measured from the current import graph; 25 deferred modules total 164.5 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **856 ms** cold on the current build (856–966 ms across two invocations), FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 149–174 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -100,7 +100,7 @@ module cannot hide by being imported late.
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk, current cold load | **127.4 KiB gzip JS across 14 JS files**, plus 26.9 KiB gzip CSS from `styles/app.css`: **15 initial files, 154.3 KiB gzip / 499.5 KiB raw total** |
+| Import-graph walk, current cold load | **127.6 KiB gzip JS across 14 JS files**, plus 26.9 KiB gzip CSS from `styles/app.css`: **15 initial files, 154.5 KiB gzip / 499.8 KiB raw total** |
 | Import-graph walk, deferred graph | **164.5 KiB gzip JS over 25 modules** - the interpreter, real compiler loaders and WASI host plus the sysroot overlay (excluding the separate approximately 18.4 MiB compressed toolchain asset set), SINGU AI, the WebGL2 engine (renderer, glTF, skin, HDR, environment, maths, BRDF integration), the E2EE stack and the WebRTC/relay carriers |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts every shipped script live and is visible on the M0 dashboard |
 
@@ -108,7 +108,7 @@ The toolchain asset directory, including compressed archives, manifest and notic
 totals 19,268,401 bytes (18.4 MiB rounded); the four gzip archives alone are
 19,238,668 bytes (18.3 MiB rounded). Neither is included in the JavaScript totals.
 
-The largest cold-load file is `src/app.js` (79.0 KiB gzip of 252.2 KiB raw);
+The largest cold-load file is `src/app.js` (79.2 KiB gzip of 252.5 KiB raw);
 inside the deferred graph the largest are `src/runtime/interpreter.js`
 (21.6 KiB gzip of 83.5 KiB raw) - which grew during the M2 work that added `<string.h>`,
 `<ctype.h>`, `<math.h>`, the preprocessor, typedefs, two-dimensional arrays,

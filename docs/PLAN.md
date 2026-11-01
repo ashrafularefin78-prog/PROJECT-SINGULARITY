@@ -43,7 +43,7 @@ those figures against their respective sources:
 
 | Plan row | Executed as | Evidence |
 |----------|-------------|----------|
-| Initial JS payload | **127.4 KiB** gzip JS cold load + 26.9 KiB gzip CSS = 154.3 KiB gzip, 499.5 KiB raw over 15 initial files (14 JS + stylesheet), against the 170 KB JS ceiling - met; M2/M3/M4, the WebRTC/relay half of M5 and the SINGU AI panel load on demand; 25 deferred files total 164.5 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | `tools/payload.js`, LOAD_CHAOS.md section 1 |
+| Initial JS payload | **127.6 KiB** gzip JS cold load + 26.9 KiB gzip CSS = 154.5 KiB gzip, 499.8 KiB raw over 15 initial files (14 JS + stylesheet), against the 170 KB JS ceiling - met; M2/M3/M4, the WebRTC/relay half of M5 and the SINGU AI panel load on demand; 25 deferred files total 164.5 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | `tools/payload.js`, LOAD_CHAOS.md section 1 |
 | Concurrent users | **1,000 simulated clients** through the ciphertext relay: 50,000 envelopes, all delivered, 0 lost, p95 12.2 ms | `docs/reports/relay-load.json` |
 | Chaos survival | `SIGKILL` with 20,000 envelopes pending: all replayed from the log after a **256 ms outage** | `docs/reports/relay-chaos.json` |
 | Failover | primary killed for good, backlog re-posted from client outboxes to a standby: 0 lost, 0 duplicated, kill to first accepted post **1322 ms** | `docs/reports/relay-failover.json` |

@@ -32,6 +32,19 @@ up as futuristic features.
   number is therefore run at the scale that was actually exercised.
 - **No pseudo-features.** The eight modules stand or fall on testable
   engineering; nothing in italics announced as revolutionary ships.
+- **No parametric model in SINGU, at any scale.** SINGU holds no weights, so it
+  has no parameter count to grow: zero is the honest number, and reaching a
+  billion of them is not work this project can do by trying harder. The
+  arithmetic is what makes it a non-goal rather than a backlog row — a
+  1B-parameter model is about 2 GB at fp16, about 1 GB at int8, and roughly
+  500 MB even quantised to 4 bits, against a shipped cold load of 127.6 KiB
+  gzip JS under a 170 KB budget: about 4,000× the page that would have to carry
+  it. Nor can it be fetched — the document ships `connect-src 'self'` and
+  `package.json` declares no dependencies, so a hosted model would break the
+  offline promise, the payload budget and the zero-dependency rule in a single
+  change. What is bought instead is stated in the SINGU panel: depth comes from
+  a reviewed systems-C catalogue that compiles and runs in the sandbox, where
+  every pattern is a test rather than a sample.
 - **No fabricated telemetry.** The app collects nothing it does not surface;
   there is no telemetry export pathway to a third party.
 

@@ -3,6 +3,40 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-11-01 - A tile that hid two groups, a sitemap no page could show, and a model that was never here
+
+### Added
+- **`docs/NON_GOALS.md` refuses a parametric model in SINGU, with the numbers
+  rather than a veto.** The request was to grow SINGU to a billion parameters.
+  It has none to grow: the module carries no weights, so its parameter count is
+  zero, and the gap is arithmetic rather than effort - about 2 GB at fp16, about
+  1 GB at int8, roughly 500 MB quantised to 4 bits, against a 127.6 KiB gzip
+  cold load under a 170 KB budget. Nor can weights be fetched, because
+  `connect-src 'self'` and a dependency-free `package.json` are two of the
+  brief's hardest lines. It is recorded as a principle, alongside the other
+  never-go rows, not as a table row: the table lists gaps the brief asks for
+  that could still be closed, and this one could not be closed by working
+  harder. The SINGU panel and the README's module row now say the same thing in
+  the same words.
+- **The built page links its own sitemap.** `sitemap.xml` has been published
+  since 19 Oct and `robots.txt` advertises it, but a reference to it existed in
+  no HTML: only a cooperative crawler reads `robots.txt`, so an audit that
+  greps the page concluded the file was absent. It is now a
+  `<link rel="sitemap">` in the head and a footer anchor.
+
+### Changed
+- **The module tile stopped conflating the deck's two groups.** It counted all
+  ten scored rows as modules and printed "3 full · 7 partial" while the README
+  said "3 complete, 5 with declared scope boundaries" - both true, neither
+  explaining the other, because M9 and M10 are cross-cutting rows rather than
+  brief modules. The tile now separates them, and the count is derived from
+  `MODULE_STATUS` so it cannot drift from the deck.
+- **Payload numbers refreshed from the current import graph**: 127.6 KiB gzip
+  JS + 26.9 KiB CSS = 154.5 KiB gzip / 499.8 KiB raw over 15 initial files, with
+  `src/app.js` at 252.5 KiB raw, propagated through README,
+  `docs/LOAD_CHAOS.md`, `docs/PLAN.md`, `docs/DEMO.md` and
+  `docs/charts/budget.svg`.
+
 ## 2026-11-01 - The gate that crashed, the claims it could not see, and a table that answers the brief
 
 ### Fixed
