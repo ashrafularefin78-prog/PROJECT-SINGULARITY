@@ -48,6 +48,16 @@ up as futuristic features.
   and a lazily loaded asset is not part of cold load at all. The budget that
   actually bites is the 400 MB heap measured after an hour. A wrong reason is
   worse than no reason, so it is corrected here rather than quietly dropped.
+- **No exploit development, and nothing aimed at a system this project does not
+  own.** The C hardening surface exists to say *what* is wrong with a program:
+  13 named defect kinds, a CWE tag each, an arena that refuses the overflowing
+  write and a watcher that names the released handle. The six pairs in
+  `src/runtime/hardening-samples.js` demonstrate each class and its fix, and what
+  their buggy halves do is print `(null)` or get refused - not redirect control
+  flow, not build a payload, not touch anything outside the worker. The sandbox
+  limits, the step/heap/depth budgets, the `gets()` refusal and the strict CSP are
+  the point of this surface, and none of them is a thing to be worked around in
+  the name of a demonstration.
 - **No fabricated telemetry.** The app collects nothing it does not surface;
   there is no telemetry export pathway to a third party.
 

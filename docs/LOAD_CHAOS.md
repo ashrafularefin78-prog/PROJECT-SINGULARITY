@@ -34,11 +34,11 @@ UI/browser run, score increase or unmeasured device guarantee is claimed.
 
 Two environments are reported on purpose:
 
-* **bare Node** (`npm test`) runs 402 of the 432 tests and skips the 30 that need
+* **bare Node** (`npm test`) runs 441 of the 471 tests and skips the 30 that need
   a canvas or IndexedDB, so the exit code means "no regressions" rather than
   "this machine has no GPU".
 * **real browser** (`npm run test:browser`) exercises WebGL2, IndexedDB, OPFS
-  and the compiler Workers. Browser eligibility: 424 tests; 8 Node-only checks are skipped.
+  and the compiler Workers. Browser eligibility: 463 tests; 8 Node-only checks are skipped.
   Compiler tests load the bundled toolchain; earlier interpreter-only timings are not current-suite measurements.
 
 ### Why there is no 10,000-user run here
@@ -74,7 +74,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **128.2 KiB gzip JS** + 26.9 KiB gzip CSS = **155.1 KiB gzip / 501.9 KiB raw** over 15 initial files (14 JS + stylesheet), measured from the current import graph; 27 deferred modules total 170.1 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
+| Initial JS payload | ≤ 170 KB gzip | **130.1 KiB gzip JS** + 26.9 KiB gzip CSS = **157.0 KiB gzip / 508.4 KiB raw** over 15 initial files (14 JS + stylesheet), measured from the current import graph; 30 deferred modules total 187.7 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **856 ms** cold on the current build (856–966 ms across two invocations), FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 149–174 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -100,21 +100,25 @@ module cannot hide by being imported late.
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk, current cold load | **128.2 KiB gzip JS across 14 JS files**, plus 26.9 KiB gzip CSS from `styles/app.css`: **15 initial files, 155.1 KiB gzip / 501.9 KiB raw total** |
-| Import-graph walk, deferred graph | **170.1 KiB gzip JS over 27 modules** - the interpreter, real compiler loaders and WASI host plus the sysroot overlay (excluding the separate approximately 18.4 MiB compressed toolchain asset set), SINGU AI, the WebGL2 engine (renderer, glTF, skin, HDR, environment, maths, BRDF integration), the E2EE stack and the WebRTC/relay carriers |
+| Import-graph walk, current cold load | **130.1 KiB gzip JS across 14 JS files**, plus 26.9 KiB gzip CSS from `styles/app.css`: **15 initial files, 157.0 KiB gzip / 508.4 KiB raw total** |
+| Import-graph walk, deferred graph | **187.7 KiB gzip JS over 30 modules** - the interpreter, real compiler loaders and WASI host plus the sysroot overlay (excluding the separate approximately 18.4 MiB compressed toolchain asset set), the hardening audit and its sample pairs, SINGU AI, the WebGL2 engine (renderer, glTF, skin, HDR, environment, maths, BRDF integration), the E2EE stack and the WebRTC/relay carriers |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts every shipped script live and is visible on the M0 dashboard |
 
 The toolchain asset directory, including compressed archives, manifest and notices,
 totals 19,268,401 bytes (18.4 MiB rounded); the four gzip archives alone are
 19,238,668 bytes (18.3 MiB rounded). Neither is included in the JavaScript totals.
 
-The largest cold-load file is `src/app.js` (79.9 KiB gzip of 254.5 KiB raw);
+The largest cold-load file is `src/app.js` (81.8 KiB gzip of 261.0 KiB raw);
 inside the deferred graph the largest are `src/runtime/interpreter.js`
-(21.6 KiB gzip of 83.5 KiB raw) - which grew during the M2 work that added `<string.h>`,
+(23.8 KiB gzip of 90.2 KiB raw) - which grew during the M2 work that added `<string.h>`,
 `<ctype.h>`, `<math.h>`, the preprocessor, typedefs, two-dimensional arrays,
-function pointers and unions - `src/assistant/singu.js` (20.1 KiB gzip,
+function pointers, unions and the memory watcher - `src/assistant/singu.js` (20.7 KiB gzip,
 the SINGU pattern catalogue and matcher) and `src/runtime/preprocess.js`
-(4.5 KiB gzip) from the same M2 work. (Those figures are claims in `tools/check-docs.js`; the
+(4.5 KiB gzip) from the same M2 work. The static audit and its sample pairs are
+deferred too: `src/runtime/hardening.js` 7.5 KiB gzip, `src/runtime/sanitizer.js`
+4.7 KiB gzip and `src/runtime/hardening-samples.js` 2.6 KiB gzip, so the hardening
+surface costs 14.8 KiB gzipped and only when the C panel or SINGU panel is opened.
+(Those figures are claims in `tools/check-docs.js`; the
 interpreter's had drifted unclaimed for a release and was corrected when the
 checker gained it.)
 
@@ -126,7 +130,7 @@ primary interaction. Since the last review the seven decorative modules the
 reviewer named - holographic text/ripples, dynamic theming, panel transitions,
 presence avatars, "advanced telemetry", the 150k-particle canvas and the "AI
 accessibility" panel - were also deleted outright (-25 KiB gzip), and the
-module-status notes were de-duplicated. The cold-load JavaScript now uses ~74% of
+module-status notes were de-duplicated. The cold-load JavaScript now uses 78% of
 the brief's decimal 170 KB ceiling. The deferred graph is real shipped code, not
 free, and is disclosed here rather than folded into the headline.
 
@@ -710,8 +714,8 @@ the GitHub Pages layout is reproduced locally.
 
 | Command | Environment | Result |
 |---------|-------------|--------|
-| `npm test` | bare Node 24, no browser | 402 passed, 0 failed, 30 skipped (the 30 need a canvas or IndexedDB) |
-| `npm run test:browser` | Real browser via CDP, WebGL2 + IndexedDB | Browser eligibility: 424 tests; 8 Node-only checks are skipped. |
+| `npm test` | bare Node 24, no browser | 441 passed, 0 failed, 30 skipped (the 30 need a canvas or IndexedDB) |
+| `npm run test:browser` | Real browser via CDP, WebGL2 + IndexedDB | Browser eligibility: 463 tests; 8 Node-only checks are skipped. |
 | `node tools/browser-run.js --url=<deployment>` | The same suite against the specified artifact | Run explicitly; source-tree results do not establish deployed-artifact correctness. |
 
 `npm test` used to report those 10 as failures because the machine has no GPU.
@@ -768,8 +772,8 @@ Reproduce any row:
 
 ```sh
 python3 tools/serve.py 5173     # or: node tools/serve.js
-npm test                        # 432 collected: 402 pass + 30 skip, no browser needed
-npm run test:browser            # all 432, in a real browser
+npm test                        # 471 collected: 441 pass + 30 skip, no browser needed
+npm run test:browser            # all 471, in a real browser
 node tools/payload.js           # import-graph payload size
 node tools/perf.js lcp          # throttled LCP -> docs/reports/lcp.json
 node tools/perf.js soak         # memory soak -> docs/reports/soak.json

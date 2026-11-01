@@ -137,6 +137,7 @@ export class Sandbox {
         maxSteps: options.maxSteps ?? this.maxSteps,
         maxHeapBytes: options.maxHeapBytes ?? this.maxHeapBytes,
         maxDepth: options.maxDepth ?? this.maxDepth,
+        sanitize: options.sanitize === true,
       });
     });
     return { promise, kill: () => killFn() };

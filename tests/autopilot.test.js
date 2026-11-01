@@ -21,10 +21,10 @@ test('autopilot: a composed program passes every check without repairs', () => {
   assertEquals(out.attempts.length, 1);
   assertEquals(out.repairLog.length, 0);
   assertEquals(out.checks.map((check) => check.id).join(' '),
-    'review run:demo (no stdin) expect:demo (no stdin) run:stdin expect:stdin memory');
+    'review run:demo (no stdin) expect:demo (no stdin) run:stdin expect:stdin memory sanitizer');
   assert(out.checks.every((check) => check.ok));
   assert(out.output.includes('sum: 201'), 'the captured output is the demo run');
-  assert(out.transcript[0].startsWith('Attempt 1: 6/6 checks passed.'));
+  assert(out.transcript[0].startsWith('Attempt 1: 7/7 checks passed.'));
   assert(out.transcript.some((line) => line.startsWith('PASS:')), 'the transcript ends with a verdict');
 });
 
@@ -169,7 +169,7 @@ int main(void) {
   assertEquals(out.failure.id, 'run:run');
 });
 
-test('autopilot: review hints are reported without blocking a passing run', () => {
+test('autopilot: a hardening finding blocks, and keeps the shared name', () => {
   const code = String.raw`#include <stdio.h>
 int main(void) {
   char buf[8];
@@ -179,8 +179,23 @@ int main(void) {
 }
 `;
   const out = runPlan(code, [{ name: 'run', stdin: 'abc', expect: ['abc'] }]);
+  assert(!out.ok, `an unbounded %s into an 8-byte buffer must not pass the autopilot\n${out.transcript.join(' ')}`);
+  assert(/unbounded-scan/.test(out.failure.detail), out.failure.detail);
+  assert(/CWE-120/.test(out.failure.detail), 'the finding carries the CWE the table gives it');
+  assertEquals(out.repairLog.length, 0, 'a defect with no justified repair is reported, not guessed at');
+});
+
+test('autopilot: hints the audit does not name still pass a green run', () => {
+  const code = String.raw`#include <stdio.h>
+int main(void) {
+  int x = 1;
+  if (x = 2) printf("%d\n", x);
+  return 0;
+}
+`;
+  const out = runPlan(code, [{ name: 'run', stdin: '', expect: ['2'] }]);
   assert(out.ok, out.transcript.join(' '));
-  assert(out.warnings.some((hint) => /Unbounded %s/.test(hint.text)), 'the scanf hint survives');
+  assert(out.warnings.some((hint) => /Assignment inside if/.test(hint.text)), 'the hint is still reported');
   assertEquals(out.repairLog.length, 0);
 });
 

@@ -6,11 +6,14 @@
  *   - step budget      : every statement and expression node costs one step
  *   - heap budget      : array allocations are charged against a byte cap
  *   - recursion depth  : bounded call stack
+ *   - sanitizer        : options.sanitize reports the memory errors this runtime
+ *                        would otherwise serve silently (see src/runtime/sanitizer.js)
  * Plus the whole thing runs inside a Web Worker that the main thread can
  * terminate() at any moment (see src/runtime/worker.js).
  */
 import { CompileError } from './lexer.js';
 import { parse } from './parser.js';
+import { Sanitizer } from './sanitizer.js';
 
 class ReturnSignal {
   constructor(value) {
@@ -294,6 +297,14 @@ export class Runtime {
     this.allocMap = new Map();
     /** String literals stored in pointer fields, by field address. */
     this.stringPtrs = new Map();
+    /**
+     * Findings, not crashes: `sanitize` records the memory errors the arena
+     * cannot fail closed on - a stale handle, a recycled block, a heap byte no
+     * assignment ever wrote. Off by default, because a run that reports nothing
+     * is the same run whether it is watched or not.
+     */
+    this.sanitize = options.sanitize === true;
+    this.san = this.sanitize ? new Sanitizer() : null;
   }
 
   _arena() {
@@ -743,18 +754,26 @@ export class Runtime {
     return -(this.fnPtrIds.get(name) + 1);
   }
 
-  _alloc(bytes, node) {
+  _alloc(bytes, node, info = {}) {
     const size = Math.max(4, Math.ceil(bytes / 4) * 4);
     this._chargeHeap(size, node);
     const buf = this._arena();
+    const hand = (offset) => {
+      this.liveAllocs += 1;
+      this.allocMap.set(offset, size);
+      const ptr = makePtr(offset, 4, null, size);
+      // The generation is what distinguishes two handles over one offset: it
+      // travels on the handle, so `q = p` and `{ ...p, offset }` both carry the
+      // allocation they were born from even after the arena reuses the address.
+      if (this.san) ptr.__gen = this.san.onAlloc(offset, size, { cleared: Boolean(info.cleared), line: (node && node.line) || 1 });
+      return ptr;
+    };
     for (let i = 0; i < this.arenaFree.length; i += 1) {
       const block = this.arenaFree[i];
       if (block.size >= size) {
         this.arenaFree.splice(i, 1);
         new Uint8Array(buf, block.offset, size).fill(0);
-        this.liveAllocs += 1;
-        this.allocMap.set(block.offset, size);
-        return makePtr(block.offset, 4, null, size);
+        return hand(block.offset);
       }
     }
     if (this.arenaTop + size > buf.byteLength) {
@@ -765,9 +784,7 @@ export class Runtime {
     }
     const offset = this.arenaTop;
     this.arenaTop += size;
-    this.liveAllocs += 1;
-    this.allocMap.set(offset, size);
-    return makePtr(offset, 4, null, size);
+    return hand(offset);
   }
 
   /** Read a NUL-terminated string from a char array, a view or a heap pointer. */
@@ -778,6 +795,10 @@ export class Runtime {
     const elem = value.elem;
     const limit = value.size ? Math.floor(value.size / elem) : 0;
     const dv = new DataView(this._arena());
+    // The first byte is what decides whether there is a string at all. Here an
+    // untouched malloc block yields "" because the arena is zero-filled; under
+    // a real compiler the same call reads whatever the last owner left.
+    if (limit > 0) this.san?.onAccess(value, value.base, elem, 'read', node);
     let out = '';
     for (let i = 0; i < limit; i += 1) {
       const at = value.base + i * elem;
@@ -789,7 +810,13 @@ export class Runtime {
   }
 
   _arenaAt(ptr, node) {
-    if (!isPtr(ptr) || ptr.isNull) throw this._err('null pointer dereference', node);
+    if (!isPtr(ptr) || ptr.isNull) {
+      // A released handle is not a null handle in C, and saying "null pointer
+      // dereference" here would blame the reader for what the free() did.
+      throw this._err(ptr && ptr.freed
+        ? 'use after free: this pointer names a block that was already released'
+        : 'null pointer dereference', node);
+    }
     return ptr;
   }
 
@@ -829,9 +856,11 @@ export class Runtime {
     const dv = new DataView(this._arena());
     if (p.elem === 1) {
       this._arenaCheck(p, p.offset, 1, node);
+      this.san?.onAccess(p, p.offset, 1, 'read', node);
       return dv.getUint8(p.offset);
     }
     this._arenaCheck(p, p.offset, 4, node);
+    this.san?.onAccess(p, p.offset, 4, 'read', node);
     if (p.float) return dv.getFloat32(p.offset, true);
     return dv.getInt32(p.offset, true);
   }
@@ -842,10 +871,14 @@ export class Runtime {
     const dv = new DataView(this._arena());
     if (p.elem === 1) {
       this._arenaCheck(p, p.offset, 1, node);
+      this.san?.onAccess(p, p.offset, 1, 'write', node);
+      this.san?.onWrite(p, p.offset, 1);
       dv.setUint8(p.offset, Math.trunc(value) & 0xff);
       return;
     }
     this._arenaCheck(p, p.offset, 4, node);
+    this.san?.onAccess(p, p.offset, 4, 'write', node);
+    this.san?.onWrite(p, p.offset, 4);
     if (p.float && !isPtr(value) && !isView(value)) {
       dv.setFloat32(p.offset, Number(value) || 0, true);
       return;
@@ -908,7 +941,35 @@ export class Runtime {
   }
 
   _freePtr(ptr, node) {
+    // A released handle is not a live one, whether it is the original or a copy
+    // of it, so the second free() is refused before anything else is consulted.
+    if (isPtr(ptr) && ptr.freed) {
+      this.san?.onFree(ptr.base, node);
+      throw this._err('double free: this block was already released', node);
+    }
+    // Only a live block may be released. A handle whose allocation is already
+    // gone - freed through a copy, or an address that never came from malloc -
+    // would put the same range in the free list twice, and two later
+    // allocations would hand one address to two owners. That is a hole in the
+    // sandbox rather than a style problem, so it is refused even unsanitized.
+    if (!isPtr(ptr) || ptr.isNull) {
+      this.san?.report('invalid-free', node, 'free() of something that never came from malloc');
+      throw this._err('free() of a pointer that is not a live allocation', node);
+    }
     const p = this._arenaAt(ptr, node);
+    // free() wants the exact address the allocation call handed back. An
+    // interior one would put a range in the free list that no block owns, and
+    // the next two allocations would be given the same memory to keep.
+    if (p.offset !== p.base) {
+      this.san?.report('invalid-free', node, `the address is ${p.offset - p.base} byte(s) inside the block, not at its start`);
+      throw this._err('free() of a pointer that is not the start of an allocation', node);
+    }
+    const verdict = this.san ? this.san.onFree(p.base, node) : this.allocMap.has(p.base) ? 'ok' : 'unknown';
+    if (verdict !== 'ok') {
+      throw this._err(verdict === 'double'
+        ? 'double free: this block was already released'
+        : 'free() of a pointer that is not a live allocation', node);
+    }
     this.arenaFree.push({ offset: p.base, size: p.size });
     this.allocMap.delete(p.base);
     // Drop any string literals that lived in this block, so freeing a node
@@ -919,7 +980,7 @@ export class Runtime {
     this.heapBytes = Math.max(0, this.heapBytes - p.size);
     this.liveAllocs -= 1;
     // A freed handle becomes a null pointer, so a use-after-free is a clean
-    // 'null pointer dereference' rather than silent corruption.
+    // 'use after free' rather than silent corruption.
     ptr.isNull = true;
     ptr.size = 0;
     ptr.freed = true;
@@ -1439,6 +1500,7 @@ export class Runtime {
 
   _heapFieldRead(ptr, at, field, node) {
     this._arenaCheck(ptr, at, field.size, node);
+    this.san?.onAccess(ptr, at, field.size, 'read', node);
     const dv = new DataView(this._arena());
     const raw = field.size === 1 ? dv.getUint8(at) : dv.getInt32(at, true);
     // A pointer field is stored as an arena offset, so it comes back as a
@@ -1451,7 +1513,24 @@ export class Runtime {
         if (name && this.functions.has(name)) return makeFnPtr(name, this.functions.get(name));
         throw this._err('that function pointer does not name a function any more', node);
       }
-      return makePtr(raw, 4, field.structName, this.allocMap.get(raw) || 0);
+      const size = this.allocMap.get(raw) || 0;
+      if (!this.san) return makePtr(raw, 4, field.structName, size);
+      // An address read out of memory is only as good as the block behind it,
+      // and the block behind it is only the right one if it is still the block
+      // that was stored here. `onFieldRead` answers 'released' when the address
+      // was freed and never re-used, and 'recycled' when a later allocation took
+      // the same offset - which is what a traversal that keeps walking a freed
+      // node's `next` pointer ends up doing.
+      const verdict = this.san.onFieldRead(at, raw);
+      if (verdict !== 'ok') {
+        this.san.report('use-after-free', node, verdict === 'released'
+          ? 'a pointer field names a block that was already released'
+          : `a pointer field names offset ${raw}, which now belongs to a later allocation`);
+      }
+      const rebuilt = makePtr(raw, 4, field.structName, size);
+      const generation = verdict === 'recycled' ? this.san.fieldGen.get(at) : this.san.generationOf(raw);
+      if (typeof generation === 'number') rebuilt.__gen = generation;
+      return rebuilt;
     }
     // A `double` field is stored as IEEE-754 in the arena, so a struct can
     // carry fractional values the same way a local does.
@@ -1461,6 +1540,8 @@ export class Runtime {
 
   _heapFieldWrite(ptr, at, field, value, node) {
     this._arenaCheck(ptr, at, field.size, node);
+    this.san?.onAccess(ptr, at, field.size, 'write', node);
+    this.san?.onWrite(ptr, at, field.size);
     const dv = new DataView(this._arena());
     if (field.ptr) {
       let raw = 0;
@@ -1477,6 +1558,10 @@ export class Runtime {
       else if (isPtr(value) || isView(value)) raw = ptrValue(value);
       else if (typeof value === 'number') raw = Math.trunc(value);
       else throw this._err('a pointer field can only hold a pointer (or 0 for NULL)', node);
+      // A plain number cannot become a pointer here, so the handles that reach
+      // this line are the only ones with an allocation identity to record.
+      // Anything else stores null, which means "no claim" rather than "valid".
+      this.san?.onFieldWrite(at, value);
       dv.setInt32(at, raw | 0, true);
       return;
     }
@@ -1661,7 +1746,18 @@ export class Runtime {
     if (node.callee.type === 'Ident') {
       const name = node.callee.name;
       const builtin = BUILTINS[name];
-      if (builtin) return builtin(args, this, node);
+      if (builtin) {
+        // A released handle reads as NULL, and puts(), strlen() and printf("%s")
+        // all tolerate NULL, so passing one of them a block that is gone printed
+        // '(null)' and said nothing else. free() is left out: it has its own,
+        // sharper verdict on the same pointer.
+        if (this.san && name !== 'free') {
+          for (const a of args) {
+            if (isPtr(a) && a.freed) this.san.report('use-after-free', node, `${name}() is handed a pointer to a block that was released - the call reads a NULL, while the bytes belong to whatever allocates next`);
+          }
+        }
+        return builtin(args, this, node);
+      }
       const fn = this.functions.get(name);
       if (fn) return this._callFunction(fn, args);
       // A prototype with no definition is a different mistake from a typo, and
@@ -2140,7 +2236,10 @@ const BUILTINS = {
     const count = Math.trunc(Number(args[0]) || 0);
     const size = Math.trunc(Number(args[1]) || 1);
     if (count <= 0 || size <= 0) throw rt._err('calloc needs a positive element count and element size', node);
-    const ptr = rt._alloc(count * size, node);
+    // calloc's contract is zeroed storage, so the sanitizer treats every byte
+    // as written. malloc's contract is not, and the arena filling it with zeros
+    // anyway is precisely the difference this run would otherwise hide.
+    const ptr = rt._alloc(count * size, node, { cleared: true });
     new Uint8Array(rt._arena(), ptr.offset, ptr.size).fill(0);
     return ptr;
   },
@@ -2152,12 +2251,20 @@ const BUILTINS = {
     const next = rt._alloc(size, node);
     const copy = Math.min(ptr.size, next.size);
     new Uint8Array(rt._arena(), next.offset, copy).set(new Uint8Array(rt._arena(), ptr.offset, copy));
+    // Only the copied prefix is written. When realloc grows a block the new
+    // tail is uninitialised in C, and reading it is the bug the check is for.
+    if (rt.san && copy > 0) rt.san.markWritten(next.base, next.offset, copy);
     rt._freePtr(ptr, node);
     return next;
   },
   free(args, rt, node) {
     const ptr = args[0];
-    if (isPtr(ptr) && !ptr.isNull) rt._freePtr(ptr, node);
+    // free(NULL) is defined by C and does nothing. Everything else has to name
+    // a live block; passing a stack address or the same block twice is
+    // undefined behaviour, and quietly accepting it is how an arena ends up
+    // handing one address to two owners.
+    if (isPtr(ptr) && ptr.isNull && !ptr.freed) return 0;
+    rt._freePtr(ptr, node);
     return 0;
   },
   memset(args, rt, node) {
@@ -2166,6 +2273,7 @@ const BUILTINS = {
     if (!isPtr(ptr)) throw rt._err('memset expects a pointer as its first argument', node);
     rt._arenaCheck(ptr, ptr.offset, n, node);
     new Uint8Array(rt._arena(), ptr.offset, n).fill(Math.trunc(Number(args[1]) || 0) & 0xff);
+    rt.san?.markWritten(ptr.base, ptr.offset, n);
     return ptr;
   },
   memcpy(args, rt, node) {
@@ -2175,7 +2283,9 @@ const BUILTINS = {
     if (!isPtr(dst) || !isPtr(src)) throw rt._err('memcpy expects two pointers', node);
     rt._arenaCheck(dst, dst.offset, n, node);
     rt._arenaCheck(src, src.offset, n, node);
+    rt.san?.onAccess(src, src.offset, n, 'read', node);
     new Uint8Array(rt._arena(), dst.offset, n).set(new Uint8Array(rt._arena(), src.offset, n));
+    rt.san?.markWritten(dst.base, dst.offset, n);
     return dst;
   },
   exit() {
@@ -2239,12 +2349,14 @@ export function interpret(source, options = {}) {
   try {
     const ast = parse(source);
     const stats = runtime.run(ast);
+    if (runtime.san) runtime.san.onFinish();
     return {
       ok: true,
       output: chunks.join(''),
       steps: stats.steps,
       heapBytes: stats.heapBytes,
       liveAllocs: runtime.liveAllocs,
+      ...(runtime.san ? { findings: runtime.san.list() } : {}),
     };
   } catch (err) {
     return {
@@ -2252,6 +2364,7 @@ export function interpret(source, options = {}) {
       output: chunks.join(''),
       steps: runtime.steps,
       heapBytes: runtime.heapBytes,
+      ...(runtime.san ? { findings: runtime.san.list() } : {}),
       error: {
         stage: err.stage || 'Runtime',
         message: err.reason || err.message,

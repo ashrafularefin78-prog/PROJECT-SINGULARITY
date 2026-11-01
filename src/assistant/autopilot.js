@@ -191,8 +191,7 @@ function missingExpectation(output, expected) {
  */
 export function autopilot(plan, options = {}) {
   const maxRepairs = Number.isInteger(options.maxRepairs) ? Math.max(0, options.maxRepairs) : 3;
-  const execute = typeof options.execute === 'function' ? options.execute : (code, runOptions) => interpret(code, runOptions);
-  const cases = plan.tests && plan.tests.length
+  const execute = typeof options.execute === 'function' ? options.execute : (code, runOptions) => interpret(code, runOptions);  const cases = plan.tests && plan.tests.length
     ? plan.tests.map((test) => ({ name: test.name, stdin: test.stdin || '', expect: test.expect || [] }))
     : [{ name: 'smoke run', stdin: '', expect: [] }];
 
@@ -204,7 +203,7 @@ export function autopilot(plan, options = {}) {
 
   for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
     const staticReview = review(code);
-    const runs = cases.map((item) => ({ ...item, run: execute(code, { stdin: item.stdin }) }));
+    const runs = cases.map((item) => ({ ...item, run: execute(code, { stdin: item.stdin, sanitize: true }) }));
     const checks = [];
     checks.push({
       id: 'review',
@@ -241,6 +240,23 @@ export function autopilot(plan, options = {}) {
       id: 'memory',
       ok: live === 0,
       detail: live === 0 ? 'No unreleased heap allocations across the runs.' : `${live} allocation(s) were never freed.`,
+    });
+    // The sanitizer report is asked for on every run. Whether it arrives is a
+    // property of the executor, not of this module, so a run that returned no
+    // report says so instead of reading as a clean memory state.
+    const watched = runs.filter((item) => item.run.ok && Array.isArray(item.run.findings));
+    const runtimeErrors = watched.flatMap((item) => (item.run.findings || []).filter((f) => f.severity === 'error'));
+    const runtimeWarnings = watched.flatMap((item) => (item.run.findings || []).filter((f) => f.severity !== 'error'));
+    checks.push({
+      id: 'sanitizer',
+      ok: runtimeErrors.length === 0,
+      detail: watched.length === 0 && runs.some((item) => item.run.ok)
+        ? 'The executor returned no sanitizer report, so the memory state of these runs is unchecked.'
+        : runtimeErrors.length
+          ? `${runtimeErrors.length} memory error(s) in the acceptance run(s): ${runtimeErrors.map((f) => `${f.kind} (${f.cwe}) at line ${f.line}`).join(', ')}`
+          : runtimeWarnings.length
+            ? `Sanitizer watched every access in ${watched.length} run(s); ${runtimeWarnings.length} warning(s), no error.`
+            : `Sanitizer watched every access in ${watched.length} run(s) and had nothing to report.`,
     });
     lastRuns = runs;
     output = runs.find((item) => item.run.ok)?.run.output || '';

@@ -203,8 +203,8 @@ node tools/browser-run.js --url=http://127.0.0.1:8788/tests/browser.html
 Last worker-served run: **152 passed, 0 failed, 0 skipped**
 (`[dom=true webgl2=true indexeddb=true]`), with the strict CSP arriving from the
 generated worker rather than from a dev server. The suite has since grown to
-**432** (402 pass + 30 browser-only skips under bare Node).
-Browser eligibility: 424 tests; 8 Node-only checks are skipped.
+**471** (441 pass + 30 browser-only skips under bare Node).
+Browser eligibility: 463 tests; 8 Node-only checks are skipped.
 The worker-served run above has not been repeated here since, because `.tools/wrangler` is not installed in this
 checkout (CI's deploy job runs the same command against the built artifact
 served from `dist/`). A build that cannot deliver its own security policy, or

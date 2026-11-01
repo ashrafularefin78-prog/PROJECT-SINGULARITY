@@ -15,7 +15,7 @@ self.addEventListener('message', (event) => {
   const data = event.data || {};
   if (data.type !== 'run') return;
 
-  const { source, stdin = '', maxSteps, maxHeapBytes, maxDepth } = data;
+  const { source, stdin = '', maxSteps, maxHeapBytes, maxDepth, sanitize } = data;
   let result;
   try {
     result = interpret(String(source), {
@@ -23,6 +23,7 @@ self.addEventListener('message', (event) => {
       maxSteps,
       maxHeapBytes,
       maxDepth,
+      sanitize: sanitize === true,
       onOutput: (text) => self.postMessage({ type: 'stdout', text }),
     });
   } catch (err) {

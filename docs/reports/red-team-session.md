@@ -108,6 +108,18 @@ reported an unterminated string at line 28. The eight C escapes are now doubled
 (`\\n` in the JavaScript source), and the worker run ends with `done.` and
 `fib(20) = 6765` (RT-W2). This was a demo bug, not a security finding.
 
+## Follow-up - the run that said 21/22
+
+The artifact committed before this build was written on 2026-10-31 and records
+**21/22**, with RT-W2's terminal empty: the wait for the built-in sample's
+output timed out under the version of `tools/red-team.js` that recorded nothing
+in that case. The panel itself painted - RT-W1 found the Compile button - so
+this is not a page-level failure, and *why* the run did not reach `done.` inside
+30 s is not established here. The tool now reads the terminal the page actually
+shows when the wait times out, `tools/ui-regressions.js` drives the M2 panel end
+to end in a real browser, and the re-run on this build is **22/22**
+([`red-team-session.json`](red-team-session.json), 2026-11-01).
+
 ## Reproduce
 
 ```powershell

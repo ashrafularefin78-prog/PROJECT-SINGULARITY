@@ -326,6 +326,28 @@ test('nonzero native exit is preserved', 'compiler', async s => {
   assert.match(await s.evaluate("document.querySelector('#main').textContent"), /exit 7/);
 });
 
+test('the interpreter names one bug once, in the audit and in the run', 'compiler', async s => {
+  const released = '#include <stdio.h>\n#include <stdlib.h>\n\nint main(void) {\n  char *tag = (char *)malloc(8);\n  if (tag == NULL) return 1;\n  tag[0] = 65;\n  tag[1] = 0;\n  free(tag);\n  puts(tag);\n  return 0;\n}\n';
+  await select(s, 'Compiler mode', 'interpreter');
+  assert.equal(await s.evaluate(`${get('[aria-label="Language standard"]')}.disabled`), true, 'The interpreter has no standard to pick');
+  assert.equal(await s.evaluate(`${get('#m2-sanitize')}.disabled`), false, 'The watcher is an interpreter feature');
+  assert.equal(await s.evaluate(`${get('#m2-sanitize')}.checked`), true, 'Watching the run is the default');
+  await fill(s, SOURCE, released);
+  await click(s, 'Check the source');
+  await s.waitFor("document.querySelector('#panel-compiler').textContent.includes('use-after-free')");
+  const audited = await s.evaluate("document.querySelector('#panel-compiler').textContent");
+  assert.match(audited, /static audit/);
+  assert.match(audited, /CWE-416/);
+  assert.match(audited, /Set the pointer to NULL after free/, 'The audit has to hand over the remedy, not just the name');
+  const record = await run(s);
+  assert.equal(record.result.ok, true, JSON.stringify(record.result));
+  assert.equal(await output(s), '(null)\n', 'A released handle reads as NULL, so the terminal itself says nothing about the bug');
+  assert.deepEqual((record.result.findings || []).map((f) => f.kind), ['use-after-free']);
+  assert.match(await s.evaluate("document.querySelector('#panel-compiler').textContent"), /1 finding\(s\) from this run/);
+  await select(s, 'Compiler mode', 'c');
+  assert.equal(await s.evaluate(`${get('#m2-sanitize')}.disabled`), true, 'A Clang run cannot produce a watcher report, so the box must not offer one');
+});
+
 test('Load infinite loop runs WebAssembly and Kill terminates it', 'compiler', async s => {
   await select(s, 'Compiler mode', 'c');
   await click(s, 'Load infinite loop');

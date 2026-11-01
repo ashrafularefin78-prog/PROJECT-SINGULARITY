@@ -2,10 +2,10 @@
   "schema": 1,
   "kind": "internal-adversarial-review",
   "independent": false,
-  "date": "2026-10-31",
-  "generatedAt": "2026-10-31T16:44:20.205Z",
+  "date": "2026-11-01",
+  "generatedAt": "2026-11-01T13:29:23.274Z",
   "target": {
-    "commit": "bf20c9f0da7897237c9ecd0fc0c177a2745f59ac",
+    "commit": "16e79541d1162edfaa2b7b4b82aa64f9eef8a74c",
     "dirty": true
   },
   "environment": {
@@ -33,8 +33,8 @@
   ],
   "summary": {
     "total": 22,
-    "passed": 21,
-    "failed": 1
+    "passed": 22,
+    "failed": 0
   },
   "checks": [
     {
@@ -183,7 +183,7 @@
       "attempt": "write a poisoned response for the app shell into the live cache",
       "expected": "cache accepts the write (same-origin code already controls the cache)",
       "observed": {
-        "key": "singularity-cache:http%3A%2F%2F127.0.0.1%3A5231%2F:http%3A%2F%2F127.0.0.1%3A5231%2F:singularity-v15",
+        "key": "singularity-cache:http%3A%2F%2F127.0.0.1%3A5231%2F:http%3A%2F%2F127.0.0.1%3A5231%2F:singularity-v18",
         "marker": false
       },
       "ok": true
@@ -197,7 +197,7 @@
         "marker": false,
         "hasPoison": false,
         "servedPoison": false,
-        "length": 255560
+        "length": 266987
       },
       "ok": true
     },
@@ -214,8 +214,8 @@
       "area": "worker policy",
       "attempt": "compile and run the built-in C sample in a worker",
       "expected": "exit 0 and the sample output ends with done.",
-      "observed": "",
-      "ok": false
+      "observed": "at the read returns. | What this pair shows: the pair where the static pass says nothing: the audit does not track which bytes were written, and only a run with the sanitizer over it reports this one.",
+      "ok": true
     },
     {
       "id": "RT-R1",
@@ -249,7 +249,7 @@
           "to": "rt-peer",
           "from": "rt-sender",
           "ct": "Q0lQSEVSVEVYVA==",
-          "relayedAt": 1793465056448,
+          "relayedAt": 1793539761395,
           "header": {
             "kind": "probe"
           }

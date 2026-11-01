@@ -3,6 +3,107 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-11-01 - Three layers over generated C: what the source proves, what the arena bounds, and what only a run can see
+
+The request was to make the assistant's C surface strong enough to be worth
+using for security work, with redzone canaries over the heap. The canaries were
+dropped on inspection - the arena already bounds-checks every access, so a
+canary byte would have been decoration over a check that already exists and
+already fires. What shipped instead is three layers that each answer a question
+the others cannot, sharing one vocabulary of 13 named kinds and one CWE tag per
+kind, so a bug has the same name wherever it is raised.
+
+### Added
+- **A static audit of the C it writes - `src/runtime/hardening.js`.** It reads
+  the parsed program, not a regex over its text, and names unsafe libc use only
+  where the source proves the use: `gets()` by name, `scanf("%s")` with no field
+  width, `strcpy`/`strcat`/`sprintf` into a destination the source states as
+  smaller, a `memcpy`/`strncpy`/`strncat` count larger than the block that owns
+  the destination, a format string that arrived from input, a local address that
+  escapes the function, a `free()` of something the heap never handed out, an
+  allocation whose result is never checked, a size computation that overflows, a
+  string the copy leaves unterminated. An auditor that guesses is an auditor
+  nobody re-reads, so a destination whose size the source never states is not
+  treated as small: the pass says nothing there and publishes the list of what
+  it stays silent about as `NOT_CHECKED`, which travels to the panel beside the
+  findings and is asserted by a test.
+- **A memory watcher over one execution - `src/runtime/sanitizer.js`.** The four
+  cases the runtime used to answer with a shrug are now reported: a read through
+  a released handle, the same block freed twice, a stale handle passed on, and a
+  heap byte printed before anything wrote it. Its job is to add a name, not a
+  value - with the watcher on, the output, the step count, the heap bytes and
+  the live allocations of the same program are identical to the run without it,
+  and that equivalence is what the tests assert rather than assume.
+- **Six vulnerable/fixed pairs - `src/runtime/hardening-samples.js`.** An
+  unbounded scan, a `strcpy` from a wider buffer, a format string made of input,
+  a read after `free()`, a double free and a heap byte never written. Each pair
+  carries the claims it actually trips, measured rather than remembered: which
+  kinds the audit raises on the buggy half, what each half prints (`(null)` for
+  the released handle, `hello root` for the scan the run cannot fault), whether
+  the run is refused, and the finding the watcher alone produces. Both halves
+  are ordinary C that runs in the existing sandbox; no pair builds an overwrite
+  that redirects control flow.
+- **The M2 panel shows all three layers and says which one is speaking.**
+  "Check the source" runs the audit over the editor, "Watch the run" turns the
+  watcher on for the next interpreter run, the "What says what" card names each
+  layer with its version and its boundary, and "Hardening pairs" loads either
+  half of any pair into the editor. The watcher is an interpreter control: in
+  Clang mode the box is disabled, because that path has no arena to watch and
+  would otherwise promise a report it cannot produce.
+- **38 new tests** - `tests/hardening.test.js` (14), `tests/sanitizer.test.js`
+  (17), `tests/hardening-samples.test.js` (7) - and one browser regression that
+  runs a use-after-free through the panel and asserts that the audit and the run
+  give it the same name, that the terminal still prints the `(null)` an unchecked
+  program prints, and that the box goes disabled in Clang mode.
+
+### Changed
+- **`free()` of a block already released, and `free()` of a pointer the heap
+  never handed out, now fail closed.** Both were accepted silently. The refusal
+  is unconditional - it does not wait for the watcher - and reads `double free:
+  this block was already released` / `free() of a pointer that is not a live
+  allocation` with the line and column. With the watcher on, the same event is
+  also named `double-free` (CWE-415) or `invalid-free` (CWE-763).
+- **The autopilot blocks on an error-severity hardening finding instead of
+  softening it into a hint,** and keeps the shared name and CWE in the transcript
+  (`unbounded-scan`, `CWE-120`) rather than inventing a message of its own. It
+  does not guess a repair for a memory defect, so the loop stops at
+  `STOP: no safe repair for "review"`. A new `sanitizer` check reports findings
+  from the runs themselves, and says plainly that the memory state is *unchecked*
+  when the executor returns no report, instead of reading a silence as a pass.
+
+### Corrected
+- **The M2 panel was not rendering at all for part of this work, and the only
+  surface that said so was a browser run.** Wiring `sanitize.disabled` into
+  `updateStandard()` put a read of `const sanitize` before its declaration, so
+  `renderCompiler` threw on a temporal-dead-zone access and the panel came up
+  empty; the new regression failed with `ReferenceError: Cannot access 'sanitize'
+  before initialization` and never found `#panel-compiler h1`. Bare Node could
+  not see it - the whole graph passes without a DOM. The checkbox is now declared
+  above its first use, and the regression is what proves the panel paints.
+- **A published claim and its own artifact disagreed, and the disagreement was a
+  day old.** `docs/SECURITY_REPORT.md` states **22/22** internal adversarial
+  checks; the artifact committed with the last session records **21/22**, with
+  RT-W2's terminal empty. That is not the bug above - RT-W1 found the Compile
+  button that day, so the panel painted - it is the 30-second wait for the
+  built-in sample's output timing out under a version of the tool that then
+  recorded nothing, and `tools/red-team.js` has since been changed to report the
+  terminal the page actually shows. The re-run on this build is **22/22**, and
+  that pass turns on the interpreter's own `fib(20) = 6765`, a string no static
+  text in the panel contains. Why that run did not finish inside 30 s on
+  2026-10-31 is still not established, and is not claimed here as fixed.
+
+### Not done
+- Clang's own warnings are not folded into the finding vocabulary: the compile
+  command still asks for none (`-O0`, `-ferror-limit 10`), so the WebAssembly
+  path reports compiler diagnostics and no memory findings. Nor is any of this a
+  substitute for ASan or valgrind, which shadow the whole address space rather
+  than the arena's blocks - the boundary is stated in the panel and in
+  `docs/SECURITY_REPORT.md` rather than left to be discovered.
+- Published payload and suite numbers were re-measured for this change:
+  **130.1 KiB** gzip cold-load JavaScript across 15 initial files, with the
+  audit, watcher and samples deferred at 7.5, 4.7 and 2.6 KiB gzipped, and
+  **471 tests across 35 suites**.
+
 ## 2026-11-01 - A tile that hid two groups, a sitemap no page could show, and 33,040 parameters that had to be measured
 
 ### Added

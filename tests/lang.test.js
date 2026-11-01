@@ -344,9 +344,23 @@ test('M2: the heap is fail-closed (null, use-after-free, overrun, exhaustion)', 
   assert(!zeroPointer.ok);
   assert(/null pointer dereference/.test(zeroPointer.error.message), zeroPointer.error.message);
 
+  // Reading a handle whose block was released is still refused, but it now says
+  // which bug it is instead of dressing it up as a null dereference.
   const usedAfterFree = run('int main() { int *p = (int *)malloc(16); free(p); return p[0]; }');
   assert(!usedAfterFree.ok);
-  assert(/null pointer dereference/.test(usedAfterFree.error.message), usedAfterFree.error.message);
+  assert(/use after free/.test(usedAfterFree.error.message), usedAfterFree.error.message);
+
+  const freedPointerNulls = run('int main() { int *p = (int *)malloc(16); free(p); int *q = p; return *q; }');
+  assert(!freedPointerNulls.ok);
+  assert(/use after free/.test(freedPointerNulls.error.message), freedPointerNulls.error.message);
+
+  const doubleFree = run('int main() { int *p = (int *)malloc(16); free(p); free(p); return 0; }');
+  assert(!doubleFree.ok);
+  assert(/double free/.test(doubleFree.error.message), doubleFree.error.message);
+
+  const foreignFree = run('int main() { int a[4]; free(a); return 0; }');
+  assert(!foreignFree.ok);
+  assert(/not a live allocation/.test(foreignFree.error.message), foreignFree.error.message);
 
   const overrun = run('int main() { int *p = (int *)malloc(8); return p[5]; }');
   assert(!overrun.ok);

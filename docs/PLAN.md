@@ -31,7 +31,7 @@ declare the rest as partial rather than faking them.**
 | M1 CRDT editor | **Full** | Self-contained, testable to a proof-like standard with property tests. The crown jewel. Now with cursor-indexed lookups (no rescans), watermark-bounded tombstone collection and op-log trimming. |
 | M4 E2EE | **Full** | WebCrypto supplies the primitives; the composition (X3DH + Double Ratchet + streaming AEAD) is engineering, not research. The signed prekey bundle is verified inside the handshake, before any key material exists. |
 | M6 offline sync | **Full** | IndexedDB + service worker + versioned migrations is well-trodden, and the scope-relative paths make the offline shell work under a subpath deployment. |
-| M2 C/C++ runtime | **Partial**, with real compilation | Self-hosted Clang 8.0.1 compiles C/C++ and standard libraries to restricted WASI WebAssembly in a disposable worker. The lightweight C-subset interpreter remains independently available with deterministic step/heap/depth budgets and a bounds-checked arena. Neither mode implements an operating system or every C/C++ program. |
+| M2 C/C++ runtime | **Partial**, with real compilation | Self-hosted Clang 8.0.1 compiles C/C++ and standard libraries to restricted WASI WebAssembly in a disposable worker. The lightweight C-subset interpreter remains independently available with deterministic step/heap/depth budgets and a bounds-checked arena. Generated C is read by three layers that share one vocabulary of 13 named defect kinds: a static audit of the source (`src/runtime/hardening.js`), which names a defect only where the source proves it and publishes what it refuses to guess; a memory watcher over one interpreter run (`src/runtime/sanitizer.js`), for the cases a run cannot show; and the arena's own bounds check underneath both. Neither mode implements an operating system or every C/C++ program. |
 
 ## 3. What was actually measured (evidence, not aspiration)
 
@@ -43,7 +43,7 @@ those figures against their respective sources:
 
 | Plan row | Executed as | Evidence |
 |----------|-------------|----------|
-| Initial JS payload | **128.2 KiB** gzip JS cold load + 26.9 KiB gzip CSS = 155.1 KiB gzip, 501.9 KiB raw over 15 initial files (14 JS + stylesheet), against the 170 KB JS ceiling - met; M2/M3/M4, the WebRTC/relay half of M5 and the SINGU AI panel load on demand; 27 deferred files total 170.1 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | `tools/payload.js`, LOAD_CHAOS.md section 1 |
+| Initial JS payload | **130.1 KiB** gzip JS cold load + 26.9 KiB gzip CSS = 157.0 KiB gzip, 508.4 KiB raw over 15 initial files (14 JS + stylesheet), against the 170 KB JS ceiling - met; M2/M3/M4, the WebRTC/relay half of M5 and the SINGU AI panel load on demand; 30 deferred files total 187.7 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | `tools/payload.js`, LOAD_CHAOS.md section 1 |
 | Concurrent users | **1,000 simulated clients** through the ciphertext relay: 50,000 envelopes, all delivered, 0 lost, p95 12.2 ms | `docs/reports/relay-load.json` |
 | Chaos survival | `SIGKILL` with 20,000 envelopes pending: all replayed from the log after a **256 ms outage** | `docs/reports/relay-chaos.json` |
 | Failover | primary killed for good, backlog re-posted from client outboxes to a standby: 0 lost, 0 duplicated, kill to first accepted post **1322 ms** | `docs/reports/relay-failover.json` |

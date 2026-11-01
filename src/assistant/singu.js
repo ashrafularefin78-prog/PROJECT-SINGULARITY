@@ -16,6 +16,7 @@
  * The module is pure: no DOM, no network, no storage. That is what makes it
  * testable in both Node and the browser.
  */
+import { audit } from '../runtime/hardening.js';
 
 export const VERSION = '1.0';
 
@@ -1794,6 +1795,12 @@ const stripLiterals = (code) => String(code)
  * Static review: the checks a careful reviewer makes before a compiler run.
  * These are issues (will not build / unsafe) and hints (builds, but a human
  * should look). The compiler in the sandbox stays the authority on syntax.
+ *
+ * The memory-safety half is not re-invented here: the hardening audit reads the
+ * same source and owns the names, so `strcpy` into a small buffer is
+ * `unbounded-copy (CWE-119)` whether it was found by SINGU, the compiler panel or
+ * the autopilot. What stays here is what the audit deliberately does not do -
+ * count braces, look for a main() and check that the program declares its stdio.
  */
 export function review(code) {
   const source = String(code == null ? '' : code);
@@ -1801,7 +1808,7 @@ export function review(code) {
   const lines = source.split('\n');
   const issues = [];
   const hints = [];
-  const add = (list, line, text) => list.push({ line, text });
+  const add = (list, line, text, extra) => list.push({ line, text, ...extra });
 
   const pairs = [['{', '}', 'brace'], ['(', ')', 'parenthesis'], ['[', ']', 'bracket']];
   for (const [open, close, name] of pairs) {
@@ -1816,15 +1823,9 @@ export function review(code) {
   if (!/\bint\s+main\s*\(/.test(stripped)) {
     add(issues, 1, 'No int main() entry point. The sandbox needs one to link.');
   }
-  if (/\bgets\s*\(/.test(stripped)) {
-    add(issues, 1, 'gets() cannot be bounded and is unsafe; use fgets() with a size.');
-  }
-  const unboundedScan = lines.findIndex((line) => /scanf\s*\([^)]*"%s"/.test(line));
-  if (unboundedScan !== -1) {
-    add(hints, unboundedScan + 1, 'Unbounded %s in scanf; put a width in the format, e.g. %63s.');
-  }
-  if (/\bstrcpy\s*\(/.test(stripped)) {
-    add(hints, 1, 'strcpy has no destination bound; prefer strncpy plus an explicit NUL, or snprintf.');
+  const hardening = audit(source);
+  for (const finding of hardening.findings) {
+    add(finding.severity === 'error' ? issues : hints, finding.line, `${finding.kind} (${finding.cwe}): ${finding.detail}`, { kind: finding.kind, cwe: finding.cwe, fix: finding.fix });
   }
   const allocs = (stripped.match(/\b(malloc|calloc|realloc)\s*\(/g) || []).length;
   const frees = (stripped.match(/\bfree\s*\(/g) || []).length;
@@ -1846,7 +1847,7 @@ export function review(code) {
     add(hints, 1, 'while (1) with no break or return never ends; the sandbox will kill it at the wall-clock limit.');
   }
 
-  return { issues, hints, lines: lines.length, allocs, frees };
+  return { issues, hints, lines: lines.length, allocs, frees, findings: hardening.findings, notChecked: hardening.notChecked };
 }
 
 /**

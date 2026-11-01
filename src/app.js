@@ -1053,7 +1053,11 @@ int main() {
 `;
 
 async function renderCompiler(root) {
-  const { Sandbox } = await import('./runtime/sandbox.js');
+  const [{ Sandbox }, { audit, AUDIT_VERSION, NOT_CHECKED }, { HARDENING_SAMPLES, LAYERS }] = await Promise.all([
+    import('./runtime/sandbox.js'),
+    import('./runtime/hardening.js'),
+    import('./runtime/hardening-samples.js'),
+  ]);
   if (!root.isConnected) return;
   let closed = false;
   let runVersion = 0;
@@ -1070,6 +1074,9 @@ async function renderCompiler(root) {
     el('option', { value: 'interpreter', text: 'C subset · lightweight interpreter' }),
   ]);
   mode.value = state.cMode ?? 'c';
+  const sanitize = el('input', { type: 'checkbox', id: 'm2-sanitize' });
+  sanitize.checked = state.cSanitize !== false;
+  sanitize.addEventListener('change', () => { state.cSanitize = sanitize.checked; });
   const standard = el('select', { 'aria-label': 'Language standard' });
   const updateStandard = () => {
     state.cMode = mode.value;
@@ -1078,6 +1085,9 @@ async function renderCompiler(root) {
     for (const value of standards) standard.appendChild(el('option', { value, text: value.toUpperCase() }));
     standard.value = state.cStandards?.[mode.value] ?? (mode.value === 'cpp' ? 'c++17' : 'c11');
     standard.disabled = mode.value === 'interpreter';
+    // The watcher is an interpreter feature; in Clang mode the box would promise
+    // a report this path cannot produce.
+    sanitize.disabled = mode.value !== 'interpreter';
   };
   mode.addEventListener('change', updateStandard);
   standard.addEventListener('change', () => {
@@ -1127,6 +1137,44 @@ async function renderCompiler(root) {
   const diagnostic = el('div');
   const meta = el('div', { class: 'small dim mono' });
 
+  // One surface for both checkers. The audit speaks about the source, the
+  // sanitizer about one execution, so every caption names which of them talked.
+  const findings = el('div');
+  const findingsHead = el('div', { class: 'small mono dim' });
+
+  const paintFindings = (list, caption, emptyText = 'Nothing was named. That is a sentence about what these checks look for, not a proof about the program.') => {
+    findingsHead.textContent = caption;
+    clear(findings);
+    if (!list.length) {
+      findings.appendChild(el('p', { class: 'small dim', text: emptyText }));
+      return;
+    }
+    for (const item of list) {
+      findings.appendChild(el('div', { class: 'mt-6' }, [
+        el('div', { class: 'row tight' }, [
+          chip(item.kind, item.severity === 'error' ? 'bad' : 'warn'),
+          el('span', { class: 'mono small', text: `line ${item.line}` }),
+          el('span', { class: 'mono small dim', text: item.cwe }),
+        ]),
+        el('p', { class: 'small', text: item.detail }),
+        el('p', { class: 'small dim', text: item.fix }),
+      ]));
+    }
+  };
+
+  const checkSource = () => {
+    const report = audit(source.value);
+    if (!report.ok) {
+      paintFindings([], `static audit ${AUDIT_VERSION} · this program does not parse`, '');
+      findings.appendChild(el('p', { class: 'bad small mono', text: `line ${report.error.line}: ${report.error.message}` }));
+      findings.appendChild(el('p', { class: 'small dim', text: 'A source this pass cannot read is not a clean source, and it is not a guilty one either.' }));
+      return report;
+    }
+    paintFindings(report.findings, `static audit ${AUDIT_VERSION} · ${report.stats.functions} function(s) read · ${report.findings.length} finding(s)`);
+    findings.appendChild(el('p', { class: 'small dim mt-8', text: `Not checked by this pass: ${NOT_CHECKED.join(' ')}` }));
+    return report;
+  };
+
   let handle = null;
   const killBtn = button('Kill', () => handle && handle.kill(), 'danger');
   killBtn.disabled = true;
@@ -1161,12 +1209,14 @@ async function renderCompiler(root) {
     standard.disabled = true;
     const started = performance.now();
     const native = mode.value !== 'interpreter';
+    const watched = !native && sanitize.checked;
     handle = state.sandbox.start(runSource, {
       backend: native ? 'clang' : 'interpreter',
       language: mode.value === 'cpp' ? 'cpp' : 'c',
       standard: standard.value,
       files: native ? runFiles : {},
       stdin: stdin.value,
+      sanitize: watched,
       onStatus: (status) => { if (!closed && version === runVersion) meta.textContent = status.text; },
       onOutput: (text) => { if (!closed && version === runVersion) append(text); },
     });
@@ -1190,8 +1240,27 @@ async function renderCompiler(root) {
       diagnostic.appendChild(el('pre', { class: 'mono small', text: `${String(result.error.line).padStart(3)} | ${lineText}\n    | ${' '.repeat(Math.max(0, Math.min(1024, result.error.col - 1)))}^` }));
       if (budgetFailure(result)) diagnostic.appendChild(el('p', { class: 'warn small', text: 'Stopped by a resource budget. The page never froze: user code only ever runs off the main thread, and the worker can be terminated in a single frame.' }));
     }
+    const seen = result.findings || [];
+    if (native) {
+      paintFindings([], 'sanitizer report · this run used the Clang/WebAssembly backend', 'The memory watcher belongs to the interpreter. Choose "C subset · lightweight interpreter" to watch one execution.');
+    } else if (!watched) {
+      paintFindings([], 'sanitizer report · the watcher was off for this run', 'Tick "Watch the run" to have every arena access examined.');
+    } else {
+      paintFindings(seen, `sanitizer report · ${seen.length} finding(s) from this run · output unchanged by watching`);
+    }
   };
   const runBtn = button('Compile & run', run, 'primary');
+  const loadSample = (sample, which) => {
+    cancelRun();
+    source.value = sample[which];
+    state.cSource = sample[which];
+    if (sample.stdin) {
+      stdin.value = sample.stdin;
+      state.cStdin = sample.stdin;
+    }
+    const report = checkSource();
+    meta.textContent = `${which === 'vulnerable' ? 'the buggy half' : 'the fixed half'} loaded · ${report.ok ? `${report.findings.length} audit finding(s)` : 'this program does not parse'}`;
+  };
   disposePanel = () => { closed = true; filesVersion += 1; cancelRun(); };
 
   root.appendChild(
@@ -1202,6 +1271,9 @@ async function renderCompiler(root) {
         card('Source', [el('div', { class: 'row' }, [field('Compiler', mode), field('Standard', standard)]), source, el('div', { class: 'row mt-10' }, [
           runBtn,
           killBtn,
+          button('Check the source', checkSource),
+          el('label', { class: 'small', for: 'm2-sanitize', text: 'Watch the run' }),
+          sanitize,
           button('Load language sample', () => {
             cancelRun();
             source.value = mode.value === 'cpp' ? SAMPLE_CPP : SAMPLE_C;
@@ -1219,6 +1291,36 @@ async function renderCompiler(root) {
           diagnostic,
           meta,
           el('div', { class: 'small dim mt-8', text: 'Errors are reported with the exact line and column, and the caret is drawn under the offending character.' }),
+        ]),
+      ]),
+      el('div', { class: 'grid two mt-10' }, [
+        card('What says what', [
+          el('div', { class: 'stack' }, LAYERS.map((layer) => el('div', { class: 'mt-6' }, [
+            el('div', { class: 'row tight' }, [
+              chip(layer.name, 'accent'),
+              el('span', { class: 'mono small dim', text: `${layer.module} · ${layer.version}` }),
+            ]),
+            el('p', { class: 'small', text: `${layer.says}.` }),
+          ]))),
+          el('p', { class: 'small dim mt-10', text: 'The three never disagree on a name: a finding is one kind, one CWE tag and one piece of advice, whichever checker raised it. Watch "the run" and "the source" below.' }),
+          el('div', { class: 'my-10' }, [findingsHead, findings]),
+        ]),
+        card('Hardening pairs', [
+          el('p', { class: 'small dim', text: `${HARDENING_SAMPLES.length} defect classes, each shown twice: a program that commits it and the same program written the way the checks want it. Both halves are ordinary C that runs in the sandbox above, and both are checked by the test suite, so the wording here is measured rather than remembered.` }),
+          ...HARDENING_SAMPLES.map((sample) => el('div', { class: 'mt-10' }, [
+            el('div', { class: 'row tight' }, [
+              el('strong', { class: 'small', text: sample.title }),
+              el('span', { class: 'spacer' }),
+              chip(sample.kind, 'bad'),
+              el('span', { class: 'mono small dim', text: sample.cwe }),
+            ]),
+            el('p', { class: 'small mt-6', text: sample.lesson }),
+            el('p', { class: 'small dim', text: `What this pair shows: ${sample.shows}` }),
+            el('div', { class: 'row tight mt-6' }, [
+              button('Load the bug', () => loadSample(sample, 'vulnerable')),
+              button('Load the fix', () => loadSample(sample, 'fixed')),
+            ]),
+          ])),
         ]),
       ]),
     ]),
@@ -3478,18 +3580,18 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 432, suites: 32, browser: 424, nodeOnly: 8 };
+const TEST_TOTALS = { total: 471, suites: 35, browser: 463, nodeOnly: 8 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
-  { id: 'M2', title: 'In-browser C/C++ compiler and runtime', status: 'partial', points: 76, note: 'Self-hosted Clang 8.0.1/WASI compiles C/C++ and standard libraries locally in a killable worker, with headers, multiple sources, stdin and diagnostics. A pinned sysroot plus an in-repo header overlay adds the C11 <stdatomic.h> API (atomic_int, atomic_fetch_add, atomic_compare_exchange_strong, atomic_flag) with single-threaded semantics, and every construct the bundled backend cannot code-generate - _Atomic, the __sync_*, __atomic_* and __c11_atomic_* builtins, C++ std::atomic, C++ throw/catch - fails with a named diagnostic that carries its file, line and column. The lightweight C-subset interpreter keeps deterministic budgets. No OS APIs, no threads, no C++ exceptions and no standards beyond C11/C++17; compiler assets and memory overhead are explicit.' },
+  { id: 'M2', title: 'In-browser C/C++ compiler and runtime', status: 'partial', points: 76, note: 'Self-hosted Clang 8.0.1/WASI compiles C/C++ and standard libraries locally in a killable worker, with headers, multiple sources, stdin and diagnostics. A pinned sysroot plus an in-repo header overlay adds the C11 <stdatomic.h> API (atomic_int, atomic_fetch_add, atomic_compare_exchange_strong, atomic_flag) with single-threaded semantics, and every construct the bundled backend cannot code-generate - _Atomic, the __sync_*, __atomic_* and __c11_atomic_* builtins, C++ std::atomic, C++ throw/catch - fails with a named diagnostic that carries its file, line and column. The lightweight C-subset interpreter keeps deterministic budgets. Generated C is read by three layers that share one vocabulary of 13 named defect kinds, each with its CWE tag: a static audit that names a defect only where the source proves it and ships the list of what it refuses to guess, a memory watcher over one interpreter run for the four cases a run cannot show (a released handle, a block freed twice, a stale pointer, an unwritten heap byte) that moves no value the program can see, and the bounds check the arena runs underneath both. Six vulnerable/fixed pairs demonstrate each class with a working fix, and the autopilot blocks on an error-severity finding instead of softening it into a hint. The watcher is an interpreter control: the Clang path compiles with no warning flags and reports compiler diagnostics only. No OS APIs, no threads, no C++ exceptions and no standards beyond C11/C++17; compiler assets and memory overhead are explicit.' },
   { id: 'M3', title: 'Custom 3D engine (no Three.js)', status: 'partial', points: 93, note: 'WebGL2 instancing to 100k, a real PCF shadow pass, 1M particles from gl_VertexID, Cook-Torrance PBR lit by band-2 SH diffuse plus a six-level GGX-importance-sampled specular prefilter chain and a split-sum BRDF integration LUT, a glTF 2.0 loader with mikkelsen tangents sampling stored models through the same BRDF, a real HDRI probe whose SH and radiance rebuild both environment cubes, GPU skins (a seven-joint looping clip blended four joints per vertex from an RGBA32F bone texture), and up to four morph targets per primitive with normal deltas and LINEAR/STEP/CUBICSPLINE weights animation. The sample totem carries two morph targets and a CUBICSPLINE weights track. No WebGPU backend (declared out of scope in docs/NON_GOALS.md); TANGENT/UV morph deltas, more than four targets and non-joint node animation remain declared gaps.' },
   { id: 'M4', title: 'End-to-end encrypted layer', status: 'ok', points: 82, note: 'X3DH + Double Ratchet + safety numbers + group epochs + streaming file AEAD over WebCrypto; the signed prekey bundle is verified inside the handshake, and identity keys are sealed to a passphrase (PBKDF2 600k) in IndexedDB. No audited key storage.' },
   { id: 'M5', title: 'Peer-to-peer mesh', status: 'partial', points: 78, note: 'Three real carriers - BroadcastChannel, WebRTC data channels with copy-paste signaling and ICE restart, and a ciphertext relay with outbox failover - behind one mesh; tools/relay.js passed the 1,000-client load, SIGKILL replay and two-node failover runs. A reference TURN relay and a relay-only ICE switch ship in the repo; no relay is hosted.' },
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 85, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. The tile carries the evidence-backed score (66/100); the structural ceiling is 83/100 and the reviewer\'s latest mark is 70/100.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist; on the canonical GitHub Pages host the policy arrives only as a meta tag, where the header-only directives cannot be confirmed as enforced. _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
-  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 128.2 KiB gzip against a 170 KB budget, a 60-minute soak two orders of magnitude under the memory budget that ends above where it started, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
+  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 130.1 KiB gzip against a 170 KB budget, a 60-minute soak two orders of magnitude under the memory budget that ends above where it started, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
   { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'partial', points: 69, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
 ];
 
@@ -3697,7 +3799,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '2', label: 'tags · 0 GitHub releases', hint: 'v0.1.0, v1.0.0' },
-  { value: '432', label: 'tests - 32 suites', hint: 'run them from this page' },
+  { value: '471', label: 'tests - 35 suites', hint: 'run them from this page' },
   { value: '0', label: 'npm dependencies', hint: 'optional self-hosted WASM toolchain' },
 ];
 
@@ -3862,7 +3964,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '432 automated tests, 20 published measurements, 0 axe violations.' }), el('a', { href: new URL('../docs/reports/measurements.json', import.meta.url).href, target: '_blank', rel: 'noopener', text: 'the evidence index behind those numbers' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '471 automated tests, 20 published measurements, 0 axe violations.' }), el('a', { href: new URL('../docs/reports/measurements.json', import.meta.url).href, target: '_blank', rel: 'noopener', text: 'the evidence index behind those numbers' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -5037,9 +5139,11 @@ async function renderAssistant(root) {
     const report = singu.review(source.value);
     for (const issue of report.issues) {
       diagnostic.appendChild(el('p', { class: 'bad small mono', text: `line ${issue.line}: ${issue.text}` }));
+      if (issue.fix) diagnostic.appendChild(el('p', { class: 'small dim mono', text: `  ${issue.fix}` }));
     }
     for (const hint of report.hints) {
       diagnostic.appendChild(el('p', { class: 'warn small mono', text: `line ${hint.line}: ${hint.text}` }));
+      if (hint.fix) diagnostic.appendChild(el('p', { class: 'small dim mono', text: `  ${hint.fix}` }));
     }
     return report;
   };
