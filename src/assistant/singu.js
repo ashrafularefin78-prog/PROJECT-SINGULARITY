@@ -1683,8 +1683,13 @@ const publicRecipe = (recipe) => ({
 
 /**
  * Match a brief to a pattern and generate the C.
- * Returns a complete result even when nothing matches: the closest pattern, a
+ * Returns a complete answer even when nothing matches: the closest pattern, a
  * low confidence and the alternatives, rather than an empty answer.
+ *
+ * `options.recipeId` selects the pattern without consulting the keyword
+ * matcher - the intent model's one use, so that a network which recognised the
+ * brief still hands the work to the hand-written generator that emits verified
+ * C instead of producing any of its own.
  */
 export function generate(prompt, options = {}) {
   const text = String(prompt == null ? '' : prompt).trim();
@@ -1693,9 +1698,10 @@ export function generate(prompt, options = {}) {
   const preferred = explicitLevel || detectedLevel;
   const fallbackLevel = preferred || 'low';
   const words = wordSet(text);
+  const forced = options.recipeId ? RECIPES.find((r) => r.id === options.recipeId) || null : null;
   let best = null;
 
-  if (text) {
+  if (text && !forced) {
     for (const recipe of RECIPES) {
       const candidate = scoreRecipe(recipe, text, words, preferred);
       if (
@@ -1708,8 +1714,9 @@ export function generate(prompt, options = {}) {
     }
   }
 
-  const levelOnly = Boolean(best && best.score === 0 && preferred);
-  if (!best || best.score === 0) {
+  if (forced) {
+    best = { recipe: forced, score: 0, matched: [], levelMatch: Boolean(preferred) && forced.level === preferred };
+  } else if (!best || best.score === 0) {
     const fallback = RECIPES.find((r) => r.level === fallbackLevel) || RECIPES[0];
     best = {
       recipe: fallback,
@@ -1719,13 +1726,16 @@ export function generate(prompt, options = {}) {
     };
   }
 
-  const confidence = best.score > 0
-    ? Math.min(0.96, 0.55 + best.score * 0.04)
-    : levelOnly ? 0.35 : 0.2;
+  const levelOnly = !forced && best.score === 0 && Boolean(preferred);
+  const confidence = forced
+    ? Math.min(0.99, Math.max(0.05, options.confidence || 0.5))
+    : best.score > 0 ? Math.min(0.96, 0.55 + best.score * 0.04) : levelOnly ? 0.35 : 0.2;
   const params = best.recipe.tune(extractNumber(text));
   const code = best.recipe.build(params);
   const plan = planFor(best.recipe, params, confidence);
-  if (best.score === 0) {
+  if (forced) {
+    plan.unshift(`No pattern keyword matched this brief, so the trained intent model chose "${forced.title}" from its wording; ${Math.round(confidence * 100)}% probability over ${RECIPES.length + 1} classes. The program itself still comes from the hand-written generator.`);
+  } else if (best.score === 0) {
     plan.unshift(levelOnly
       ? `No pattern keyword matched; showing the ${levelLabel(best.recipe.level)} starter. Name a structure (ring buffer, hash table, allocator, register map) for a sharper match.`
       : 'No pattern keyword matched; showing the low-level starter. Try naming a structure, a memory strategy or a level.');
@@ -1737,6 +1747,17 @@ export function generate(prompt, options = {}) {
     .sort((a, b) => b.score - a.score
       || Number(b.levelMatch) - Number(a.levelMatch)
       || a.recipe.title.localeCompare(b.recipe.title));
+
+  // When the model made the choice, its runner-ups are the useful alternatives;
+  // the keyword scores are all zero by definition, so they would say nothing.
+  const alternatives = forced && Array.isArray(options.ranked)
+    ? options.ranked
+      .filter((entry) => entry.id !== best.recipe.id)
+      .slice(0, 3)
+      .map((entry) => RECIPES.find((r) => r.id === entry.id))
+      .filter(Boolean)
+      .map((recipe) => ({ ...publicRecipe(recipe), score: 0 }))
+    : ranked.slice(0, 3).map(({ recipe, score }) => ({ ...publicRecipe(recipe), score }));
 
   return {
     ok: true,
@@ -1750,10 +1771,7 @@ export function generate(prompt, options = {}) {
     code,
     recipe: publicRecipe(best.recipe),
     plan,
-    alternatives: ranked.slice(0, 3).map(({ recipe, score }) => ({
-      ...publicRecipe(recipe),
-      score,
-    })),
+    alternatives,
   };
 }
 

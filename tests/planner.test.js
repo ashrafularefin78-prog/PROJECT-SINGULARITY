@@ -14,7 +14,7 @@ const SHAPE = ['ok', 'engine', 'prompt', 'title', 'summary', 'level', 'confidenc
   'aside', 'alternatives'];
 
 test('planner: everyday briefs go to the composer', () => {
-  assertEquals(PLANNER_VERSION, '1.0');
+  assertEquals(PLANNER_VERSION, '1.1');
   assertEquals(ENGINE_LABELS.composer, 'Composer');
   const cases = {
     'the average of numbers from stdin': 'Mean (average)',

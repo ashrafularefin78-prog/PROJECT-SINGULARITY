@@ -3478,7 +3478,7 @@ async function remeasurePayload() {
 // hand: tools/test-count.js --write rewrites this line and every other
 // published count from node tests/run.js --json, and tools/check-docs.js
 // fails the build when a claim drifts from it.
-const TEST_TOTALS = { total: 420, suites: 31, browser: 412, nodeOnly: 8 };
+const TEST_TOTALS = { total: 432, suites: 32, browser: 424, nodeOnly: 8 };
 
 const MODULE_STATUS = [
   { id: 'M1', title: 'Real-time collaborative editor (own CRDT)', status: 'ok', points: 87, note: 'RGA from scratch: convergence, causality, per-user undo, cursor-indexed lookups (20k appends visit 0 nodes), watermark-bounded tombstones and a bounded op log. Full detail in the case study below.' },
@@ -3489,7 +3489,7 @@ const MODULE_STATUS = [
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 85, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. The tile carries the evidence-backed score (66/100); the structural ceiling is 83/100 and the reviewer\'s latest mark is 70/100.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist; on the canonical GitHub Pages host the policy arrives only as a meta tag, where the header-only directives cannot be confirmed as enforced. _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
-  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 127.6 KiB gzip against a 170 KB budget, a 60-minute soak two orders of magnitude under the memory budget that ends above where it started, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
+  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 128.2 KiB gzip against a 170 KB budget, a 60-minute soak two orders of magnitude under the memory budget that ends above where it started, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
   { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'partial', points: 69, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
 ];
 
@@ -3697,7 +3697,7 @@ const REPO_SIGNALS = [
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '2', label: 'tags · 0 GitHub releases', hint: 'v0.1.0, v1.0.0' },
-  { value: '420', label: 'tests - 31 suites', hint: 'run them from this page' },
+  { value: '432', label: 'tests - 32 suites', hint: 'run them from this page' },
   { value: '0', label: 'npm dependencies', hint: 'optional self-hosted WASM toolchain' },
 ];
 
@@ -3862,7 +3862,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '420 automated tests, 19 published measurements, 0 axe violations.' }), el('a', { href: new URL('../docs/reports/measurements.json', import.meta.url).href, target: '_blank', rel: 'noopener', text: 'the evidence index behind those numbers' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '432 automated tests, 20 published measurements, 0 axe violations.' }), el('a', { href: new URL('../docs/reports/measurements.json', import.meta.url).href, target: '_blank', rel: 'noopener', text: 'the evidence index behind those numbers' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -4856,22 +4856,25 @@ export async function waitForBoot() {
 // ------------------------------------------------- SINGU AI (unscored panel)
 
 /**
- * SINGU AI - a local C engineer with two engines and a verifier.
+ * SINGU AI - a local C engineer with two engines, a verifier and a net.
  *
  * The planner (assistant/planner.js) picks the composer for everyday tasks and
  * the systems catalogue for low-level patterns; the autopilot (assistant/
  * autopilot.js) runs the emitted program against built-in expectations and
  * repairs a short, justified list of mistakes; the explainer walks the parser
- * AST. This panel only collects a brief and renders text with el(); nothing
- * talks to a network, evaluates a string, or writes markup.
+ * AST. The intent model (assistant/model.js, loaded by assistant/intent.js) is
+ * fetched once, lazily, and consulted only where both engines name nothing.
+ * This panel only collects a brief and renders text with el(); nothing writes
+ * markup, evaluates a string, or talks to a host other than this origin.
  */
 async function renderAssistant(root) {
-  const [singu, planning, pilot, explainer, composer] = await Promise.all([
+  const [singu, planning, pilot, explainer, composer, intent] = await Promise.all([
     import('./assistant/singu.js'),
     import('./assistant/planner.js'),
     import('./assistant/autopilot.js'),
     import('./assistant/explain.js'),
     import('./assistant/compose.js'),
+    import('./assistant/intent.js'),
   ]);
   if (!root.isConnected) return;
   const { plan, ENGINE_LABELS } = planning;
@@ -4883,7 +4886,7 @@ async function renderAssistant(root) {
 
   if (!state.singu) {
     const starter = plan('a 64-bit bitset with set, clear and count', { level: 'low' });
-    state.singu = { prompt: starter.prompt, level: 'auto', code: starter.code, result: starter };
+    state.singu = { prompt: starter.prompt, level: 'auto', code: starter.code, result: starter, model: null };
   }
   const session = state.singu;
 
@@ -4909,7 +4912,8 @@ async function renderAssistant(root) {
   autopilotBox.hidden = true;
   const explainBox = el('details', { class: 'singu-catalog mt-12', 'aria-label': 'Program explanation' });
   explainBox.hidden = true;
-  const status = el('p', { class: 'small dim mono', role: 'status', 'aria-live': 'polite', text: 'ready' });
+  const status = el('p', { class: 'small dim mono singu-status', role: 'status', 'aria-live': 'polite', text: 'ready' });
+  const modelNote = el('p', { class: 'small dim mono singu-model-note', role: 'status', 'aria-live': 'polite', 'aria-label': 'Intent model status', text: 'intent model: not loaded yet' });
 
   const prompt = el('textarea', {
     class: 'singu-prompt',
@@ -5013,7 +5017,7 @@ async function renderAssistant(root) {
 
   const generate = () => {
     cancelRun();
-    const result = plan(prompt.value, { level: session.level });
+    const result = plan(prompt.value, { level: session.level, model: session.model });
     session.result = result;
     session.prompt = result.prompt;
     session.code = result.code;
@@ -5201,7 +5205,7 @@ async function renderAssistant(root) {
       el('h1', { class: 'mod-title', text: 'SINGU AI', tabindex: '-1' }),
       el('p', {
         class: 'lede',
-        text: 'A local C engineer: describe an everyday task or a systems pattern and it writes complete C for the M2 runtime, then checks the run against expectations it computed separately. No model, no API, no network - the knowledge is a reviewed catalogue and a block composer, and the proof is the sandbox plus the autopilot transcript.',
+        text: 'A local C engineer: describe an everyday task or a systems pattern and it writes complete C for the M2 runtime, then checks the run against expectations it computed separately. No API, no remote model, no network beyond this origin - the programs come from a reviewed catalogue and a block composer, and a 33,040-parameter intent model only decides which pattern to write when both of those come up empty.',
       }),
       el('div', { class: 'mod-meta' }, [
         el('span', { class: 'pill ok', text: 'offline' }),
@@ -5213,7 +5217,8 @@ async function renderAssistant(root) {
 
   root.appendChild(el('div', { class: 'panel' }, [
     head,
-    note('What this is, precisely: a deterministic planner over hand-written blocks and systems patterns, not an LLM. The composer joins everyday steps into one program when the brief asks for several; the catalogue covers ring buffers, allocators and protocols. Every emitted line stays inside the M2 subset. When nothing matches it says so instead of inventing a pattern. Autopilot runs the program, compares the trace with expectations computed in JavaScript, and only applies repairs it can justify. And it is not a smaller language model either: there are no weights in this module, so its parameter count is zero, and a billion of them - roughly 500 MB even quantised to 4 bits - would not fit a 170 KB budget or be fetched under the connect-src policy this page ships. That is declared in docs/NON_GOALS.md, not staged.'),
+    note('What this is, precisely: a deterministic planner over hand-written blocks and systems patterns. The composer joins everyday steps into one program when the brief asks for several; the catalogue covers ring buffers, allocators and protocols. Every emitted line comes from one of those two engines, so it stays inside the M2 subset, and when nothing matches it says so instead of inventing a pattern. Autopilot runs the program, compares the trace with expectations computed in JavaScript, and only applies repairs it can justify. The one trained part is a pattern chooser, not a language model: 33,040 parameters - an averaged embedding over hashed word and character n-grams, then a linear softmax over the 15 patterns plus "none of these" - trained by tools/train-singu-model.js from the catalogue\u2019s own keywords and shipped as 41,752 bytes of int8 weights the panel fetches once, on demand, from this same origin. It is consulted only where no keyword matched and no composer task fitted; there it names the right pattern on 332 held-out briefs the shipped matcher answered with nothing, and 686 when those briefs are typo\u2019d, wrong 0 and 52 times respectively. It cannot emit a line of C. docs/reports/singu-intent.json carries the size search that chose 33,040 - every larger configuration up to 4,198,416 parameters measured within noise of it.'),
+    modelNote,
     el('div', { class: 'grid two mt-12' }, [
       card('Brief', [
         el('p', { class: 'small dim', text: 'Preferred level (a strong keyword in the brief still wins)' }),
@@ -5268,11 +5273,32 @@ async function renderAssistant(root) {
   ]));
 
   if (!session.result) {
-    session.result = plan(session.prompt, { level: session.level });
+    session.result = plan(session.prompt, { level: session.level, model: session.model });
     session.code = session.result.code;
     source.value = session.code;
   }
   paintBrief(session.result);
+  // The weights are a separate file fetched once from this origin, after the
+  // panel has already painted. Until they arrive the planner behaves exactly as
+  // it did before the model existed; a failed fetch leaves it that way and says
+  // so rather than failing silently.
+  intent.loadIntentModel().then((model) => {
+    if (closed) return;
+    const loaded = intent.intentStatus();
+    if (!model) {
+      modelNote.textContent = `intent model unavailable: ${loaded.error}`;
+      return;
+    }
+    session.model = model;
+    modelNote.textContent = `intent model loaded: ${loaded.parameters.toLocaleString('en-US')} parameters, ${bytes(loaded.bytes)} fetched on demand from this origin`;
+    const replanned = plan(session.prompt, { level: session.level, model });
+    if (replanned.engine === 'intent') {
+      session.result = replanned;
+      session.code = replanned.code;
+      source.value = replanned.code;
+      paintBrief(replanned);
+    }
+  });
   const pending = state.singuPending;
   state.singuPending = null;
   if (pending === 'generate') generate();

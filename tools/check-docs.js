@@ -23,6 +23,8 @@ import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parameterCount, parse } from '../src/assistant/model.js';
+
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(root, rel), 'utf8');
 const json = (rel) => JSON.parse(read(rel));
@@ -46,6 +48,7 @@ const relayChaos = json('docs/reports/relay-chaos.json');
 const relayFailover = json('docs/reports/relay-failover.json');
 const nvda = json('docs/reports/nvda-session.json');
 const turnSelf = json('docs/reports/turn-selftest.json');
+const intent = json('docs/reports/singu-intent.json');
 
 const files = {
   report: read('docs/LOAD_CHAOS.md'),
@@ -56,6 +59,7 @@ const files = {
   a11y: read('docs/A11Y_VALIDATION.md'),
   nvda: read('docs/reports/nvda-session.md'),
   redteam: read('docs/reports/red-team-session.md'),
+  intent: read('docs/reports/singu-intent.md'),
   source: read('src/app.js'),
 };
 
@@ -69,6 +73,28 @@ const [snapA, snapB] = [soak.snapshots[0].summary, soak.snapshots[soak.snapshots
 const score = (report, category) => Math.round(report.categories[category].score * 100);
 const marks = { mobile: [score(mobile, 'performance'), score(mobile, 'accessibility'), score(mobile, 'best-practices'), score(mobile, 'seo')], desktop: [score(desktop, 'performance'), score(desktop, 'accessibility'), score(desktop, 'best-practices'), score(desktop, 'seo')] };
 const joinScores = (xs) => xs.join(' / ');
+
+// The intent model's published figures are only as good as the weight file they
+// were read from, so the gate parses that file rather than trusting the report
+// that describes it. A retrain that was never run, a keyword list edited under
+// the artifact, or a byte flipped in the .bin all fail here instead of keeping a
+// score that no longer belongs to anything.
+let weights = null;
+let weightsError = '';
+let weightsSha = '';
+let fingerprintNow = '';
+try {
+  const raw = readFileSync(join(root, intent.artifact.path));
+  weights = parse(raw);
+  weightsSha = createHash('sha256').update(raw).digest('hex');
+  fingerprintNow = execFileSync(
+    process.execPath,
+    [join(root, 'tools/train-singu-model.js'), '--fingerprint'],
+    { encoding: 'utf8' },
+  ).trim();
+} catch (error) {
+  weightsError = error.message;
+}
 
 // ------------------------------------------------------------------- claims
 // Each claim: the exact string that must appear, in which documents, and where
@@ -104,6 +130,19 @@ claim('docs/reports/a11y.json browser', a11y.browser.replace('Edg/', ''), ['repo
 claim('docs/reports/turn-selftest.json summary', `${turnSelf.summary.passed}/${turnSelf.summary.total} protocol checks`, ['report', 'readme']);
 claim('tools/payload.js --json src/runtime/interpreter.js', `(${kib(interp.gzipBytes)} KiB gzip of ${kib(interp.rawBytes)} KiB raw)`, ['report']);
 claim('tools/payload.js --json src/runtime/preprocess.js', `(${kib(preprocess.gzipBytes)} KiB gzip)`, ['report']);
+// The intent model. The parameter count is the headline, so it is checked in
+// every surface that states it; the rest lives in the evidence transcript,
+// which the hash gate below ties to the weight file itself.
+claim('docs/reports/singu-intent.json parameters', `${intent.parameters.total.toLocaleString('en-US')} parameters`, ['readme', 'source', 'intent']);
+claim('docs/reports/singu-intent.json artifact', `${intent.artifact.bytes.toLocaleString('en-US')} bytes`, ['source', 'intent']);
+claim('docs/reports/singu-intent.json gzip', `${intent.artifact.gzipBytes.toLocaleString('en-US')} bytes gzipped`, ['intent']);
+claim('docs/reports/singu-intent.json held-out phrasings', `${intent.heldOutTemplate.correct.toLocaleString('en-US')} / ${intent.heldOutTemplate.of.toLocaleString('en-US')}`, ['intent']);
+claim('docs/reports/singu-intent.json held-out typos', `${intent.heldOutTypos.correct.toLocaleString('en-US')} / ${intent.heldOutTypos.of.toLocaleString('en-US')}`, ['intent']);
+claim('docs/reports/singu-intent.json matcher baseline', `${intent.heldOutTemplate.baselineMatcher.hits} / ${intent.heldOutTemplate.of}`, ['intent']);
+claim('docs/reports/singu-intent.json matcher baseline', `${intent.heldOutTypos.baselineMatcher.hits} / ${intent.heldOutTypos.of}`, ['intent']);
+claim('docs/reports/singu-intent.json recovery', `**${intent.heldOutTemplate.recovery.recoveredWhereMatcherSilent}**`, ['intent']);
+claim('docs/reports/singu-intent.json recovery', `**${intent.heldOutTypos.recovery.recoveredWhereMatcherSilent}**`, ['intent']);
+claim('docs/reports/singu-intent.json size search', Math.max(...intent.sizing.configs.map((row) => row.parameters)).toLocaleString('en-US'), ['intent', 'source']);
 
 // The screen-reader artifact is a measured run, not prose. The step and failure
 // counts must agree with the report, and the M7 score must be the one the app
@@ -433,6 +472,52 @@ const shapes = [
         (r) => Array.isArray(r.thresholds) && r.thresholds.length >= 3 && r.thresholds.every((t) => t.ok),
       ) && (relayLoad.thresholds == null || relayLoad.thresholds.every((t) => t.ok)),
     why: 'every relay report written under the threshold gate carries its verdicts, and all of them passed (the load artifact predates the gate)',
+  },
+  {
+    from: 'assets/models/singu-intent.bin',
+    ok: Boolean(weights) && weightsSha === intent.artifact.sha256,
+    why: weightsError
+      ? `the weight file the report points at cannot be read: ${weightsError}`
+      : 'the shipped weight file still hashes to the digest the report publishes',
+  },
+  {
+    from: 'assets/models/singu-intent.bin shapes',
+    ok: Boolean(weights) && parameterCount(weights).total === intent.parameters.total,
+    why: `the published parameter count (${intent.parameters.total.toLocaleString('en-US')}) is read out of the file's own shapes, not typed into the report`,
+  },
+  {
+    from: 'assets/models/singu-intent.bin config',
+    ok: Boolean(weights) && weights.bytes === intent.artifact.bytes
+      && weights.dims === intent.config.dims && weights.hidden === intent.config.hidden
+      && weights.meta.config.epochs === intent.config.epochs,
+    why: 'the artifact is the byte size and configuration the report says it is',
+  },
+  {
+    from: 'assets/models/singu-intent.bin labels',
+    ok: Boolean(weights) && weights.labels.length === intent.labels.classes
+      && weights.labels[weights.labels.length - 1] === intent.labels.none,
+    why: 'the file carries one class per catalogue pattern plus the explicit none class',
+  },
+  {
+    from: 'tools/train-singu-model.js --fingerprint vs the artifact header',
+    ok: Boolean(weights) && weights.meta.catalogueFingerprint === intent.supervision.catalogueFingerprint
+      && fingerprintNow === intent.supervision.catalogueFingerprint,
+    why: 'the keyword lists the model was trained against are the keyword lists that ship - editing a RECIPES keyword fails here until the model is retrained',
+  },
+  {
+    from: 'docs/reports/singu-intent.json sizing',
+    ok: Array.isArray(intent.sizing?.configs) && intent.sizing.configs.length > 1
+      && intent.sizing.configs.filter((row) => row.shipped).length === 1
+      && intent.sizing.configs.some((row) => row.shipped && row.parameters === intent.parameters.total),
+    why: 'the published count is one row of a size search that is published in full',
+  },
+  {
+    from: 'docs/reports/singu-intent.json held-out accounting',
+    ok: [intent.heldOutTemplate, intent.heldOutTypos].every((r) =>
+      Math.round(r.accuracy * r.of) === r.correct
+      && r.recovery.recoveredWhereMatcherSilent <= r.recovery.matcherSilentBriefs
+      && r.recovery.recoveredWhereMatcherSilent + r.recovery.wrongCommitmentsOnSilentBriefs <= r.recovery.matcherSilentBriefs),
+    why: 'the recovery figures cannot exceed the briefs the matcher was silent on, and the accuracy is the count it claims',
   },
   ...reportHashes,
   {

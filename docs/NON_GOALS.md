@@ -32,19 +32,22 @@ up as futuristic features.
   number is therefore run at the scale that was actually exercised.
 - **No pseudo-features.** The eight modules stand or fall on testable
   engineering; nothing in italics announced as revolutionary ships.
-- **No parametric model in SINGU, at any scale.** SINGU holds no weights, so it
-  has no parameter count to grow: zero is the honest number, and reaching a
-  billion of them is not work this project can do by trying harder. The
-  arithmetic is what makes it a non-goal rather than a backlog row — a
-  1B-parameter model is about 2 GB at fp16, about 1 GB at int8, and roughly
-  500 MB even quantised to 4 bits, against a shipped cold load of 127.6 KiB
-  gzip JS under a 170 KB budget: about 4,000× the page that would have to carry
-  it. Nor can it be fetched — the document ships `connect-src 'self'` and
-  `package.json` declares no dependencies, so a hosted model would break the
-  offline promise, the payload budget and the zero-dependency rule in a single
-  change. What is bought instead is stated in the SINGU panel: depth comes from
-  a reviewed systems-C catalogue that compiles and runs in the sandbox, where
-  every pattern is a test rather than a sample.
+- **No generative model in SINGU, at any scale.** One trained network does ship:
+  an intent classifier of 33,040 parameters that reads a brief and names which
+  catalogue pattern it asks for. It cannot emit a character of C, and that
+  boundary is the non-goal. A generator would be free to produce source that
+  does not compile, which is the one property every SINGU test is built around.
+  The size argument is separate and it is a measurement, not an objection:
+  `docs/reports/singu-intent.md` searches nine configurations from 16,656 to
+  4,198,416 parameters, and the ones above roughly 33,000 answer no additional
+  brief better - they are bytes, not capability. What this document does **not**
+  say any more is that weights could never be loaded. An earlier revision of
+  this bullet claimed the shipped `connect-src 'self'` policy would block them
+  and that a model could not fit the 170 KB cold-load budget. Both were wrong:
+  `'self'` permits same-origin fetches - the 18.4 MiB compiler toolchain is one -
+  and a lazily loaded asset is not part of cold load at all. The budget that
+  actually bites is the 400 MB heap measured after an hour. A wrong reason is
+  worse than no reason, so it is corrected here rather than quietly dropped.
 - **No fabricated telemetry.** The app collects nothing it does not surface;
   there is no telemetry export pathway to a third party.
 

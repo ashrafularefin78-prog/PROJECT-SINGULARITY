@@ -15,6 +15,7 @@ const PROMPT = '[aria-label="What should SINGU AI build?"]';
 const EDITOR = 'textarea[aria-label^="Collaborative"]';
 const OUTPUT = '[aria-label="Program output"]';
 const SINGU_OUTPUT = '[aria-label="SINGU sandbox output"]';
+const MODEL_NOTE = '#panel-assistant .singu-model-note';
 const DIAL = '[role="dialog"][aria-label="Module dial"]';
 const q = JSON.stringify;
 const button = (label) => `[...document.querySelectorAll('#main button')].find(b => b.textContent.trim() === ${q(label)})`;
@@ -376,10 +377,10 @@ test('SINGU generate during execution discards stale result then builds', 'assis
   const generated = await s.evaluate(`${get(GENERATED)}.value`);
   assert.notEqual(generated, interpreterLoop('UI_OLD_SINGU'));
   assert.ok(generated.length > 100, 'Generate must produce substantive C');
-  const visible = await s.evaluate(`({code:${get(GENERATED)}.value, out:${get(SINGU_OUTPUT)}.textContent, status:document.querySelector('#panel-assistant [role="status"]').textContent})`);
+  const visible = await s.evaluate(`({code:${get(GENERATED)}.value, out:${get(SINGU_OUTPUT)}.textContent, status:document.querySelector('#panel-assistant .singu-status').textContent})`);
   await s.waitFor(`window.__uiRegression.runs[${index}].result?.killed === true`);
   await settle(s);
-  assert.deepEqual(await s.evaluate(`({code:${get(GENERATED)}.value, out:${get(SINGU_OUTPUT)}.textContent, status:document.querySelector('#panel-assistant [role="status"]').textContent})`), visible);
+  assert.deepEqual(await s.evaluate(`({code:${get(GENERATED)}.value, out:${get(SINGU_OUTPUT)}.textContent, status:document.querySelector('#panel-assistant .singu-status').textContent})`), visible);
   assert.equal(visible.out, '');
   assert.equal(await s.evaluate(`(${button('Kill')}).disabled`), true);
   const record = await run(s, 'Build & run');
@@ -432,7 +433,7 @@ test('SINGU Autopilot verifies, repairs, and Explain reads the program back', 'a
   assert.match(generated, /sum_of/);
   await click(s, 'Autopilot');
   const first = await s.evaluate(`({
-    status: document.querySelector('#panel-assistant [role="status"]').textContent,
+    status: document.querySelector('#panel-assistant .singu-status').textContent,
     output: ${get(SINGU_OUTPUT)}.textContent,
     diagnostics: document.querySelector('#panel-assistant .singu-diag').textContent,
     transcript: [...document.querySelectorAll('#panel-assistant [aria-label="Autopilot results"] li')].map(li => li.textContent),
@@ -447,7 +448,7 @@ test('SINGU Autopilot verifies, repairs, and Explain reads the program back', 'a
   await fill(s, GENERATED, generated.replace('#include <stdio.h>\n', ''));
   await click(s, 'Autopilot');
   const repaired = await s.evaluate(`({
-    status: document.querySelector('#panel-assistant [role="status"]').textContent,
+    status: document.querySelector('#panel-assistant .singu-status').textContent,
     code: ${get(GENERATED)}.value,
     output: ${get(SINGU_OUTPUT)}.textContent,
     transcript: [...document.querySelectorAll('#panel-assistant [aria-label="Autopilot results"] li')].map(li => li.textContent),
@@ -461,7 +462,7 @@ test('SINGU Autopilot verifies, repairs, and Explain reads the program back', 'a
   const explained = await s.evaluate(`(() => {
     const box = document.querySelector('#panel-assistant [aria-label="Program explanation"]');
     return {
-      status: document.querySelector('#panel-assistant [role="status"]').textContent,
+      status: document.querySelector('#panel-assistant .singu-status').textContent,
       hidden: box.hidden,
       open: box.open,
       summary: [...box.querySelectorAll('li')].map(li => li.textContent),
@@ -476,11 +477,44 @@ test('SINGU Autopilot verifies, repairs, and Explain reads the program back', 'a
   await fill(s, GENERATED, 'int main( {');
   await click(s, 'Explain C');
   const broken = await s.evaluate(`({
-    status: document.querySelector('#panel-assistant [role="status"]').textContent,
+    status: document.querySelector('#panel-assistant .singu-status').textContent,
     diagnostic: document.querySelector('#panel-assistant .singu-diag').textContent,
   })`);
   assert.equal(broken.status, 'cannot explain: the source does not parse');
   assert.match(broken.diagnostic, /line 1, column \d+: Parse error/);
+});
+
+test('SINGU fetches the intent weights and lets them pick a pattern', 'assistant', async s => {
+  // The note is the only proof the browser actually downloaded the file: every
+  // other layer of this path can fall back to the catalogue without changing
+  // what the panel looks like.
+  await s.waitFor(`(${get(MODEL_NOTE)}?.textContent || '').startsWith('intent model loaded')`, { timeoutMs: 60000 });
+  const noteText = await s.evaluate(`${get(MODEL_NOTE)}.textContent`);
+  assert.match(noteText, /33,040 parameters/);
+  assert.match(noteText, /fetched on demand from this origin/);
+
+  // 'do abitwise' is a brief the shipped keyword matcher answers with nothing,
+  // so an engine label of "Intent model" here is the network choosing, not a
+  // keyword hit dressed up as one.
+  await fill(s, PROMPT, 'do abitwise');
+  await click(s, 'Generate C');
+  const chosen = await s.evaluate(`({
+    status: document.querySelector('#panel-assistant .singu-status').textContent,
+    pills: [...document.querySelectorAll('#panel-assistant .singu-title-row .pill')].map(p => p.textContent),
+    plan: [...document.querySelectorAll('#panel-assistant .singu-plan li')].map(li => li.textContent),
+    code: ${get(GENERATED)}.value,
+  })`);
+  assert.match(chosen.status, /^generated \d+ lines · Bit manipulation toolkit · Intent model · \d+% match$/);
+  assert.ok(chosen.pills.includes('Intent model'), `engine pill: ${chosen.pills.join(', ')}`);
+  assert.ok(
+    chosen.plan.some((line) => /the trained intent model chose "Bit manipulation toolkit"/.test(line)),
+    'the plan says which engine named the pattern',
+  );
+  assert.match(chosen.code, /uint(?:32|64)_t/, 'the program still comes from the hand-written generator');
+
+  const record = await run(s, 'Build & run');
+  assert.equal(record.result.ok, true, JSON.stringify(record.result));
+  assert.ok(record.result.output.length > 0, 'a model-chosen program runs');
 });
 
 for (const [name, initial, selector, value] of [

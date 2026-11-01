@@ -61,10 +61,10 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    the Platinum band, past the Gold ceiling. Say out loud that the leading
    column is the brief's points band and the ladder grades the *requirements*,
    which is why the two readings disagree.
-7. Point at the budget table: the current payload is **met** (127.6 KiB gzip
-   cold-load JavaScript plus 26.9 KiB gzip CSS = 154.5 KiB gzip / 499.8 KiB raw
+7. Point at the budget table: the current payload is **met** (128.2 KiB gzip
+   cold-load JavaScript plus 26.9 KiB gzip CSS = 155.1 KiB gzip / 501.9 KiB raw
    across 15 initial files: 14 JS and the stylesheet, against a 170 KB JS ceiling).
-   The 25-file deferred graph is 164.5 KiB gzip JS; the approximately 18.4 MiB
+   The 27-file deferred graph is 170.1 KiB gzip JS; the approximately 18.4 MiB
    compressed toolchain asset set is separate and loads on the first compiler run.
    Label the hour-long memory soak and frame rate as **historical evidence**
    under the recorded conditions, not new runs of the corrected app; the snapshot
@@ -167,7 +167,7 @@ assets, not a compilation service. Program source is not uploaded.
 
 ## Close (30 s)
 
-Open **/tests/browser.html** and let the suite run. Browser eligibility: 412 tests; 8 Node-only checks are skipped.
+Open **/tests/browser.html** and let the suite run. Browser eligibility: 424 tests; 8 Node-only checks are skipped.
 Then name the remaining gaps: no independent crypto audit, no hosted TURN
 relay (a reference one and a relay-only ICE path ship in-repo),
 no WebGPU backend (an explicit non-goal, see [NON_GOALS.md](NON_GOALS.md)),

@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-31T19:44:55.242Z",
+  "generatedAt": "2026-11-01T11:15:07.700Z",
   "directory": "docs/reports",
   "counts": {
-    "artifacts": 28,
-    "measurements": 19,
-    "records": 9,
+    "artifacts": 30,
+    "measurements": 20,
+    "records": 10,
     "errors": 0
   },
   "entries": [
@@ -213,6 +213,24 @@
         "value": "2026-10-17T19:46:26.594Z"
       },
       "category": "measurement"
+    },
+    {
+      "file": "singu-intent.json",
+      "kind": "json",
+      "bytes": 15764,
+      "sha256": "257aeedeeecc972e1c09e58fc54204f01fdb12ddd9588e12ae5745a5560bbc32",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-11-01T11:04:16.592Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "singu-intent.md",
+      "kind": "md",
+      "bytes": 6013,
+      "sha256": "6071b2654a9bb306a7364d2d1a3d6de5df7ae0b4cd6608530bb4422f758f72f5",
+      "category": "record"
     },
     {
       "file": "soak.json",

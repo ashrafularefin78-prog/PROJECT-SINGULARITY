@@ -31,6 +31,7 @@ const SUITES = [
   './singu.test.js',
   './compose.test.js',
   './planner.test.js',
+  './model.test.js',
   './autopilot.test.js',
   './explain.test.js',
   './suite-registry.test.js',

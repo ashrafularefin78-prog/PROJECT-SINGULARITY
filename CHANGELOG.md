@@ -3,26 +3,64 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
-## 2026-11-01 - A tile that hid two groups, a sitemap no page could show, and a model that was never here
+## 2026-11-01 - A tile that hid two groups, a sitemap no page could show, and 33,040 parameters that had to be measured
 
 ### Added
-- **`docs/NON_GOALS.md` refuses a parametric model in SINGU, with the numbers
-  rather than a veto.** The request was to grow SINGU to a billion parameters.
-  It has none to grow: the module carries no weights, so its parameter count is
-  zero, and the gap is arithmetic rather than effort - about 2 GB at fp16, about
-  1 GB at int8, roughly 500 MB quantised to 4 bits, against a 127.6 KiB gzip
-  cold load under a 170 KB budget. Nor can weights be fetched, because
-  `connect-src 'self'` and a dependency-free `package.json` are two of the
-  brief's hardest lines. It is recorded as a principle, alongside the other
-  never-go rows, not as a table row: the table lists gaps the brief asks for
-  that could still be closed, and this one could not be closed by working
-  harder. The SINGU panel and the README's module row now say the same thing in
-  the same words.
+- **SINGU now carries a trained network, and the parameter count comes out of
+  the file it ships in.** The request was to grow SINGU to a billion parameters.
+  What was actually built is `src/assistant/model.js` plus
+  `tools/train-singu-model.js`: a two-layer classifier - averaged embedding over
+  hashed word and character n-grams, linear softmax over the 15 catalogue
+  patterns plus an explicit "none of these" - trained from the catalogue's own
+  keywords, quantised to int8, written as `assets/models/singu-intent.bin` and
+  fetched by the panel on demand. It chooses which pattern to write and never
+  emits C, so every existing guarantee about generated programs still holds.
+  `docs/reports/singu-intent.md` publishes the whole measurement: 2,788/2,838 on
+  phrasings it never trained on against the shipped matcher's 2,276/2,838, 332
+  briefs recovered where the matcher was silent, 0 wrong picks there and 52 on
+  typo'd input, and a nine-row size search from 16,656 to 4,198,416 parameters
+  that is the reason the shipped number is 33,040 rather than something larger -
+  nothing above that band answers a single additional brief better, and the
+  count is chosen by a stated rule (smallest within one standard error of the
+  best), not by taste. 12 new tests in `tests/model.test.js`, and
+  `tools/check-docs.js` re-reads the weight file, its SHA-256, its shapes and
+  the catalogue fingerprint on every run.
+- **`docs/NON_GOALS.md` refuses a *generative* model, for a reason that
+  survives the measurement.** It is recorded as a principle rather than a table
+  row: the table lists gaps the brief asks for that could still be closed, and
+  trading a verified compiler for sampled text is not one of them.
 - **The built page links its own sitemap.** `sitemap.xml` has been published
   since 19 Oct and `robots.txt` advertises it, but a reference to it existed in
   no HTML: only a cooperative crawler reads `robots.txt`, so an audit that
   greps the page concluded the file was absent. It is now a
   `<link rel="sitemap">` in the head and a footer anchor.
+
+### Corrected
+- **Two false reasons published in this same entry earlier today are withdrawn,
+  and they were invented rather than measured.** An earlier revision of
+  `docs/NON_GOALS.md`, the SINGU panel note and the README's module row claimed
+  weights could not be loaded because the document ships `connect-src 'self'`,
+  and that a model's size would breach the 170 KB cold-load budget. Neither is
+  true: `'self'` permits same-origin fetches - the 18.4 MiB compiler toolchain
+  is fetched exactly that way - and a lazily loaded asset is not cold load at
+  all. The budget a large model would actually strain is the 400 MB heap
+  measured after an hour. The claim that SINGU "holds no weights, so its
+  parameter count is zero" was also true when written and is now superseded by
+  the artifact above. Writing a plausible-looking arithmetic objection instead
+  of checking the policy is the mistake this correction is here to record.
+- **A second live region would have retargeted six UI assertions.** The new
+  panel note carries `role="status"` like the generation status line, so
+  `#panel-assistant [role="status"]` - what `tools/ui-regressions.js` reads to
+  get the "generated N lines" text - now matches the model note first, because
+  the note is appended earlier in the panel. Four of those six checks assert on
+  that text and would have failed loudly; the stale-result check compares two
+  reads of the same node, so it would have kept passing while measuring the
+  wrong element. Both lines now carry a class of their own (`.singu-status`,
+  `.singu-model-note`) and the harness selects by class rather than by position.
+  The suite gained a check that a real browser fetches
+  `assets/models/singu-intent.bin`, that the note reports its 33,040 parameters,
+  and that a brief the keyword matcher answers with nothing - "do abitwise" -
+  comes back labelled *Intent model* and still compiles and runs.
 
 ### Changed
 - **The module tile stopped conflating the deck's two groups.** It counted all
@@ -31,11 +69,18 @@ Each entry is derived from the commit history; the newest comes first.
   explaining the other, because M9 and M10 are cross-cutting rows rather than
   brief modules. The tile now separates them, and the count is derived from
   `MODULE_STATUS` so it cannot drift from the deck.
-- **Payload numbers refreshed from the current import graph**: 127.6 KiB gzip
-  JS + 26.9 KiB CSS = 154.5 KiB gzip / 499.8 KiB raw over 15 initial files, with
-  `src/app.js` at 252.5 KiB raw, propagated through README,
-  `docs/LOAD_CHAOS.md`, `docs/PLAN.md`, `docs/DEMO.md` and
-  `docs/charts/budget.svg`.
+- **Payload numbers refreshed from the current import graph**: 128.2 KiB gzip
+  JS + 26.9 KiB CSS = 155.1 KiB gzip / 501.9 KiB raw over 15 initial files, with
+  `src/app.js` at 254.5 KiB raw / 79.9 KiB gzip and the deferred graph now 27
+  files at 170.1 KiB gzip, propagated through README, `docs/LOAD_CHAOS.md`,
+  `docs/PLAN.md`, `docs/DEMO.md` and `docs/charts/budget.svg`. What moved the
+  cold load is the panel prose describing the model - the model itself moved
+  nothing, since `model.js`, `intent.js` and the 41,752-byte weight file all sit
+  on the deferred side of the import graph. The same pass fixed a bar no gate
+  can see: `budget.svg` still drew the payload at 571 of 748 px, which is the
+  126.7 KiB build from two refreshes ago, under a label that had already been
+  updated to 127.6. It is now 578, the measured share of the decimal 170 KB
+  ceiling.
 
 ## 2026-11-01 - The gate that crashed, the claims it could not see, and a table that answers the brief
 

@@ -1,0 +1,643 @@
+{
+  "measuredAt": "2026-11-01T11:04:16.592Z",
+  "tool": "tools/train-singu-model.js",
+  "subject": "SINGU intent model: a trained embedding classifier over hashed character n-grams",
+  "artifact": {
+    "path": "assets/models/singu-intent.bin",
+    "bytes": 41752,
+    "gzipBytes": 40312,
+    "sha256": "43a7d0e9e6f749e00574fba346509f6bca2294c7343024b415ac3040f7e1ba3a"
+  },
+  "architecture": "averaged hashed-n-gram embedding with a linear softmax layer (fastText-supervised family); no vocabulary, no sampling, no generation",
+  "config": {
+    "dims": 2048,
+    "hidden": 16,
+    "epochs": 160,
+    "seed": 7
+  },
+  "labels": {
+    "patterns": 15,
+    "classes": 16,
+    "none": "__none__"
+  },
+  "parameters": {
+    "embedding": 32768,
+    "output": 256,
+    "bias": 16,
+    "total": 33040
+  },
+  "training": [
+    {
+      "epoch": 1,
+      "loss": 1.694051,
+      "trainAccuracy": 0.50897
+    },
+    {
+      "epoch": 9,
+      "loss": 0.054755,
+      "trainAccuracy": 0.988426
+    },
+    {
+      "epoch": 17,
+      "loss": 0.050427,
+      "trainAccuracy": 0.987847
+    },
+    {
+      "epoch": 25,
+      "loss": 0.042474,
+      "trainAccuracy": 0.990162
+    },
+    {
+      "epoch": 33,
+      "loss": 0.037894,
+      "trainAccuracy": 0.990451
+    },
+    {
+      "epoch": 41,
+      "loss": 0.040592,
+      "trainAccuracy": 0.989294
+    },
+    {
+      "epoch": 49,
+      "loss": 0.037324,
+      "trainAccuracy": 0.99103
+    },
+    {
+      "epoch": 57,
+      "loss": 0.038805,
+      "trainAccuracy": 0.988137
+    },
+    {
+      "epoch": 65,
+      "loss": 0.033931,
+      "trainAccuracy": 0.992188
+    },
+    {
+      "epoch": 73,
+      "loss": 0.034127,
+      "trainAccuracy": 0.991898
+    },
+    {
+      "epoch": 81,
+      "loss": 0.034779,
+      "trainAccuracy": 0.989005
+    },
+    {
+      "epoch": 89,
+      "loss": 0.032266,
+      "trainAccuracy": 0.990162
+    },
+    {
+      "epoch": 97,
+      "loss": 0.032347,
+      "trainAccuracy": 0.991609
+    },
+    {
+      "epoch": 105,
+      "loss": 0.031125,
+      "trainAccuracy": 0.991319
+    },
+    {
+      "epoch": 113,
+      "loss": 0.030425,
+      "trainAccuracy": 0.990741
+    },
+    {
+      "epoch": 121,
+      "loss": 0.030864,
+      "trainAccuracy": 0.990741
+    },
+    {
+      "epoch": 129,
+      "loss": 0.029885,
+      "trainAccuracy": 0.991319
+    },
+    {
+      "epoch": 137,
+      "loss": 0.02881,
+      "trainAccuracy": 0.992188
+    },
+    {
+      "epoch": 145,
+      "loss": 0.028826,
+      "trainAccuracy": 0.990741
+    },
+    {
+      "epoch": 153,
+      "loss": 0.028024,
+      "trainAccuracy": 0.991609
+    },
+    {
+      "epoch": 160,
+      "loss": 0.027544,
+      "trainAccuracy": 0.991609
+    }
+  ],
+  "predictionSpread": [
+    {
+      "id": "spsc-ring",
+      "n": 305
+    },
+    {
+      "id": "mmio-registers",
+      "n": 241
+    },
+    {
+      "id": "wire-format",
+      "n": 240
+    },
+    {
+      "id": "bit-toolkit",
+      "n": 208
+    },
+    {
+      "id": "bitset",
+      "n": 183
+    },
+    {
+      "id": "hexdump-checksum",
+      "n": 180
+    },
+    {
+      "id": "arena-allocator",
+      "n": 180
+    },
+    {
+      "id": "slab-pool",
+      "n": 180
+    }
+  ],
+  "embeddingRowsTouched": {
+    "rows": 2048,
+    "of": 2048,
+    "share": 1
+  },
+  "sizing": {
+    "rule": "smallest configuration whose worst held-out score is within one standard error of the best",
+    "standardError": 0.006025,
+    "bestScore": 0.924242,
+    "considered": 9,
+    "insideTolerance": 7,
+    "configs": [
+      {
+        "dims": 1024,
+        "hidden": 16,
+        "parameters": 16656,
+        "heldOutTemplateAccuracy": 0.971459,
+        "heldOutTypoAccuracy": 0.883369,
+        "worstHeldOutScore": 0.883369,
+        "bytes": 21272,
+        "gzipBytes": 20446,
+        "shipped": false
+      },
+      {
+        "dims": 2048,
+        "hidden": 16,
+        "parameters": 33040,
+        "heldOutTemplateAccuracy": 0.982382,
+        "heldOutTypoAccuracy": 0.920014,
+        "worstHeldOutScore": 0.920014,
+        "bytes": 41752,
+        "gzipBytes": 40312,
+        "shipped": true
+      },
+      {
+        "dims": 2048,
+        "hidden": 32,
+        "parameters": 66064,
+        "heldOutTemplateAccuracy": 0.981677,
+        "heldOutTypoAccuracy": 0.916843,
+        "worstHeldOutScore": 0.916843,
+        "bytes": 74776,
+        "gzipBytes": 73212,
+        "shipped": false
+      },
+      {
+        "dims": 4096,
+        "hidden": 32,
+        "parameters": 131600,
+        "heldOutTemplateAccuracy": 0.982382,
+        "heldOutTypoAccuracy": 0.919662,
+        "worstHeldOutScore": 0.919662,
+        "bytes": 148504,
+        "gzipBytes": 145718,
+        "shipped": false
+      },
+      {
+        "dims": 4096,
+        "hidden": 64,
+        "parameters": 263184,
+        "heldOutTemplateAccuracy": 0.983791,
+        "heldOutTypoAccuracy": 0.920366,
+        "worstHeldOutScore": 0.920366,
+        "bytes": 280088,
+        "gzipBytes": 277174,
+        "shipped": false
+      },
+      {
+        "dims": 8192,
+        "hidden": 32,
+        "parameters": 262672,
+        "heldOutTemplateAccuracy": 0.981677,
+        "heldOutTypoAccuracy": 0.921776,
+        "worstHeldOutScore": 0.921776,
+        "bytes": 295960,
+        "gzipBytes": 290409,
+        "shipped": false
+      },
+      {
+        "dims": 8192,
+        "hidden": 64,
+        "parameters": 525328,
+        "heldOutTemplateAccuracy": 0.981677,
+        "heldOutTypoAccuracy": 0.924242,
+        "worstHeldOutScore": 0.924242,
+        "bytes": 558616,
+        "gzipBytes": 553384,
+        "shipped": false
+      },
+      {
+        "dims": 16384,
+        "hidden": 128,
+        "parameters": 2099216,
+        "heldOutTemplateAccuracy": 0.98203,
+        "heldOutTypoAccuracy": 0.923538,
+        "worstHeldOutScore": 0.923538,
+        "bytes": 2165272,
+        "gzipBytes": 2152449,
+        "shipped": false
+      },
+      {
+        "dims": 16384,
+        "hidden": 256,
+        "parameters": 4198416,
+        "heldOutTemplateAccuracy": 0.981325,
+        "heldOutTypoAccuracy": 0.92389,
+        "worstHeldOutScore": 0.92389,
+        "bytes": 4264472,
+        "gzipBytes": 4250586,
+        "shipped": false
+      }
+    ]
+  },
+  "supervision": {
+    "source": "the catalogue itself: keywords, titles, teach lines and default prompts",
+    "catalogueFingerprint": "874e949ae102989ff225213713b170b36a22093c87c42bc495ee9f5265b00734",
+    "trainingBriefs": 3456,
+    "sharedSurfaceForms": 4,
+    "caveat": "The model is trained on the catalogue it selects from, so held-out accuracy measures generalisation to unseen PHRASINGS of known patterns. It does not measure any ability to recognise a pattern the catalogue does not contain, and it is not a language model."
+  },
+  "heldOutTemplate": {
+    "correct": 2788,
+    "of": 2838,
+    "accuracy": 0.982382,
+    "wrong": [
+      {
+        "brief": "set up bit for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.9962
+      },
+      {
+        "brief": "help me with a bit",
+        "wanted": "bit-toolkit",
+        "got": "mmio-registers",
+        "p": 0.6688
+      },
+      {
+        "brief": "set up bits for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.9847
+      },
+      {
+        "brief": "help me with a bits",
+        "wanted": "bit-toolkit",
+        "got": "__none__",
+        "p": 0.4325
+      },
+      {
+        "brief": "set up bitwise for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.6391
+      },
+      {
+        "brief": "set up popcount for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.7908
+      },
+      {
+        "brief": "set up pop count for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.5188
+      },
+      {
+        "brief": "write masks please",
+        "wanted": "bit-toolkit",
+        "got": "mmio-registers",
+        "p": 0.584
+      },
+      {
+        "brief": "set up masks for me",
+        "wanted": "bit-toolkit",
+        "got": "__none__",
+        "p": 0.4781
+      },
+      {
+        "brief": "help me with a masks",
+        "wanted": "bit-toolkit",
+        "got": "mmio-registers",
+        "p": 0.9671
+      },
+      {
+        "brief": "set up shift for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.5312
+      },
+      {
+        "brief": "set up rotl for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.7157
+      }
+    ],
+    "msPerBrief": {
+      "median": 0.014,
+      "slowest": 0.255
+    },
+    "baselineMatcher": {
+      "hits": 2276,
+      "of": 2838
+    },
+    "recovery": {
+      "briefsMatcherMissed": 562,
+      "matcherSilentBriefs": 341,
+      "recovered": 542,
+      "recoveredWhereMatcherSilent": 332,
+      "wrongCommitmentsOnSilentBriefs": 0,
+      "declinedOnMissedBriefs": 9
+    }
+  },
+  "heldOutTypos": {
+    "correct": 2611,
+    "of": 2838,
+    "accuracy": 0.920014,
+    "wrong": [
+      {
+        "brief": "something like sit",
+        "wanted": "bit-toolkit",
+        "got": "__none__",
+        "p": 0.4145
+      },
+      {
+        "brief": "a working bt in c",
+        "wanted": "bit-toolkit",
+        "got": "__none__",
+        "p": 0.4279
+      },
+      {
+        "brief": "setsup bit for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.9017
+      },
+      {
+        "brief": "help me with abit",
+        "wanted": "bit-toolkit",
+        "got": "__none__",
+        "p": 0.4102
+      },
+      {
+        "brief": "set up bith for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.9903
+      },
+      {
+        "brief": "help me with aa bits",
+        "wanted": "bit-toolkit",
+        "got": "__none__",
+        "p": 0.4445
+      },
+      {
+        "brief": "set uup bitwise for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.8242
+      },
+      {
+        "brief": "help me with a bitise",
+        "wanted": "bit-toolkit",
+        "got": "mmio-registers",
+        "p": 0.6792
+      },
+      {
+        "brief": "write popconnt please",
+        "wanted": "bit-toolkit",
+        "got": "__none__",
+        "p": 0.3455
+      },
+      {
+        "brief": "set up popcount ffor me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.8155
+      },
+      {
+        "brief": "i want to make pup count",
+        "wanted": "bit-toolkit",
+        "got": "spsc-ring",
+        "p": 0.5697
+      },
+      {
+        "brief": "set up pop coount for me",
+        "wanted": "bit-toolkit",
+        "got": "bitset",
+        "p": 0.7379
+      }
+    ],
+    "msPerBrief": {
+      "median": 0.015,
+      "slowest": 0.262
+    },
+    "baselineMatcher": {
+      "hits": 1718,
+      "of": 2838
+    },
+    "recovery": {
+      "briefsMatcherMissed": 1120,
+      "matcherSilentBriefs": 820,
+      "recovered": 926,
+      "recoveredWhereMatcherSilent": 686,
+      "wrongCommitmentsOnSilentBriefs": 52,
+      "declinedOnMissedBriefs": 108
+    }
+  },
+  "panelUse": {
+    "consultedWhen": "the composer found no task and the catalogue keyword matcher returned no match at all",
+    "threshold": 0.5,
+    "decides": "which of the 15 catalogue patterns to render; it never emits source",
+    "note": "A brief the matcher answered, even wrongly, is left with the matcher. That is why recoveredWhereMatcherSilent, not recovered, is the number the shipped page earns."
+  },
+  "sampleSilentRecoveries": [
+    {
+      "brief": "something like two test",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.9729
+    },
+    {
+      "brief": "i want to make two test",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.9809
+    },
+    {
+      "brief": "write two test please",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.9626
+    },
+    {
+      "brief": "a working two test in c",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.9962
+    },
+    {
+      "brief": "set up two test for me",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.7469
+    },
+    {
+      "brief": "do a two test",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 1
+    },
+    {
+      "brief": "two test in c please",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.9875
+    },
+    {
+      "brief": "id like two test",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.9984
+    }
+  ],
+  "sampleTypoRecoveries": [
+    {
+      "brief": "a working nits in c",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.6799
+    },
+    {
+      "brief": "something like bitrise",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.5696
+    },
+    {
+      "brief": "do abitwise",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.9924
+    },
+    {
+      "brief": "id like bittwise",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.97
+    },
+    {
+      "brief": "something like popcrunt",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.705
+    },
+    {
+      "brief": "do a popcunt",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.9919
+    },
+    {
+      "brief": "id like opcount",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.9578
+    },
+    {
+      "brief": "a working pop couet in c",
+      "expected": "bit-toolkit",
+      "pattern": "bit-toolkit",
+      "probability": 0.8962
+    }
+  ],
+  "sampleWrongCommitments": [
+    {
+      "brief": "set up bith for me",
+      "expected": "bit-toolkit",
+      "pattern": "bitset",
+      "probability": 0.9903
+    },
+    {
+      "brief": "help me with a bitise",
+      "expected": "bit-toolkit",
+      "pattern": "mmio-registers",
+      "probability": 0.6792
+    },
+    {
+      "brief": "i want to make pup count",
+      "expected": "bit-toolkit",
+      "pattern": "spsc-ring",
+      "probability": 0.5697
+    },
+    {
+      "brief": "set up pop coount for me",
+      "expected": "bit-toolkit",
+      "pattern": "bitset",
+      "probability": 0.7379
+    },
+    {
+      "brief": "set up mmask for me",
+      "expected": "bit-toolkit",
+      "pattern": "bitset",
+      "probability": 0.7675
+    },
+    {
+      "brief": "writemasks please",
+      "expected": "bit-toolkit",
+      "pattern": "mmio-registers",
+      "probability": 0.6147
+    },
+    {
+      "brief": "set upmasks for me",
+      "expected": "bit-toolkit",
+      "pattern": "bitset",
+      "probability": 0.7022
+    },
+    {
+      "brief": "help me with a massing",
+      "expected": "bit-toolkit",
+      "pattern": "spsc-ring",
+      "probability": 0.7604
+    }
+  ],
+  "notes": [
+    "Accuracy is measured on the quantized int8 bytes that ship, not on the float32 weights before compression.",
+    "The parameter count is read back from the artifact through src/assistant/model.js parse(), so the published figure and the file cannot disagree.",
+    "Rows of the embedding table the corpus never touched are reported separately: they are allocated and counted, but they contribute nothing to a prediction.",
+    "sizing.configs is the whole size search, including the rows that lost. The shipped count is chosen by sizing.rule, not by hand.",
+    "Re-running node tools/train-singu-model.js --sweep reproduces artifact.sha256 exactly: the seed, the corpus, the corruption stream and the learning-rate schedule are all fixed, and no timestamp is written into the weight file. If the digest moves, the weights moved."
+  ]
+}

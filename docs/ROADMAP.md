@@ -22,7 +22,7 @@ decorative.
 ## 1. Where the project stands
 
 - 8 brief modules, 3 complete and 5 with declared scope boundaries; self-assessed 796/1000.
-- 420 tests across 31 suites (390 pass + 30 browser-only skips in bare Node).
+- 432 tests across 32 suites (402 pass + 30 browser-only skips in bare Node).
 - Canonical deployment: <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/>.
 - The remaining module gaps are named: no third-party red-team and no
   header-capable deployment (M8), no VoiceOver/TalkBack pass yet (the NVDA pass
