@@ -1061,6 +1061,9 @@ html[data-theme='light'] .repo-stat {
     <title>Project Singularity - a browser-native workspace by Ashraful Arefin</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+    <!-- robots.txt already advertises the sitemap, but that file is only read by
+         a cooperative crawler: an audit of the page itself found no reference. -->
+    <link rel="sitemap" type="application/xml" href="sitemap.xml" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
@@ -1204,6 +1207,7 @@ html[data-theme='light'] .repo-stat {
     <footer class="footer">
       <span>Framework-free shell · optional WebAssembly C/C++ toolchain · WebCrypto · WebGL2 · Web Workers · IndexedDB · Service Worker</span>
       <span id="footer-build">boot…</span>
+      <a href="sitemap.xml">Sitemap</a>
     </footer>
 
     <!-- The only script in the document, and deliberately a classic (deferred)

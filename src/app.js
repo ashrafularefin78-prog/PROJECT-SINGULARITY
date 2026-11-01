@@ -3489,7 +3489,7 @@ const MODULE_STATUS = [
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 85, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. The tile carries the evidence-backed score (66/100); the structural ceiling is 83/100 and the reviewer\'s latest mark is 70/100.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist; on the canonical GitHub Pages host the policy arrives only as a meta tag, where the header-only directives cannot be confirmed as enforced. _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
-  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 127.3 KiB gzip against a 170 KB budget, a 60-minute soak two orders of magnitude under the memory budget that ends above where it started, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
+  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 127.4 KiB gzip against a 170 KB budget, a 60-minute soak two orders of magnitude under the memory budget that ends above where it started, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
   { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'partial', points: 69, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
 ];
 
@@ -4209,6 +4209,9 @@ function renderDashboard(root) {
   };
 
   const score = MODULE_STATUS.reduce((a, m) => a + m.points, 0);
+  const briefModules = MODULE_STATUS.filter((m) => !m.title.endsWith('(cross-cutting)'));
+  const fullBriefModules = briefModules.filter((m) => m.status === 'ok').length;
+  const crossCuttingRows = MODULE_STATUS.length - briefModules.length;
   // Two different questions, answered separately rather than conflated: the
   // brief's ladder is a points band, but each tier ALSO has a requirement
   // (Bronze: 2 modules, Silver: 4, Gold: 6 plus the budget and M8, ...).
@@ -4230,7 +4233,7 @@ function renderDashboard(root) {
         statCard('Honest score', `${score} / 1000`, `points band: ${band} · requirement column: ${achieved}`),
         statCard('Automated tests', String(TEST_TOTALS.total), `${TEST_TOTALS.suites} suites, ${TEST_TOTALS.browser} browser tests, ${TEST_TOTALS.nodeOnly} Node-only checks`),
         statCard('Runtime dependencies', '0', 'no bundler, no npm packages, no node_modules'),
-        statCard('Modules working', `${full} full · ${MODULE_STATUS.length - full} partial`, 'nothing claimed that is not there'),
+        statCard('Modules working', `${fullBriefModules} full · ${briefModules.length - fullBriefModules} partial modules + ${crossCuttingRows} cross-cutting rows`, 'nothing claimed that is not there'),
       ]),
       constellationView.node,
       card('What this is, why it exists, who it is for', [briefBlock()]),

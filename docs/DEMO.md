@@ -61,8 +61,8 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    the Platinum band, past the Gold ceiling. Say out loud that the leading
    column is the brief's points band and the ladder grades the *requirements*,
    which is why the two readings disagree.
-7. Point at the budget table: the current payload is **met** (127.3 KiB gzip
-   cold-load JavaScript plus 26.9 KiB gzip CSS = 154.2 KiB gzip / 499.2 KiB raw
+7. Point at the budget table: the current payload is **met** (127.4 KiB gzip
+   cold-load JavaScript plus 26.9 KiB gzip CSS = 154.3 KiB gzip / 499.5 KiB raw
    across 15 initial files: 14 JS and the stylesheet, against a 170 KB JS ceiling).
    The 25-file deferred graph is 164.5 KiB gzip JS; the approximately 18.4 MiB
    compressed toolchain asset set is separate and loads on the first compiler run.
