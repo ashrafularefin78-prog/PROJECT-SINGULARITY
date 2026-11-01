@@ -3,6 +3,91 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-11-01 - The SINGU screen stops reading as an instrument: warm clay, a serif, and a background nobody touched
+
+The request was to polish the SINGU AI screen towards Claude's look without
+touching the page background. The reading of that is a change of register, not
+a coat of paint: every other screen in this shell is an instrument - chamfered
+corners, mono captions, cyan, small caps - while a brief-and-plan screen is a
+conversation. So M9 now wears warm clay, a serif for its headings, sentence case
+and rounded cards, and the other nine panels keep the instrument treatment. It
+is CSS only: no element was added, moved or renamed in `src/app.js`, which is
+why the cold-load JS figure did not move.
+
+### Added
+- **A warm token set scoped to `#panel-assistant`** (`styles/app.css`). Clay,
+  sand and three warm grounds are declared as custom properties on the panel,
+  and every rule below them reads the tokens - so the themes override the panel
+  by re-declaring tokens rather than by re-stating selectors, which keeps them
+  out of a specificity fight they would otherwise lose on hover rules and the
+  like. The one exception is the generated-code frame's ink, which needs a
+  colour of its own per theme. The accent aliases (`--accent`, `--accent-2`,
+  `--accent-3`) are retargeted inside the panel, so anything that inherits an
+  accent there inherits clay.
+- **Two browser regressions that read computed styles** - the 24th and 25th in
+  `tools/ui-regressions.js`. A restyle that silently stops applying is
+  invisible to every other test in the file, because they assert behaviour and
+  the panel behaves identically either way. The first asserts the clay token
+  reaches the panel, that the cards are rounded with `clip-path: none`, that
+  the brief title is serif and sentence case, that the active level is dark ink
+  on clay, that the other panels keep their chamfer and square corners, and -
+  holding the user's own constraint as an executable check - that `body` still
+  carries the same three radial gradients. The second walks all four theme
+  pairings and holds each ink/ground pair to 4.5:1.
+- **Every warm colour chosen against the 4.5:1 floor rather than by eye:** clay
+  `#d97757` on the warm ground is 5.7:1, dark ink `#1f1a16` on clay is 5.1:1,
+  the light theme's `#b2471f` on `#fdf7f2` is 5.1:1, and high contrast's
+  `#ffb38a` on black is 12:1.
+
+### Changed
+- **The M9 hue is clay, not cyan** (`#4dd0e1` → `#d97757`), in both
+  `styles/app.css` and `styles/critical.css`, so the badge, the tab and the
+  panel agree. The critical block and its CSP hash moved with it:
+  `sha256-GtSqqBfLMOPG/LEf52S1jAXR2+ZOXF0BqweRroCdEDw=`.
+- **Structure separated from skin.** The M9 section now opens with the rules
+  that only size things (min-heights, gaps, the flex rows) and then the warm
+  skin, so removing the skin cannot break layout.
+- **The composer box, the segmented level chooser, the code frame and the
+  terminal shell are restyled, not replaced.** The brief box becomes a
+  prose-height rounded input in the sans face; the level chooser a segmented
+  control with a clay-filled active item; the generated-code frame an inset
+  warm panel; the terminal keeps its dark ground but loses its chamfer. The
+  primary button's sheen pseudo-element is switched off, because a soft glow
+  on a warm card reads as a rendering artefact.
+- **Published payload, re-measured rather than estimated:** CSS 26.9 → 29.9 KiB
+  gzip, cold load 157.0 → 159.9 KiB gzip / 508.4 → 519.4 KiB raw. Propagated
+  to README.md, docs/DEMO.md, docs/PLAN.md, docs/LOAD_CHAOS.md and
+  docs/charts/budget.svg; `node tools/check-docs.js` still reports all 65
+  published numbers matching their artifacts.
+- **axe: 0 violations, 470 passing rule results** (was 469 before this change,
+  406 before the earlier redesign - the count moves because the DOM axe walks
+  changes, and the number that has to stay at zero is the violation count),
+  0 interactive controls without an accessible name, 0 heading level jumps.
+
+### Fixed
+- **Light theme with high contrast on made the SINGU panel's text almost
+  invisible** - 1.13:1, and it was found by screenshotting the fourth theme
+  combination rather than the three obvious ones. Theme and contrast are
+  independent toggles, and the sheet resolves them in a deliberate order
+  globally: the high-contrast token block sits at line 42, the light one at
+  2230, so light wins the page and the page goes to paper. The panel's own
+  blocks were in the opposite order, so the page turned pale while the panel
+  kept white-on-soot ink, and every paragraph that sits directly on the page -
+  the "what this is" note above all - rendered as white text on a pale ground.
+  The pairing now gets its own tokens: paper, black ink, and `#7a3215` clay,
+  which holds 9.2:1 on white in both directions. The 25th regression covers it,
+  and was checked against the failure - with the block disabled it reports
+  `light+high: inkOnPage is 1.13:1, under the 4.5:1 floor`.
+
+### Not done
+- **Lighthouse was not re-run.** `node tools/lighthouse.js` reports that
+  Lighthouse is not installed in `.tools`, and installing a dev-only npm
+  package was not something to do unprompted. The reason the 856 ms LCP claim
+  is still safe is structural rather than assumed: `index.html` carries the
+  first viewport's share of the sheet inline and only `preload`s `app.css`,
+  which `src/app.js` attaches after first paint - so growth in that file
+  cannot move the largest contentful paint row.
+
 ## 2026-11-01 - Three layers over generated C: what the source proves, what the arena bounds, and what only a run can see
 
 The request was to make the assistant's C surface strong enough to be worth

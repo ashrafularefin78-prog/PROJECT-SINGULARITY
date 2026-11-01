@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-31T19:43:13.233Z",
+  "measuredAt": "2026-11-01T14:46:31.572Z",
   "url": "http://127.0.0.1:5198/",
   "browser": "Edg/157.0.4341.30",
   "note": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
@@ -37,7 +37,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 477,
+            "count": 478,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -63,10 +63,10 @@
         "passCount": 53
       },
       "axTree": {
-        "totalNodes": 2218,
-        "liveNodes": 1724,
+        "totalNodes": 2277,
+        "liveNodes": 1783,
         "ignoredNodes": 494,
-        "interactiveCount": 36,
+        "interactiveCount": 37,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -223,7 +223,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 102,
+            "count": 103,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -249,10 +249,10 @@
         "passCount": 46
       },
       "axTree": {
-        "totalNodes": 412,
-        "liveNodes": 285,
+        "totalNodes": 415,
+        "liveNodes": 288,
         "ignoredNodes": 127,
-        "interactiveCount": 23,
+        "interactiveCount": 24,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -327,7 +327,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 78,
+            "count": 134,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -353,10 +353,10 @@
         "passCount": 45
       },
       "axTree": {
-        "totalNodes": 540,
-        "liveNodes": 431,
-        "ignoredNodes": 109,
-        "interactiveCount": 30,
+        "totalNodes": 778,
+        "liveNodes": 612,
+        "ignoredNodes": 166,
+        "interactiveCount": 45,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -371,6 +371,14 @@
           {
             "name": "Terminal, diagnostics and budgets",
             "level": 2
+          },
+          {
+            "name": "What says what",
+            "level": 2
+          },
+          {
+            "name": "Hardening pairs",
+            "level": 2
           }
         ],
         "headingLevelJumps": [],
@@ -379,6 +387,8 @@
           "navigation",
           "main",
           "contentinfo",
+          "region",
+          "region",
           "region",
           "region"
         ],
@@ -417,7 +427,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 100,
+            "count": 101,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -443,10 +453,10 @@
         "passCount": 46
       },
       "axTree": {
-        "totalNodes": 417,
-        "liveNodes": 301,
+        "totalNodes": 420,
+        "liveNodes": 304,
         "ignoredNodes": 116,
-        "interactiveCount": 20,
+        "interactiveCount": 21,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -507,7 +517,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 95,
+            "count": 96,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -533,10 +543,10 @@
         "passCount": 46
       },
       "axTree": {
-        "totalNodes": 409,
-        "liveNodes": 289,
+        "totalNodes": 412,
+        "liveNodes": 292,
         "ignoredNodes": 120,
-        "interactiveCount": 18,
+        "interactiveCount": 19,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -607,7 +617,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 133,
+            "count": 134,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -633,10 +643,10 @@
         "passCount": 47
       },
       "axTree": {
-        "totalNodes": 545,
-        "liveNodes": 395,
+        "totalNodes": 548,
+        "liveNodes": 398,
         "ignoredNodes": 150,
-        "interactiveCount": 32,
+        "interactiveCount": 33,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -722,7 +732,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 94,
+            "count": 95,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -748,10 +758,10 @@
         "passCount": 43
       },
       "axTree": {
-        "totalNodes": 408,
-        "liveNodes": 292,
+        "totalNodes": 411,
+        "liveNodes": 295,
         "ignoredNodes": 116,
-        "interactiveCount": 16,
+        "interactiveCount": 17,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -812,7 +822,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 103,
+            "count": 104,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -838,10 +848,10 @@
         "passCount": 48
       },
       "axTree": {
-        "totalNodes": 424,
-        "liveNodes": 315,
+        "totalNodes": 427,
+        "liveNodes": 318,
         "ignoredNodes": 109,
-        "interactiveCount": 42,
+        "interactiveCount": 43,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -912,7 +922,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 111,
+            "count": 112,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -938,10 +948,10 @@
         "passCount": 48
       },
       "axTree": {
-        "totalNodes": 440,
-        "liveNodes": 334,
+        "totalNodes": 443,
+        "liveNodes": 337,
         "ignoredNodes": 106,
-        "interactiveCount": 16,
+        "interactiveCount": 17,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -1002,7 +1012,7 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 113,
+            "count": 106,
             "targets": [
               [
                 ".fx-rain > i:nth-child(1)"
@@ -1025,13 +1035,13 @@
             ]
           }
         ],
-        "passCount": 47
+        "passCount": 48
       },
       "axTree": {
-        "totalNodes": 697,
-        "liveNodes": 572,
+        "totalNodes": 709,
+        "liveNodes": 584,
         "ignoredNodes": 125,
-        "interactiveCount": 33,
+        "interactiveCount": 34,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
@@ -1048,27 +1058,27 @@
             "level": 2
           },
           {
-            "name": "FIXED BITSET",
+            "name": "Fixed bitset",
             "level": 3
           },
           {
-            "name": "PLAN",
+            "name": "Plan",
             "level": 4
           },
           {
-            "name": "KEY DECISIONS",
+            "name": "Key decisions",
             "level": 4
           },
           {
-            "name": "HAZARDS IN REAL C",
+            "name": "Hazards in real C",
             "level": 4
           },
           {
-            "name": "ACCEPTANCE",
+            "name": "Acceptance",
             "level": 4
           },
           {
-            "name": "ALTERNATIVES",
+            "name": "Alternatives",
             "level": 4
           },
           {
@@ -1098,6 +1108,11 @@
             "politeness": "polite"
           },
           {
+            "role": "status",
+            "name": "Intent model status",
+            "politeness": "polite"
+          },
+          {
             "role": "log",
             "name": "SINGU sandbox output",
             "politeness": "polite"
@@ -1113,7 +1128,7 @@
   ],
   "axe": {
     "engine": "4.14.0",
-    "passes": 469,
+    "passes": 470,
     "violations": [],
     "perModule": [
       {
@@ -1173,7 +1188,7 @@
       {
         "module": "9. SINGU AI (unscored)",
         "violations": 0,
-        "passes": 47,
+        "passes": 48,
         "incomplete": 2
       }
     ]
@@ -1181,8 +1196,8 @@
   "axTree": [
     {
       "module": "M0 Dashboard",
-      "liveNodes": 1724,
-      "interactiveCount": 36,
+      "liveNodes": 1783,
+      "interactiveCount": 37,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1283,8 +1298,8 @@
     },
     {
       "module": "1. M1 Editor",
-      "liveNodes": 285,
-      "interactiveCount": 23,
+      "liveNodes": 288,
+      "interactiveCount": 24,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1317,8 +1332,8 @@
     },
     {
       "module": "2. M2 C/C++ Runtime",
-      "liveNodes": 431,
-      "interactiveCount": 30,
+      "liveNodes": 612,
+      "interactiveCount": 45,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1334,13 +1349,21 @@
         {
           "name": "Terminal, diagnostics and budgets",
           "level": 2
+        },
+        {
+          "name": "What says what",
+          "level": 2
+        },
+        {
+          "name": "Hardening pairs",
+          "level": 2
         }
       ]
     },
     {
       "module": "3. M3 3D Engine",
-      "liveNodes": 301,
-      "interactiveCount": 20,
+      "liveNodes": 304,
+      "interactiveCount": 21,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1365,8 +1388,8 @@
     },
     {
       "module": "4. M4 E2EE",
-      "liveNodes": 289,
-      "interactiveCount": 18,
+      "liveNodes": 292,
+      "interactiveCount": 19,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1399,8 +1422,8 @@
     },
     {
       "module": "5. M5 Mesh",
-      "liveNodes": 395,
-      "interactiveCount": 32,
+      "liveNodes": 398,
+      "interactiveCount": 33,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1437,8 +1460,8 @@
     },
     {
       "module": "6. M6 Offline",
-      "liveNodes": 292,
-      "interactiveCount": 16,
+      "liveNodes": 295,
+      "interactiveCount": 17,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1463,8 +1486,8 @@
     },
     {
       "module": "7. M7 Access",
-      "liveNodes": 315,
-      "interactiveCount": 42,
+      "liveNodes": 318,
+      "interactiveCount": 43,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1497,8 +1520,8 @@
     },
     {
       "module": "8. M8 Hardening",
-      "liveNodes": 334,
-      "interactiveCount": 16,
+      "liveNodes": 337,
+      "interactiveCount": 17,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1523,8 +1546,8 @@
     },
     {
       "module": "9. SINGU AI (unscored)",
-      "liveNodes": 572,
-      "interactiveCount": 33,
+      "liveNodes": 584,
+      "interactiveCount": 34,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
@@ -1542,27 +1565,27 @@
           "level": 2
         },
         {
-          "name": "FIXED BITSET",
+          "name": "Fixed bitset",
           "level": 3
         },
         {
-          "name": "PLAN",
+          "name": "Plan",
           "level": 4
         },
         {
-          "name": "KEY DECISIONS",
+          "name": "Key decisions",
           "level": 4
         },
         {
-          "name": "HAZARDS IN REAL C",
+          "name": "Hazards in real C",
           "level": 4
         },
         {
-          "name": "ACCEPTANCE",
+          "name": "Acceptance",
           "level": 4
         },
         {
-          "name": "ALTERNATIVES",
+          "name": "Alternatives",
           "level": 4
         },
         {

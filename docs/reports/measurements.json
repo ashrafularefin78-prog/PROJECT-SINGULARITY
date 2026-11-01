@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T13:36:19.948Z",
+  "generatedAt": "2026-11-01T14:46:58.731Z",
   "directory": "docs/reports",
   "counts": {
     "artifacts": 30,
@@ -11,12 +11,12 @@
     {
       "file": "a11y.json",
       "kind": "json",
-      "bytes": 37361,
-      "sha256": "e22856dd86b43872b00aaccf72baeea6c7a3c0f0f138ebebbc0eac3ebab4bb80",
+      "bytes": 37865,
+      "sha256": "691fa06892685a4d4156d35eded477680adc3ea2577472516bb10cc58d8535b9",
       "what": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
       "stamp": {
         "key": "measuredAt",
-        "value": "2026-10-31T19:43:13.233Z"
+        "value": "2026-11-01T14:46:31.572Z"
       },
       "category": "measurement"
     },
@@ -163,11 +163,11 @@
       "file": "red-team-session.json",
       "kind": "json",
       "bytes": 10408,
-      "sha256": "4716f911404fa7068373a077248a8b995a7edef80d0557da7e422196eb8b946c",
+      "sha256": "e61879a63692226180af4c59cab89b28bff9a11de7c9d5c8793fe155f3d8fc8a",
       "what": "internal-adversarial-review",
       "stamp": {
         "key": "generatedAt",
-        "value": "2026-11-01T13:29:23.274Z"
+        "value": "2026-11-01T14:34:27.691Z"
       },
       "category": "measurement"
     },

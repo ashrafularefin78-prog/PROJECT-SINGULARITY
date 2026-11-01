@@ -3,9 +3,9 @@
   "kind": "internal-adversarial-review",
   "independent": false,
   "date": "2026-11-01",
-  "generatedAt": "2026-11-01T13:29:23.274Z",
+  "generatedAt": "2026-11-01T14:51:26.698Z",
   "target": {
-    "commit": "16e79541d1162edfaa2b7b4b82aa64f9eef8a74c",
+    "commit": "c01249b98ba8ad6008c3ae143399b3cf8e593d9d",
     "dirty": true
   },
   "environment": {
@@ -42,7 +42,7 @@
       "area": "transport policy",
       "attempt": "served CSP has a Trusted Types policy allowlist",
       "expected": "trusted-types singularity-script-url",
-      "observed": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'sha256-dDzmioGO2CPeIKok7dQyojk8uBPM37rZshNqCAmky3w='; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types singularity-script-url",
+      "observed": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'sha256-GtSqqBfLMOPG/LEf52S1jAXR2+ZOXF0BqweRroCdEDw='; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types singularity-script-url",
       "ok": true
     },
     {
@@ -249,7 +249,7 @@
           "to": "rt-peer",
           "from": "rt-sender",
           "ct": "Q0lQSEVSVEVYVA==",
-          "relayedAt": 1793539761395,
+          "relayedAt": 1793544684712,
           "header": {
             "kind": "probe"
           }

@@ -920,4 +920,60 @@ html[data-theme='light'] .repo-stat {
     linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
     linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
 }
-.tab[data-mod='9'] { --mod: #4dd0e1; --mod-soft: rgba(77, 208, 225, 0.18); }
+.tab[data-mod='9'] { --mod: #d97757; --mod-soft: rgba(217, 119, 87, 0.2); }
+html[data-theme='light'] #panel-assistant {
+  --clay: #b2471f;
+  --clay-lift: #a13d18;
+  --clay-deep: #8d3a19;
+  --clay-ink: #fdf7f2;
+  --clay-soft: rgba(178, 71, 31, 0.09);
+  --clay-ring: rgba(178, 71, 31, 0.24);
+  --sand: #8a7a6d;
+  --warm: #fffdfa;
+  --warm-2: #faf5ee;
+  --warm-3: #f4ece1;
+  --warm-hover: #ffffff;
+  --warm-hover-ink: #8d3a19;
+  --warm-line: #e6dbcb;
+  --warm-line-2: #cbb9a4;
+  --warm-text: #2a221c;
+  --warm-dim: #6d5f53;
+}
+html[data-theme='light'] #panel-assistant .singu-code { color: #2a221c; }
+html[data-contrast='high'] #panel-assistant {
+  --clay: #ffb38a;
+  --clay-lift: #ffc7a8;
+  --clay-deep: #ffb38a;
+  --clay-ink: #000000;
+  --clay-soft: rgba(255, 179, 138, 0.16);
+  --clay-ring: rgba(255, 179, 138, 0.55);
+  --sand: #ffd9c2;
+  --warm: #000000;
+  --warm-2: #0a0807;
+  --warm-3: #000000;
+  --warm-hover: #1a1a1a;
+  --warm-hover-ink: #ffffff;
+  --warm-line: #8a8a8a;
+  --warm-line-2: #bdbdbd;
+  --warm-text: #ffffff;
+  --warm-dim: #f2e9e2;
+}
+html[data-theme='light'][data-contrast='high'] #panel-assistant {
+  --clay: #7a3215;
+  --clay-lift: #6b2b12;
+  --clay-deep: #7a3215;
+  --clay-ink: #ffffff;
+  --clay-soft: rgba(122, 50, 21, 0.08);
+  --clay-ring: rgba(122, 50, 21, 0.6);
+  --sand: #4a3a2c;
+  --warm: #ffffff;
+  --warm-2: #ffffff;
+  --warm-3: #f6f1e9;
+  --warm-hover: #ffffff;
+  --warm-hover-ink: #7a3215;
+  --warm-line: #000000;
+  --warm-line-2: #000000;
+  --warm-text: #000000;
+  --warm-dim: #241b14;
+}
+html[data-theme='light'][data-contrast='high'] #panel-assistant .singu-code { color: #000000; }

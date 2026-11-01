@@ -62,7 +62,7 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    column is the brief's points band and the ladder grades the *requirements*,
    which is why the two readings disagree.
 7. Point at the budget table: the current payload is **met** (130.1 KiB gzip
-   cold-load JavaScript plus 26.9 KiB gzip CSS = 157.0 KiB gzip / 508.4 KiB raw
+   cold-load JavaScript plus 29.9 KiB gzip CSS = 159.9 KiB gzip / 519.4 KiB raw
    across 15 initial files: 14 JS and the stylesheet, against a 170 KB JS ceiling).
    The 30-file deferred graph is 187.7 KiB gzip JS; the approximately 18.4 MiB
    compressed toolchain asset set is separate and loads on the first compiler run.

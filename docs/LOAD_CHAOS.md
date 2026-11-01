@@ -74,7 +74,7 @@ unmeasured.
 
 | Budget row | Brief's target | Measured here | Verdict |
 |------------|----------------|---------------|---------|
-| Initial JS payload | ≤ 170 KB gzip | **130.1 KiB gzip JS** + 26.9 KiB gzip CSS = **157.0 KiB gzip / 508.4 KiB raw** over 15 initial files (14 JS + stylesheet), measured from the current import graph; 30 deferred modules total 187.7 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
+| Initial JS payload | ≤ 170 KB gzip | **130.1 KiB gzip JS** + 29.9 KiB gzip CSS = **159.9 KiB gzip / 519.4 KiB raw** over 15 initial files (14 JS + stylesheet), measured from the current import graph; 30 deferred modules total 187.7 KiB gzip JS, plus a separate approximately 18.4 MiB compressed toolchain asset set | **met** (cold load, first visit: M0 + M1 and the shell; the deferred graph is disclosed in section 1) |
 | Largest Contentful Paint | ≤ 1.5 s, throttled 4G, mid-range Android | **856 ms** cold on the current build (856–966 ms across two invocations), FCP with it (the hero is the first thing painted), under Slow 4G + 4x CPU at 412×915, against 149–174 ms unthrottled on loopback | **met** — see section 2 |
 | Interaction to Next Paint | ≤ 100 ms during a 50-user session | 32 ms under real typing, single user, **no 50-user session**. Under automation the metric does not populate at all | not measured (conditions not met) |
 | 3D frame rate | 60 FPS steady at 100k instances + shadows + 1M particles | **60 FPS** at defaults (20k instances, 150k particles, shadows); **58 FPS** at maximum settings | **met at defaults**, 58/60 at maximum |
@@ -100,7 +100,7 @@ module cannot hide by being imported late.
 
 | Method | Result |
 |--------|--------|
-| Import-graph walk, current cold load | **130.1 KiB gzip JS across 14 JS files**, plus 26.9 KiB gzip CSS from `styles/app.css`: **15 initial files, 157.0 KiB gzip / 508.4 KiB raw total** |
+| Import-graph walk, current cold load | **130.1 KiB gzip JS across 14 JS files**, plus 29.9 KiB gzip CSS from `styles/app.css`: **15 initial files, 159.9 KiB gzip / 519.4 KiB raw total** |
 | Import-graph walk, deferred graph | **187.7 KiB gzip JS over 30 modules** - the interpreter, real compiler loaders and WASI host plus the sysroot overlay (excluding the separate approximately 18.4 MiB compressed toolchain asset set), the hardening audit and its sample pairs, SINGU AI, the WebGL2 engine (renderer, glTF, skin, HDR, environment, maths, BRDF integration), the E2EE stack and the WebRTC/relay carriers |
 | App's own budget probe (fetches each shipped script in the page, gzips with `CompressionStream`) | counts every shipped script live and is visible on the M0 dashboard |
 
@@ -455,11 +455,14 @@ accessibility tree — the tree a screen reader is handed. Raw:
 | content not contained by landmarks — the module tab list | moderate | the tab list is wrapped in a `<nav>`; `role="tablist"` on the `<nav>` itself had overridden its navigation landmark role |
 
 After the fixes — and after the visual redesign, whose accessibility re-run
-records the same result: **0 axe-core violations, 469 passing rule results, 0
+records the same result: **0 axe-core violations, 470 passing rule results, 0
 interactive controls without an accessible name, 0 heading level jumps**,
-across all nine views. (The passing-rule count moved by one from the
-pre-redesign run's 406 because the DOM axe walks changed; the violation count
-is the one that has to stay at zero.)
+across all nine views. (The passing-rule count is not the claim and it moves
+when the DOM axe walks moves: 406 before the redesign, 469 after it, 470 after
+the SINGU panel's warm restyle, which retinted text and surfaces and added no
+rule of its own. The violation count is the one that has to stay at zero, and
+every warm colour on that screen was chosen against the 4.5:1 floor rather than
+by eye.)
 
 Text shaping, since the brief asks specifically about Bangla and Arabic inside
 the editor:

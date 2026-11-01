@@ -539,6 +539,101 @@ test('SINGU fetches the intent weights and lets them pick a pattern', 'assistant
   assert.ok(record.result.output.length > 0, 'a model-chosen program runs');
 });
 
+test('the SINGU screen wears the warm skin and no other panel does', 'assistant', async s => {
+  // A restyle that silently stops applying is invisible to every other test in
+  // this file: they assert behaviour, and the panel behaves identically either
+  // way. So this one reads the computed styles the browser actually resolved -
+  // the clay token, the rounded unchamfered card, the prose font of the brief -
+  // and then proves the skin is scoped by reading a card in M2, which must
+  // still be chamfered and mono-titled.
+  const warm = await s.evaluate(`(() => {
+    const panel = document.querySelector('#panel-assistant');
+    const card = panel.querySelector('.card');
+    const prompt = document.querySelector(${q(PROMPT)});
+    const title = panel.querySelector('.singu-brief h3');
+    const level = panel.querySelector('.singu-level.on');
+    const cs = (node) => getComputedStyle(node);
+    return {
+      clay: cs(panel).getPropertyValue('--clay').trim(),
+      cardRadius: cs(card).borderTopLeftRadius,
+      cardClip: cs(card).clipPath,
+      cardTitle: cs(card.querySelector('.card-head h2')).fontFamily,
+      promptFont: cs(prompt).fontFamily,
+      promptRadius: cs(prompt).borderTopLeftRadius,
+      titleFont: cs(title).fontFamily,
+      titleCase: cs(title).textTransform,
+      levelInk: cs(level).color,
+      levelGround: cs(level).backgroundColor,
+      pageBackground: cs(document.body).backgroundImage.split('radial-gradient').length - 1,
+    };
+  })()`);
+  assert.equal(warm.clay.toLowerCase(), '#d97757', 'The clay token has to reach the panel');
+  assert.notEqual(warm.cardRadius, '0px', 'The SINGU cards are rounded, not chamfered');
+  assert.equal(warm.cardClip, 'none', 'clip-path has to go, or the corners stay cut');
+  assert.match(warm.promptFont, /system-ui|sans-serif/, 'The brief is prose, not a terminal');
+  assert.notEqual(warm.promptRadius, '0px', 'The composer is a rounded box');
+  assert.match(warm.titleFont, /serif/, 'The brief title is set in the serif display face');
+  assert.equal(warm.titleCase, 'none', 'Headings are sentence case, not small caps');
+  assert.equal(warm.levelInk, 'rgb(31, 26, 22)', 'The active level is dark ink on clay');
+  assert.equal(warm.levelGround, 'rgb(217, 119, 87)', '...and the clay itself is the ground');
+  assert.match(warm.cardTitle, /^ui-serif/, 'The card titles are set in the serif display face');
+  assert.equal(warm.pageBackground, 3, 'The page background is the same three radials it always was');
+  await panel(s, 'compiler');
+  const elsewhere = await s.evaluate(`(() => {
+    const card = document.querySelector('#panel-compiler .card');
+    const cs = getComputedStyle(card);
+    return { clip: cs.clipPath, radius: cs.borderTopLeftRadius, title: getComputedStyle(card.querySelector('.card-head h2')).fontFamily };
+  })()`);
+  assert.match(elsewhere.clip, /polygon/, 'M2 keeps the chamfer - the skin is scoped to M9');
+  assert.equal(elsewhere.radius, '0px', 'M2 keeps square corners');
+  assert.notEqual(elsewhere.title, warm.cardTitle, 'M2 keeps the shared heading face');
+});
+
+test('the warm skin stays readable in every theme pairing', 'assistant', async s => {
+  // Theme and contrast are two independent toggles, so four combinations are
+  // reachable - and the warm skin carries three token blocks, one per theme
+  // plus one for the pairing. A block that wins on source order rather than on
+  // intent puts white ink on a paper page, which is invisible in a screenshot
+  // of the wrong combination and invisible to every behavioural test in the
+  // other three. So: resolve the tokens the browser actually got, and hold
+  // each ink/ground pair to the same 4.5:1 floor the colours were picked at.
+  const pairs = await s.evaluate(`(() => {
+    const parse = (c) => c.trim().startsWith('#')
+      ? [1, 3, 5].map(i => parseInt(c.trim().slice(i, i + 2), 16))
+      : c.match(/\\d+/g).slice(0, 3).map(Number);
+    const lum = (c) => parse(c).map(v => v / 255)
+      .map(v => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)))
+      .reduce((s, v, i) => s + [0.2126, 0.7152, 0.0722][i] * v, 0);
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+    const root = document.documentElement;
+    const was = [root.dataset.theme, root.dataset.contrast];
+    const out = [];
+    for (const [theme, contrast] of [['', ''], ['light', ''], ['', 'high'], ['light', 'high']]) {
+      if (theme) root.dataset.theme = theme; else delete root.dataset.theme;
+      if (contrast) root.dataset.contrast = contrast; else delete root.dataset.contrast;
+      const cs = getComputedStyle(document.querySelector('#panel-assistant'));
+      const token = (name) => cs.getPropertyValue(name).trim();
+      out.push({
+        name: (theme || 'dark') + (contrast ? '+' + contrast : ''),
+        inkOnPage: ratio(token('--warm-text'), getComputedStyle(document.body).backgroundColor),
+        inkOnCard: ratio(token('--warm-text'), token('--warm')),
+        dimOnCard: ratio(token('--warm-dim'), token('--warm')),
+        inkOnClay: ratio(token('--clay-ink'), token('--clay')),
+      });
+    }
+    if (was[0]) root.dataset.theme = was[0]; else delete root.dataset.theme;
+    if (was[1]) root.dataset.contrast = was[1]; else delete root.dataset.contrast;
+    return out;
+  })()`);
+  assert.equal(pairs.length, 4);
+  for (const p of pairs) {
+    for (const [kind, value] of Object.entries(p)) {
+      if (kind === 'name') continue;
+      assert.ok(value >= 4.5, `${p.name}: ${kind} is ${value.toFixed(2)}:1, under the 4.5:1 floor`);
+    }
+  }
+});
+
 for (const [name, initial, selector, value] of [
   ['compiler source', 'compiler', SOURCE, '// keyboard '],
   ['SINGU brief', 'assistant', PROMPT, 'keyboard '],

@@ -2636,34 +2636,336 @@ html[data-theme='light'] .repo-stat {
 
 /* ------------------------------------------------------- M9 SINGU AI (local) */
 
-.mod-head[data-mod='9'], .tab[data-mod='9'] { --mod: #4dd0e1; --mod-soft: rgba(77, 208, 225, 0.18); }
+/* The M9 hue is the clay below, so the badge, the tab and the panel agree. */
+.mod-head[data-mod='9'], .tab[data-mod='9'] { --mod: #d97757; --mod-soft: rgba(217, 119, 87, 0.2); }
 
 .singu-levels { gap: 6px; }
 .singu-level { padding: 6px 12px; font-size: 0.86em; }
-.singu-level.on {
-  color: #f2f7ff;
-  border-color: var(--accent-3);
-  background: linear-gradient(180deg, rgba(77, 208, 225, 0.28), rgba(77, 208, 225, 0.08));
-  box-shadow: var(--glow-cyan);
-}
 .singu-prompt { min-height: 84px; resize: vertical; }
 .singu-code { min-height: 360px; }
-.singu-brief h3 { margin: 0; font-size: 1.02em; }
 .singu-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .singu-confidence { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; }
 .singu-confidence .bar { flex: 1 1 auto; }
-.singu-brief h4,
-.singu-catalog-row h4 {
-  margin: 16px 0 6px;
-  color: var(--dim);
-  font: 700 calc(10px * var(--scale)) / 1.2 var(--mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
+.singu-confidence span { flex: 0 0 auto; white-space: nowrap; }
 .singu-plan { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 0.92em; }
-.singu-plan li { color: var(--text); }
 .singu-diag { display: grid; gap: 4px; margin-top: 8px; max-height: 190px; overflow: auto; }
 .singu-diag p { margin: 0; }
-.singu-catalog summary { cursor: pointer; color: var(--accent-3); font-weight: 600; }
+.singu-catalog summary { cursor: pointer; font-weight: 600; }
 .singu-catalog-row { margin-top: 14px; }
-.singu-catalog-row h4 { margin-top: 0; }
+
+/* --- the warm skin --------------------------------------------------------
+   Every other screen in this shell is an instrument: chamfered corners, cyan
+   glow, mono labels in caps. This one is a conversation - a brief goes in, a
+   plan and a program come back - so it borrows the vocabulary the good chat
+   surfaces use instead: a clay accent, serif headings that are sentence case,
+   rounded cards with no cut corners, and room to breathe between the parts.
+   The page background is deliberately untouched, and so is everything this
+   panel promises: same DOM, same accessible names, same CSP (no style
+   attribute anywhere - all of it is selectors on #panel-assistant, which is
+   why the rules below carry an id and win on specificity rather than order).
+   -------------------------------------------------------------------------- */
+
+#panel-assistant {
+  --clay: #d97757;
+  --clay-lift: #e08a6d;
+  --clay-deep: #b8542f;
+  --clay-ink: #1f1a16;
+  --clay-soft: rgba(217, 119, 87, 0.12);
+  --clay-ring: rgba(217, 119, 87, 0.3);
+  --sand: #cbbeb5;
+  --warm: #1a1613;
+  --warm-2: #221d19;
+  --warm-3: #13100e;
+  --warm-line: #332b25;
+  --warm-line-2: #4a4038;
+  --warm-text: #ece5dd;
+  --warm-dim: #b7aa9e;
+  --warm-hover: #2a231e;
+  --warm-hover-ink: #ffffff;
+  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
+  /* The tokens the shared components read, retinted for this subtree only:
+     focus rings, carets, the confidence bar and the note rules all follow. */
+  --accent: var(--clay);
+  --accent-2: var(--sand);
+  --accent-3: var(--clay);
+  color: var(--warm-text);
+}
+
+/* Cards and the module head: rounded, warm, no chamfer, no HUD brackets,
+   no blue inset glow, and no lift on hover. */
+#panel-assistant .card,
+#panel-assistant .mod-head {
+  clip-path: none;
+  border: 1px solid var(--warm-line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--warm-2), var(--warm));
+  box-shadow: 0 20px 44px -40px rgba(0, 0, 0, 0.95);
+  padding: 22px 24px;
+}
+#panel-assistant .card:hover,
+#panel-assistant .mod-head:hover {
+  border-color: var(--warm-line-2);
+  box-shadow: 0 20px 44px -40px rgba(0, 0, 0, 0.95);
+}
+#panel-assistant .card::before,
+#panel-assistant .card::after,
+#panel-assistant .mod-head::before,
+#panel-assistant .terminal-shell::before,
+#panel-assistant h3::after {
+  content: none;
+  display: none;
+}
+#panel-assistant .panel { gap: 22px; }
+#panel-assistant .card-head {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--warm-line);
+}
+#panel-assistant .card-head h2 { margin: 0; font-size: 1.18rem; }
+
+/* Type: serif for the headings that name a thing, humanist sans for the prose
+   that explains it, mono only where the content is literally code. */
+#panel-assistant h1,
+#panel-assistant h2,
+#panel-assistant h3 {
+  font-family: var(--serif);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  text-transform: none;
+  color: var(--warm-text);
+}
+#panel-assistant .mod-title { margin-bottom: 10px; font-size: clamp(1.5rem, 2.6vw, 1.95rem); }
+#panel-assistant .singu-brief h3 { font-size: 1.34rem; line-height: 1.3; }
+#panel-assistant .lede,
+#panel-assistant .dim,
+#panel-assistant .list li { color: var(--warm-dim); }
+#panel-assistant .lede { font-size: 1.01em; line-height: 1.7; }
+/* Section labels inside the brief: the shared style is a 10px mono caption in
+   caps. Here they are ordinary sentence-case labels with air above them. */
+#panel-assistant h4 {
+  margin: 22px 0 8px;
+  color: var(--warm-dim);
+  font: 600 calc(13.5px * var(--scale)) / 1.45 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+#panel-assistant .singu-catalog-row h4 { margin-top: 0; }
+
+/* Controls: soft-rounded and quiet, with clay for the one action that matters. */
+#panel-assistant button,
+#panel-assistant .button {
+  font: 500 calc(13px * var(--scale)) / 1 var(--sans);
+  letter-spacing: 0;
+  padding: 10px 15px;
+  border: 1px solid var(--warm-line-2);
+  border-radius: 11px;
+  color: var(--warm-text);
+  background: linear-gradient(180deg, var(--warm-2), var(--warm));
+  box-shadow: none;
+}
+#panel-assistant button:hover:not(:disabled) {
+  color: var(--warm-hover-ink);
+  border-color: var(--clay);
+  background: linear-gradient(180deg, var(--warm-hover), var(--warm-2));
+  transform: none;
+}
+#panel-assistant button:active:not(:disabled) { transform: none; background: var(--warm-3); }
+#panel-assistant button:focus-visible { box-shadow: 0 0 0 3px var(--clay-ring); }
+#panel-assistant button.primary {
+  color: var(--clay-ink);
+  border-color: var(--clay-deep);
+  background: var(--clay);
+  font-weight: 600;
+}
+#panel-assistant button.primary:hover:not(:disabled) { color: var(--clay-ink); background: var(--clay-lift); border-color: var(--clay); }
+/* The energy sweep across a primary button belongs on a console, not on a
+   send control. */
+#panel-assistant button.primary::after { content: none; }
+#panel-assistant button.danger {
+  color: #ffd9df;
+  border-color: rgba(255, 107, 129, 0.55);
+  background: rgba(255, 107, 129, 0.14);
+}
+#panel-assistant button.small { padding: 7px 12px; font-size: calc(12px * var(--scale)); }
+
+/* The level chooser reads as one segmented control rather than six pills that
+   happen to be standing next to each other. */
+#panel-assistant .singu-levels {
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--warm-line);
+  border-radius: 14px;
+  background: var(--warm-3);
+}
+#panel-assistant .singu-level {
+  padding: 7px 13px;
+  font-size: calc(12.5px * var(--scale));
+  border-color: transparent;
+  border-radius: 10px;
+  background: transparent;
+}
+#panel-assistant .singu-level:hover:not(.on) {
+  color: var(--warm-text);
+  border-color: transparent;
+  background: var(--clay-soft);
+}
+#panel-assistant .singu-level.on {
+  color: var(--clay-ink);
+  border-color: var(--clay);
+  background: var(--clay);
+  box-shadow: none;
+  font-weight: 600;
+}
+#panel-assistant .singu-level.on:hover:not(:disabled) { color: var(--clay-ink); background: var(--clay-lift); }
+
+/* The brief is the composer: a wide, quiet box with serif-free prose in it. */
+#panel-assistant .singu-prompt {
+  min-height: 96px;
+  padding: 14px 16px;
+  border: 1px solid var(--warm-line-2);
+  border-radius: 16px;
+  background: var(--warm-2);
+  color: var(--warm-text);
+  font: 400 calc(15px * var(--scale)) / 1.65 var(--sans);
+}
+#panel-assistant .singu-prompt:focus { border-color: var(--clay); box-shadow: 0 0 0 3px var(--clay-ring); }
+#panel-assistant .singu-prompt::placeholder { color: var(--warm-dim); opacity: 0.85; }
+
+/* Generated C is still source code, so it keeps the mono face - only the
+   surface it sits on changes. The terminal stays a terminal: green on black
+   is the honest readout of a sandbox, and it survives the daylight theme too. */
+#panel-assistant .singu-code {
+  padding: 14px 16px;
+  border: 1px solid var(--warm-line);
+  border-radius: 14px;
+  background: var(--warm-3);
+  color: #efe4d9;
+  caret-color: var(--clay);
+}
+#panel-assistant .terminal-shell {
+  clip-path: none;
+  border-color: var(--warm-line);
+  border-radius: 16px;
+  background: #0b0908;
+}
+#panel-assistant .terminal-head {
+  border-bottom-color: var(--warm-line);
+  background: linear-gradient(180deg, #221d19, #1a1613);
+  color: var(--warm-dim);
+}
+
+/* The long "what this is" paragraph, the pills and the meters. */
+#panel-assistant .note {
+  padding: 14px 18px;
+  border-inline-start: 3px solid var(--clay);
+  border-radius: 0 14px 14px 0;
+  background: linear-gradient(90deg, var(--clay-soft), rgba(217, 119, 87, 0.02));
+  color: var(--warm-text);
+  font-size: 0.95em;
+  line-height: 1.72;
+}
+#panel-assistant .note.warn {
+  border-color: var(--warn);
+  background: linear-gradient(90deg, rgba(247, 185, 85, 0.12), rgba(247, 185, 85, 0.02));
+}
+#panel-assistant .pill {
+  font: 600 calc(11.5px * var(--scale)) / 1 var(--sans);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  padding: 5px 11px;
+}
+#panel-assistant .pill.ok { color: var(--ok); background: rgba(87, 214, 141, 0.1); }
+#panel-assistant .pill.partial { color: var(--warn); background: rgba(247, 185, 85, 0.1); }
+#panel-assistant .list li {
+  border-inline-start-color: var(--warm-line-2);
+  font-size: 0.95em;
+  line-height: 1.6;
+}
+#panel-assistant .list li.partial { border-color: var(--warn); }
+#panel-assistant .singu-plan { gap: 8px; font-size: 0.95em; line-height: 1.6; }
+#panel-assistant .singu-plan li { color: var(--warm-text); }
+#panel-assistant .singu-catalog summary { color: var(--clay); }
+#panel-assistant progress.bar { border-color: var(--warm-line); background: var(--warm-3); }
+#panel-assistant progress.bar::-webkit-progress-bar { background: var(--warm-3); }
+#panel-assistant progress.bar::-webkit-progress-value { background: linear-gradient(90deg, var(--clay), var(--clay-lift)); }
+#panel-assistant progress.bar::-moz-progress-bar { background: var(--clay); }
+
+/* Daylight: the same warm family on paper rather than on soot. The clay has to
+   darken to hold 4.5:1 as text, which is what the pills and the summary use,
+   and the hover ground has to invert, because a white text-on-white hover is
+   what a literal colour would have produced here. Every rule below is a token:
+   no selector is re-declared per theme. */
+html[data-theme='light'] #panel-assistant {
+  --clay: #b2471f;
+  --clay-lift: #a13d18;
+  --clay-deep: #8d3a19;
+  --clay-ink: #fdf7f2;
+  --clay-soft: rgba(178, 71, 31, 0.09);
+  --clay-ring: rgba(178, 71, 31, 0.24);
+  --sand: #8a7a6d;
+  --warm: #fffdfa;
+  --warm-2: #faf5ee;
+  --warm-3: #f4ece1;
+  --warm-hover: #ffffff;
+  --warm-hover-ink: #8d3a19;
+  --warm-line: #e6dbcb;
+  --warm-line-2: #cbb9a4;
+  --warm-text: #2a221c;
+  --warm-dim: #6d5f53;
+}
+html[data-theme='light'] #panel-assistant .singu-code { color: #2a221c; }
+
+/* High contrast: the warm family is the one thing that has to give, because
+   this mode exists to remove exactly this kind of tinting. */
+html[data-contrast='high'] #panel-assistant {
+  --clay: #ffb38a;
+  --clay-lift: #ffc7a8;
+  --clay-deep: #ffb38a;
+  --clay-ink: #000000;
+  --clay-soft: rgba(255, 179, 138, 0.16);
+  --clay-ring: rgba(255, 179, 138, 0.55);
+  --sand: #ffd9c2;
+  --warm: #000000;
+  --warm-2: #0a0807;
+  --warm-3: #000000;
+  --warm-hover: #1a1a1a;
+  --warm-hover-ink: #ffffff;
+  --warm-line: #8a8a8a;
+  --warm-line-2: #bdbdbd;
+  --warm-text: #ffffff;
+  --warm-dim: #f2e9e2;
+}
+
+/* Light *and* high contrast together. Both toggles are independent, so this
+   combination is reachable from the UI, and the two blocks above cannot serve
+   it: the page turns to paper (the global light block follows the global high
+   contrast one) while the panel would still be holding white-on-soot tokens,
+   which is white text on a pale ground. So the pairing gets its own tokens -
+   paper and black ink, with the clay darkened until it carries the contrast
+   the soot version got from the ground: #7a3215 is 9.2:1 on white, both as
+   text and as the ground under white ink. */
+html[data-theme='light'][data-contrast='high'] #panel-assistant {
+  --clay: #7a3215;
+  --clay-lift: #6b2b12;
+  --clay-deep: #7a3215;
+  --clay-ink: #ffffff;
+  --clay-soft: rgba(122, 50, 21, 0.08);
+  --clay-ring: rgba(122, 50, 21, 0.6);
+  --sand: #4a3a2c;
+  --warm: #ffffff;
+  --warm-2: #ffffff;
+  --warm-3: #f6f1e9;
+  --warm-hover: #ffffff;
+  --warm-hover-ink: #7a3215;
+  --warm-line: #000000;
+  --warm-line-2: #000000;
+  --warm-text: #000000;
+  --warm-dim: #241b14;
+}
+html[data-theme='light'][data-contrast='high'] #panel-assistant .singu-code { color: #000000; }
+
+@media (max-width: 620px) {
+  #panel-assistant .card,
+  #panel-assistant .mod-head { padding: 16px; border-radius: 14px; }
+  #panel-assistant h4 { margin-top: 18px; }
+}
