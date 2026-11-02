@@ -75,7 +75,7 @@ const state = {
   peerClocks: new Map(),
   serviceWorker: { status: 'pending' },
   perf: { jsBytes: 0, gzip: null, lcp: null, inp: null, memory: null },
-  a11y: { motion: 'auto', contrast: 'normal', scale: '1', dir: 'ltr', fx: 'auto', theme: 'dark' },
+  a11y: { motion: 'auto', contrast: 'normal', scale: '1', dir: 'ltr', fx: 'off', theme: 'dark' },
   transientTheme: false,
   activePanel: 'dashboard',
   listeners: [],
@@ -237,9 +237,13 @@ function ringContents(score, max, tierName) {
   const circumference = 2 * Math.PI * radius;
   const arc = Math.max(0, Math.min(1, score / max)) * circumference;
   const gradient = svgEl('linearGradient', { id: 'ringArc', x1: '0%', y1: '0%', x2: '100%', y2: '100%' }, [
-    svgEl('stop', { offset: '0%', 'stop-color': '#6ea8fe' }),
-    svgEl('stop', { offset: '55%', 'stop-color': '#b39ddb' }),
-    svgEl('stop', { offset: '100%', 'stop-color': '#4dd0e1' }),
+    // The three stops are classes, not colours: an SVG presentation attribute
+    // cannot read a custom property, so a hardcoded gradient shipped the same
+    // bright blue on the daylight page, where it is under the 3:1 a graphic
+    // needs against paper. The theme's own accent set paints it instead.
+    svgEl('stop', { class: 'ring-stop-a', offset: '0%' }),
+    svgEl('stop', { class: 'ring-stop-b', offset: '55%' }),
+    svgEl('stop', { class: 'ring-stop-c', offset: '100%' }),
   ]);
   // The centre number starts at zero and powers up on first paint; the
   // final value is honest, this is only the reveal.
@@ -265,7 +269,7 @@ function ringContents(score, max, tierName) {
       // Pulsing core at the centre of the ring.
       svgEl('circle', { class: 'ring-core', cx: '94', cy: '94', r: '16' }),
       svgEl('text', { class: 'ring-score', x: '94', y: '98', 'text-anchor': 'middle', 'data-target': String(score), text: centre }),
-      svgEl('text', { class: 'ring-max', x: '94', y: '118', 'text-anchor': 'middle', text: `OF ${max}` }),
+      svgEl('text', { class: 'ring-max', x: '94', y: '118', 'text-anchor': 'middle', text: `of ${max}` }),
     ]),
     el('span', { class: 'ring-cap', text: `points band: ${tierName}` }),
   ];
@@ -549,7 +553,7 @@ function updateDocMeta() {
     `clock ${s.clock}`,
   ];
   if (s.buffered) parts.push(`${s.buffered} buffered`);
-  refs.docMeta.appendChild(el('span', { class: state.offline ? 'warn' : 'dim', text: state.offline ? 'OFFLINE' : 'LIVE' }));
+  refs.docMeta.appendChild(el('span', { class: state.offline ? 'warn' : 'dim', text: state.offline ? 'Offline' : 'Live' }));
   for (const part of parts) {
     refs.docMeta.appendChild(el('span', { class: 'sep', 'aria-hidden': 'true', text: '·' }));
     refs.docMeta.appendChild(el('span', { text: part }));
@@ -824,7 +828,7 @@ function renderEditor(root) {
   state.peerListEl = peers;
 
   const offlineBtn = button(state.offline ? 'Go online (sync)' : 'Go offline (airplane mode)', toggleOffline, state.offline ? 'primary' : '');
-  const offlineChip = chip(state.offline ? 'OFFLINE — edits buffered' : 'ONLINE', state.offline ? 'warn' : 'ok');
+  const offlineChip = chip(state.offline ? 'Offline — edits buffered' : 'Online', state.offline ? 'warn' : 'ok');
 
   root.appendChild(
     el('div', { class: 'panel' }, [
@@ -1383,7 +1387,7 @@ async function renderEngine(root) {
   // but the shape of them, which is what tells you whether 60 FPS is steady.
   const scope = sparkline({ label: 'Frames per second over the last 60 samples' });
   const scopeBox = el('div', { class: 'scope mt-10' }, [
-    el('span', { class: 'tl-k', text: 'FRAME RATE · LAST 60 SAMPLES' }),
+    el('span', { class: 'tl-k', text: 'Frame rate · last 60 samples' }),
     el('div', { class: 'scope-plot' }, [scope.node]),
   ]);
   const probeStatus = el('p', {
@@ -1886,7 +1890,7 @@ async function renderCrypto(root) {
         statCard('Key agreement', c.variant.name, 'first choice: X25519'),
         statCard('Message AEAD', 'AES-256-GCM', 'unique nonce per message'),
         statCard('Ratchet', 'Double Ratchet', 'forward secrecy + PCS'),
-        statCard('Prekey bundle', c.bundleVerified ? 'signature verified' : 'NOT VERIFIED', 'checked before key derivation'),
+        statCard('Prekey bundle', c.bundleVerified ? 'signature verified' : 'not verified', 'checked before key derivation'),
         statCard('Safety number', formatSafetyNumber(c.sn).split(' ').slice(0, 3).join(' ') + ' ...', 'compare out of band'),
       ]),
     );
@@ -1988,7 +1992,7 @@ async function renderCrypto(root) {
     const after = await sha256(round);
     const ok = b64(before) === b64(after);
     transcript.appendChild(
-      el('p', { class: ok ? 'ok' : 'bad', text: `chunked file AEAD: ${frames.length} frames, ${payload.length.toLocaleString()} bytes -> round-trip ${ok ? 'verified' : 'FAILED'} (sha-256 match), memory bounded to one frame at a time` }),
+      el('p', { class: ok ? 'ok' : 'bad', text: `chunked file AEAD: ${frames.length} frames, ${payload.length.toLocaleString()} bytes -> round-trip ${ok ? 'verified' : 'failed'} (sha-256 match), memory bounded to one frame at a time` }),
     );
   };
 
@@ -2006,7 +2010,7 @@ async function renderCrypto(root) {
         ]),
         el('div', { class: 'mt-12' }, [field('Message to encrypt', input)]),
       ]),
-      status,
+      card('Key material and safety number', [status]),
       card('Identity at rest (key sealing)', [atRest]),
       el('div', { class: 'grid two' }, [
         card('Wire transcript', [transcript]),
@@ -2501,13 +2505,15 @@ async function renderMesh(root) {
       note('The relay carrier carries the same mesh envelopes as the other two transports, so presence and document operations flow over whichever carrier a peer is reachable on. A peer seen on more than one carrier is counted once; the buttons above call the same functions the command palette does.', 'warn'),
       card('Mesh scope', [radar.node]),
       stats,
-      card('Relay inspector', [relayPanel]),
-      card('Recovery behaviour', [
-        el('ul', { class: 'checklist' }, [
-          el('li', { text: 'Peers missing a heartbeat for 12s are pruned from presence' }),
-          el('li', { text: 'A closing tab broadcasts “bye” so presence updates immediately' }),
-          el('li', { text: 'A tab that wakes up re-requests the full op log and merges it (idempotent, so nothing doubles)' }),
-          el('li', { text: 'Send failures are counted, never swallowed' }),
+      el('div', { class: 'grid two' }, [
+        card('Relay inspector', [relayPanel]),
+        card('Recovery behaviour', [
+          el('ul', { class: 'checklist' }, [
+            el('li', { text: 'Peers missing a heartbeat for 12s are pruned from presence' }),
+            el('li', { text: 'A closing tab broadcasts “bye” so presence updates immediately' }),
+            el('li', { text: 'A tab that wakes up re-requests the full op log and merges it (idempotent, so nothing doubles)' }),
+            el('li', { text: 'Send failures are counted, never swallowed' }),
+          ]),
         ]),
       ]),
     ]),
@@ -2650,16 +2656,18 @@ function renderOffline(root) {
     el('div', { class: 'panel' }, [
       moduleHead('M6', 'Offline-first sync and storage', 'An append-only op log in IndexedDB with compacted snapshots, versioned migrations, and a service worker that precaches the shell. Close the network tab, keep editing, and everything still works.'),
       card('Local persistence', [info, quotaBar]),
-      card('Offline capability', [swInfo]),
-      card('Automatic test coverage', [
-        el('ul', { class: 'checklist' }, [
-          el('li', { text: 'The whole language surface (ternary, switch, structs, casts, malloc family, scanf) has its own suite: tests/lang.test.js' }),
-          el('li', { text: 'The heap is fail-closed: null, use-after-free, overrun and exhaustion are all tested' }),
-          el('li', { text: 'Ops round-trip through IndexedDB verbatim and in order' }),
-          el('li', { text: 'Documents and meta survive a reopen' }),
-          el('li', { text: 'Compaction keeps the snapshot and clears the log' }),
-          el('li', { text: 'v1 → v2 migration adds the files store without losing a single row' }),
-          el('li', { text: 'File frames come back ordered per stream' }),
+      el('div', { class: 'grid two' }, [
+        card('Offline capability', [swInfo]),
+        card('Automatic test coverage', [
+          el('ul', { class: 'checklist' }, [
+            el('li', { text: 'The whole language surface (ternary, switch, structs, casts, malloc family, scanf) has its own suite: tests/lang.test.js' }),
+            el('li', { text: 'The heap is fail-closed: null, use-after-free, overrun and exhaustion are all tested' }),
+            el('li', { text: 'Ops round-trip through IndexedDB verbatim and in order' }),
+            el('li', { text: 'Documents and meta survive a reopen' }),
+            el('li', { text: 'Compaction keeps the snapshot and clears the log' }),
+            el('li', { text: 'v1 → v2 migration adds the files store without losing a single row' }),
+            el('li', { text: 'File frames come back ordered per stream' }),
+          ]),
         ]),
       ]),
     ]),
@@ -2670,9 +2678,10 @@ function renderOffline(root) {
 // ------------------------------------------------------------------ M7 a11y
 
 /**
- * Visual effects resolve to full, reduced or off. 'auto' follows the motion
- * preference, so a user who has asked their system for reduced motion never gets
- * the drifting aurora and never has to hunt for the switch.
+ * Visual effects resolve to full, reduced or off, and the default is off: the
+ * page is a document first and the instrument is one switch away. 'auto' hands
+ * the choice to the motion preference, so a user who has asked their system for
+ * reduced motion never gets the drifting aurora and never has to hunt for it.
  */
 function resolveFx() {
   if (state.a11y.fx === 'off') return 'off';
@@ -2692,9 +2701,9 @@ function syncThemeToggle() {
   button.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
   button.title = light ? 'Switch to dark theme' : 'Switch to light theme';
   const label = button.querySelector('.theme-toggle-label');
-  if (label) label.textContent = light ? 'DARK' : 'LIGHT';
+  if (label) label.textContent = light ? 'Dark' : 'Light';
   const meta = document.getElementById('meta-theme-color');
-  if (meta) meta.setAttribute('content', light ? '#edf1f8' : '#06090d');
+  if (meta) meta.setAttribute('content', light ? '#f2f5fa' : '#0b0e13');
 }
 
 function toggleTheme() {
@@ -2790,13 +2799,13 @@ function renderA11y(root) {
     },
   });
   for (const [value, label] of [
-    ['auto', 'Automatic - follows the motion setting above'],
-    ['full', 'Full - starfield, hex rain, aurora, nebula, scanlines, sweeping light, deck frame, parallax, warp wipe'],
-    ['reduced', 'Reduced - first paint kept, motion stopped'],
-    ['off', 'Off - flat and fastest to paint (the readouts stay, the chrome goes)'],
+    ['off', 'Off - the page as a document (what a first visit gets)'],
+    ['auto', 'Automatic - full, unless the system asks for reduced motion'],
+    ['full', 'Full instrument - starfield, hex rain, aurora, scanlines, cut corners, sweeping light'],
+    ['reduced', 'Reduced - the skin stays, the motion stops'],
   ]) {
     const opt = el('option', { value, text: label });
-    if ((state.a11y.fx || 'auto') === value) opt.selected = true;
+    if ((state.a11y.fx || 'off') === value) opt.selected = true;
     fx.appendChild(opt);
   }
 
@@ -2886,17 +2895,19 @@ function renderA11y(root) {
         el('p', { class: 'dim small', text: 'Renderers are invisible to assistive tech by default. The engine exposes a live description; the M3 panel renders the same tree visually.' }),
         el('pre', { class: 'terminal', text: state.renderer ? state.renderer.describeScene().summary : 'Engine not started yet — open M3, then return here.' }),
       ]),
-      card('Accessibility contract - live audit', [
-        el('p', { class: 'dim small', text: 'The rules are code, not prose: src/ui/a11y-contract.js walks the live document and reports what a screen reader would find wrong - unnamed controls, skipped heading levels, a missing main landmark, an image with no alternative, positive tabindex, a canvas with no text alternative, a focusable element hidden from assistive tech, a malformed live region. Each finding names its rule and its WCAG clause, and the audit lists what it did not check so a pass is not mistaken for a complete one.' }),
-        el('div', { class: 'row gap-8' }, [
-          button('Run the audit', () => { runAudit(); }),
-          button('Show the parallel tree', () => { runTree(); }),
+      el('div', { class: 'grid two' }, [
+        card('Accessibility contract - live audit', [
+          el('p', { class: 'dim small', text: 'The rules are code, not prose: src/ui/a11y-contract.js walks the live document and reports what a screen reader would find wrong - unnamed controls, skipped heading levels, a missing main landmark, an image with no alternative, positive tabindex, a canvas with no text alternative, a focusable element hidden from assistive tech, a malformed live region. Each finding names its rule and its WCAG clause, and the audit lists what it did not check so a pass is not mistaken for a complete one.' }),
+          el('div', { class: 'row gap-8' }, [
+            button('Run the audit', () => { runAudit(); }),
+            button('Show the parallel tree', () => { runTree(); }),
+          ]),
+          auditSummary,
+          auditOut,
         ]),
-        auditSummary,
-        auditOut,
-      ]),
-      card('Where this is honest about its limits', [
-        note('A real NVDA 2026.2 session on Windows Edge drove all eight panels, the editor, the M3 canvas and Bangla/Arabic/RTL: every panel heading was announced, the canvas read its text alternative, and the language switches were tagged and read (Bangla and Arabic voices are not installed on this machine). VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. Bangla and Arabic shaping inside the code editor is deferred to the browser’s own text layout; the app sets lang and dir correctly and keeps code LTR.', 'warn'),
+        card('Where this is honest about its limits', [
+          note('A real NVDA 2026.2 session on Windows Edge drove all eight panels, the editor, the M3 canvas and Bangla/Arabic/RTL: every panel heading was announced, the canvas read its text alternative, and the language switches were tagged and read (Bangla and Arabic voices are not installed on this machine). VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. Bangla and Arabic shaping inside the code editor is deferred to the browser’s own text layout; the app sets lang and dir correctly and keeps code LTR.', 'warn'),
+        ]),
       ]),
     ]),
   );
@@ -2960,7 +2971,7 @@ function renderSecurity(root) {
       card('Live response headers', [headerBox]),
       card('Injection probe', [
         field('Hostile input', probeInput),
-                 el('div', { class: 'row mt-10' }, [button('Attempt innerHTML injection', runProbe, 'danger'), button('Attempt eval()', () => {
+        el('div', { class: 'row mt-10' }, [button('Attempt innerHTML injection', runProbe, 'danger'), button('Attempt eval()', () => {
           clear(probeOut);
           let blocked = false;
           let message = '';
@@ -3028,9 +3039,11 @@ function sparkline({ width = 240, height = 40, label = 'trend' }) {
   // Gradient ids must be unique per SVG: two sparklines on one page would
   // otherwise share an id, which is invalid markup and unpredictable.
   const fillId = `sparkFill${++sparkCount}`;
+  // The colour comes from the theme, the fade from the attributes: a stop-color
+  // presentation attribute cannot read a custom property, so the hue is a class.
   const gradient = svgEl('linearGradient', { id: fillId, x1: '0%', y1: '0%', x2: '0%', y2: '100%' }, [
-    svgEl('stop', { offset: '0%', 'stop-color': '#4dd0e1', 'stop-opacity': '0.45' }),
-    svgEl('stop', { offset: '100%', 'stop-color': '#4dd0e1', 'stop-opacity': '0.02' }),
+    svgEl('stop', { class: 'spark-stop-a', offset: '0%', 'stop-opacity': '0.45' }),
+    svgEl('stop', { class: 'spark-stop-b', offset: '100%', 'stop-opacity': '0.02' }),
   ]);
   const area = svgEl('polyline', { class: 'spark-area', points: '', fill: `url(#${fillId})` });
   const line = svgEl('polyline', { class: 'spark-line', points: '' });
@@ -3126,7 +3139,7 @@ function startTelemetry() {
   const cells = new Map();
   const spark = performance.memory ? sparkline({ label: 'JS heap, last 60 samples' }) : null;
   const nodes = [
-    el('span', { class: 'tl-live', text: 'TELEMETRY' }),
+    el('span', { class: 'tl-live', text: 'Telemetry' }),
     ...TELEMETRY_FIELDS.map(([key, label]) => {
       const value = el('b', { class: 'tl-v', text: '—' });
       cells.set(key, value);
@@ -3283,12 +3296,12 @@ function paletteCommands() {
       when: () => Boolean(state.relayCarrier),
       run: () => relayDisconnect(),
     },
+    { group: 'Display', name: 'Visual effects: off (the page as a document)', keywords: 'flat performance calm', run: () => setPref('fx', 'off') },
     { group: 'Display', name: 'Visual effects: automatic (follow the motion setting)', keywords: 'aurora default reset', run: () => setPref('fx', 'auto') },
-    { group: 'Display', name: 'Visual effects: full', keywords: 'aurora scanlines animation', run: () => setPref('fx', 'full') },
+    { group: 'Display', name: 'Visual effects: full instrument', keywords: 'aurora scanlines animation starfield cut corners', run: () => setPref('fx', 'full') },
     { group: 'Display', name: 'Visual effects: reduced', keywords: 'calm animation', run: () => setPref('fx', 'reduced') },
-    { group: 'Display', name: 'Visual effects: off (fastest)', keywords: 'flat performance', run: () => setPref('fx', 'off') },
-    { group: 'Display', name: 'Theme: dark (deep space)', keywords: 'night theme color scheme', run: () => setPref('theme', 'dark') },
-    { group: 'Display', name: 'Theme: light (daylight instrument)', keywords: 'day theme color scheme', run: () => setPref('theme', 'light') },
+    { group: 'Display', name: 'Theme: dark (default)', keywords: 'night theme color scheme', run: () => setPref('theme', 'dark') },
+    { group: 'Display', name: 'Theme: light (daylight)', keywords: 'day theme color scheme', run: () => setPref('theme', 'light') },
     { group: 'Display', name: 'High contrast', keywords: 'forced colours accessibility', run: () => setPref('contrast', 'high') },
     { group: 'Display', name: 'Normal contrast', keywords: 'accessibility', run: () => setPref('contrast', 'normal') },
     { group: 'Display', name: 'Reduce motion', keywords: 'animation accessibility', run: () => setPref('motion', 'reduced') },
@@ -3349,7 +3362,7 @@ function buildPalette() {
     { class: 'palette', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette', dataset: { open: 'false' } },
     [
       el('div', { class: 'palette-box' }, [
-        el('div', { class: 'palette-head' }, [el('span', { class: 'tl-k', text: 'COMMAND' }), input]),
+        el('div', { class: 'palette-head' }, [el('span', { class: 'tl-k', text: 'Command' }), input]),
         list,
         el('div', { class: 'palette-foot' }, [
           el('span', { text: 'up/down move' }),
@@ -3591,7 +3604,7 @@ const MODULE_STATUS = [
   { id: 'M6', title: 'Offline-first sync engine', status: 'ok', points: 85, note: 'IndexedDB op log, snapshots, quota awareness and migrations proven from v1, a scope-relative service worker verified with the server stopped, and log trimming with a snapshot fallback for peers catching up.' },
   { id: 'M7', title: 'Accessibility and internationalisation', status: 'partial', points: 66, note: 'Semantics, keyboard map, live regions, text alternative tree, contrast/motion/scale/RTL preferences, a visual-effects switch, and a 12-rule audit contract. A real NVDA 2026.2 pass over all eight panels, the editor, the canvas and Bangla/Arabic/RTL announced every panel heading and read the canvas and language text; the pass found and fixed a focus-loss bug, a focus-restore bug and the unnamed canvas. VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows are still unvalidated. The tile carries the evidence-backed score (66/100); the structural ceiling is 83/100 and the reviewer\'s latest mark is 70/100.' },
   { id: 'M8', title: 'Hostile-environment hardening', status: 'partial', points: 72, note: 'Strict CSP with Trusted Types and a one-policy allowlist; on the canonical GitHub Pages host the policy arrives only as a meta tag, where the header-only directives cannot be confirmed as enforced. _headers carries frame-ancestors/COOP/COEP for hosts that read it. No markup sinks, sandbox isolation, flood limiting, deploy-time SRI keyed to the build (with the integrity manifest the worker verifies at boot) and a STRIDE model. A ZAP baseline scan is archived; an internal 22-check adversarial pass is in docs/reports/red-team-session.md, while the active scan and third-party red-team are not done, and the module note says so.' },
-  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 130.1 KiB gzip against a 170 KB budget, a 60-minute soak two orders of magnitude under the memory budget that ends above where it started, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse 95 / 100 / 100 / 100 in both form factors. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
+  { id: 'M9', title: 'Performance and reliability budget (cross-cutting)', status: 'partial', points: 88, note: 'Cold-load 130.4 KiB gzip against a 170 KB budget, a 60-minute soak two orders of magnitude under the memory budget that ends above where it started, 1,000-client relay with 0 loss, durability across every reload delay, and Lighthouse desktop 99 / 100 / 100 / 100 with mobile at 94 on Performance against a ≥ 95 target. LCP on throttled 4G and frame rate met; a 10,000-session rig does not exist.' },
   { id: 'M10', title: 'Module integration and release discipline (cross-cutting)', status: 'partial', points: 69, note: 'Honest scorecard gated by check-docs, test-count generation, integrity manifest verified at boot, pre-commit hook and reviewer quick-start; third-party red-team and chaos evidence still missing.' },
 ];
 
@@ -3632,20 +3645,20 @@ function adoptHero(score, band) {
     // from 1.21 s to 1.54 s for no visual change. Only rewrite when the shipped
     // numbers actually differ (a stale deploy, or a document without the hero).
     const labels = [
-      '8 MODULES',
-      '0 NPM DEPS',
-      `${TEST_TOTALS.browser} tests GREEN`,
-      'MIT OPEN SOURCE',
-      'TRUSTED TYPES ENFORCED',
+      '8 modules',
+      '0 npm deps',
+      `${TEST_TOTALS.browser} tests green`,
+      'MIT open source',
+      'Trusted Types enforced',
     ];
     const current = Array.from(badges.children, (child) => child.textContent.trim());
     if (current.join('\n') !== labels.join('\n')) {
       badges.replaceChildren(
-        chip('8 MODULES', 'accent'),
-        chip('0 NPM DEPS', 'ok'),
-        chip(`${TEST_TOTALS.browser} tests GREEN`, 'ok'),
-        chip('MIT OPEN SOURCE', 'ok'),
-        chip('TRUSTED TYPES ENFORCED', 'ok'),
+        chip('8 modules', 'accent'),
+        chip('0 npm deps', 'ok'),
+        chip(`${TEST_TOTALS.browser} tests green`, 'ok'),
+        chip('MIT open source', 'ok'),
+        chip('Trusted Types enforced', 'ok'),
       );
     }
   }
@@ -3739,7 +3752,7 @@ const SHOTS = [
     height: 907,
     title: 'Dashboard · daylight',
     note: 'The same page through the header toggle. Tokens invert; the instrument does not.',
-    tag: 'THEME',
+    tag: 'Theme',
   },
   {
     src: 'assets/screenshots/editor.png',
@@ -3759,11 +3772,11 @@ const SHOTS = [
   },
   {
     src: 'assets/screenshots/mobile-dashboard.png',
-    width: 966,
-    height: 1644,
+    width: 780,
+    height: 1688,
     title: 'Mobile · 390 px',
     note: 'The same shell at phone width: tabs scroll, telemetry wraps, nothing is hidden.',
-    tag: 'RESPONSIVE',
+    tag: 'Mobile',
   },
 ];
 
@@ -3846,7 +3859,7 @@ const CASE_STUDIES = [
     problem: 'Provide a real 3D scene on a strict JavaScript budget and a WebGL2-only compatibility target.',
     decision: 'Instanced draws with vertex-shader animation, a depth-only PCF shadow pass, particles generated from gl_VertexID, and a physically based shader lit by two real sources: a shadowed directional sun and an image-based sky built from a deterministic procedural environment (band-2 SH diffuse irradiance cube, six-level GGX-importance-sampled specular prefilter chain uploaded as explicit mip levels and sampled at roughness * 5, with the split-sum Fresnel term read from a 64x64 RG16F BRDF integration LUT computed at boot). A glTF 2.0 loader parses JSON and GLB into the same pipeline, materialises images/samplers/textures, computes mikkelsen tangents, uploads SRGB8_ALPHA8 base-colour and RGBA8 normal maps, parses skins and animation clips, and parses up to four morph targets with position and normal deltas plus weights channels. src/graphics/skin.js evaluates the rig and the weights track; the vertex shader applies morph deltas before blending four joints per vertex from an RGBA32F bone texture refreshed once per frame, so joint count is not capped by the uniform budget, and the depth pass morphs and skins identically.',
     tradeoff: 'The BRDF LUT is computed at boot (128 GGX samples per texel) rather than loaded from an authored asset, so it is deterministic but not validated against a reference implementation. The measured HDR probe rebuilds both cubes, but its specular chain uses 32 base samples against the procedural path\'s 64. Skinning is linear-blend with four influences and no dual-quaternion option; morph targets are limited to four per primitive with POSITION/NORMAL deltas - TANGENT and UV deltas, more than four targets, and non-joint node animation are refused by name. WebGPU is an explicit non-goal (docs/NON_GOALS.md): the WebGL2 path is the compatibility target and a second backend would attach to nothing measurable. Normals are generated flat when absent, and the material model is deliberately narrow.',
-    evidence: '24 renderer, 29 glTF, 11 rig, 5 BRDF and 15 environment tests; browser tests drive the shipped core and skinned/morphed GLBs through the real shader pipeline and require gl.getError() === NO_ERROR, including the totem\'s CUBICSPLINE weights track reaching full at 1.5 s. 100k instances and 1M particles in 4 draw calls; 60 FPS at defaults and 58 at maximum on the measured machine. 93/100.',
+    evidence: '24 renderer, 29 glTF, 11 rig, 5 BRDF and 15 environment tests; browser tests drive the shipped core and skinned/morphed GLBs through the real shader pipeline and require gl.getError() === NO_ERROR, including the totem\'s CUBICSPLINE weights track reaching full at 1.5 s. 100k instances and 1M particles in 12 draw calls including the shadow pass; 60 FPS at defaults and at maximum on an idle machine, which is also the display ceiling - no artifact covers this row. 93/100.',
   },
   {
     id: 'crypto',
@@ -3894,7 +3907,7 @@ const CASE_STUDIES = [
     problem: 'An instrument-dense interface has to remain usable with a keyboard, a screen reader, high contrast and 200% text.',
     decision: 'Use semantic elements, a roving-tabindex tablist, live regions, a text alternative for the 3D scene, and preferences for motion, contrast, scale, direction, language and theme. Code stays left-to-right in RTL layouts.',
     tradeoff: 'A real NVDA 2026.2 session covers all eight panel headings, the editor, the M3 canvas and Bangla/Arabic/RTL; VoiceOver/TalkBack and the deeper M2/M4/M5/M6 flows remain unvalidated. Bangla and Arabic shaping in the editor is delegated to the browser text layout; the panel labels are translated, not the whole app.',
-    evidence: 'axe-core: 0 violations and 469 passing checks. 8 motion tests; 194 interactive controls with accessible names. NVDA 2026.2 session: 17/17 steps, every panel heading announced, M3 canvas read, Bangla/Arabic lang tags verified. Evidence-backed score 66/100 against a structural ceiling of 83/100 - VoiceOver/TalkBack and deeper module flows are the remaining gap; the reviewer\'s latest mark is 70/100.',
+    evidence: 'axe-core: 0 violations and 477 passing checks. 8 motion tests; 290 interactive controls with accessible names across the ten views. NVDA 2026.2 session: 17/17 steps, every panel heading announced, M3 canvas read, Bangla/Arabic lang tags verified. Evidence-backed score 66/100 against a structural ceiling of 83/100 - VoiceOver/TalkBack and deeper module flows are the remaining gap; the reviewer\'s latest mark is 70/100.',
   },
   {
     id: 'security',
@@ -3964,7 +3977,7 @@ function caseStudy() {
   return el('div', { class: 'case-study' }, [
     el('div', { class: 'case-brief' }, [
       el('div', {}, [el('b', { text: 'What' }), el('span', { text: 'One page, eight modules, no framework in the shipped bundle.' })]),
-      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '471 automated tests, 20 published measurements, 0 axe violations.' }), el('a', { href: new URL('../docs/reports/measurements.json', import.meta.url).href, target: '_blank', rel: 'noopener', text: 'the evidence index behind those numbers' })]),
+      el('div', {}, [el('b', { text: 'Proof' }), el('span', { text: '471 automated tests, 21 published measurements, 0 axe violations.' }), el('a', { href: new URL('../docs/reports/measurements.json', import.meta.url).href, target: '_blank', rel: 'noopener', text: 'the evidence index behind those numbers' })]),
       el('div', {}, [el('b', { text: 'Cost' }), el('span', { text: 'Five modules are partial; every row says exactly what is missing.' })]),
     ]),
     el('p', {
@@ -4095,8 +4108,8 @@ function repoSignals() {
       text: `Counts are a snapshot taken ${REPO_SNAPSHOT}, not a runtime request: connect-src stays 'self', so the page works offline and no third party sees a visit. GitHub is the live source of truth.`,
     }),
     el('div', { class: 'about-links' }, [
-      el('a', { href: REPO_URL, target: '_blank', rel: 'noopener', text: 'STAR ON GITHUB' }),
-      el('a', { href: LIVE_URL, target: '_blank', rel: 'noopener', text: 'LIVE DEPLOYMENT' }),
+      el('a', { href: REPO_URL, target: '_blank', rel: 'noopener', text: 'Star on GitHub' }),
+      el('a', { href: LIVE_URL, target: '_blank', rel: 'noopener', text: 'Live deployment' }),
     ]),
   ]);
 }
@@ -4137,11 +4150,11 @@ function aboutSection() {
     ]),
     el('p', { class: 'small dim', text: 'Everything is open. Read the source, run the suite, and hold the numbers to what the pages claim - issues and pull requests are read.' }),
     el('div', { class: 'about-links' }, [
-      link(REPO_URL, 'SOURCE · GITHUB', 'arrow', true),
-      link(`mailto:${CONTACT_EMAIL}`, 'EMAIL THE AUTHOR', 'mail', false),
-      link('tests/browser.html', 'TESTS IN THIS BROWSER', 'play', true),
-      link('docs/demo/demo.mp4', 'DEMO VIDEO · 15 MIN', 'play', true),
-      link(LIVE_URL, 'LIVE DEPLOYMENT', 'arrow', true),
+      link(REPO_URL, 'Source · GitHub', 'arrow', true),
+      link(`mailto:${CONTACT_EMAIL}`, 'Email the author', 'mail', false),
+      link('tests/browser.html', 'Tests in this browser', 'play', true),
+      link('docs/demo/demo.mp4', 'Demo video · 15 min', 'play', true),
+      link(LIVE_URL, 'Live deployment', 'arrow', true),
     ]),
   ]);
   const right = el('div', {}, [
@@ -4150,7 +4163,7 @@ function aboutSection() {
       el('tbody', {}, [
         el('tr', {}, [el('th', { text: 'Email' }), el('td', {}, [el('a', { href: `mailto:${CONTACT_EMAIL}`, text: CONTACT_EMAIL })])]),
         el('tr', {}, [el('th', { text: 'GitHub' }), el('td', {}, [el('a', { href: REPO_URL, target: '_blank', rel: 'noopener', text: 'ashrafularefin78-prog' })])]),
-        el('tr', {}, [el('th', { text: 'Project' }), el('td', { class: 'dim', text: 'PROJECT SINGULARITY · 2026 · solo build' })]),
+        el('tr', {}, [el('th', { text: 'Project' }), el('td', { class: 'dim', text: 'Project Singularity · 2026 · solo build' })]),
       ]),
     ]),
   ]);
@@ -4337,47 +4350,14 @@ function renderDashboard(root) {
         statCard('Runtime dependencies', '0', 'no bundler, no npm packages, no node_modules'),
         statCard('Modules working', `${fullBriefModules} full · ${briefModules.length - fullBriefModules} partial modules + ${crossCuttingRows} cross-cutting rows`, 'nothing claimed that is not there'),
       ]),
-      constellationView.node,
-      card('What this is, why it exists, who it is for', [briefBlock()]),
-      caseStudyCard(),
-      card('Contributing & changelog', [
-        el('p', { class: 'small dim', text: 'The project is open to contributions. The guide covers setup, the test gates every change must pass, and the two constraints (no npm dependencies and an optional WebAssembly C/C++ toolchain, strict CSP / Trusted Types). The changelog is shown below so recent changes are visible without leaving the app.' }),
-        el('div', { class: 'row gap-8 mt-8' }, [
-          el('a', { href: 'CONTRIBUTING.md', target: '_blank', rel: 'noopener', text: 'Contributing guide' }),
-          el('a', { href: 'CHANGELOG.md', target: '_blank', rel: 'noopener', text: 'Full changelog' }),
-        ]),
-        el('pre', {
-          id: 'changelog-preview',
-          class: 'changelog-preview',
-          tabindex: '0',
-          role: 'region',
-          'aria-label': 'Recent changelog entries (scrollable)',
-        }, ['Loading changelog…']),
-      ]),
-      showcaseCard(),
-      card('Capabilities in the shipped build', [
-        capabilityGrid(),
-        el('p', { class: 'small dim mt-10', text: 'Each tile names a capability that has tests behind it - open the module and re-run them. Nothing on this grid is aspirational: the aspirational material lives in the roadmap, below.' }),
-      ]),
-      card('Technologies, by layer', [
-        stackGrid(),
-        el('p', {
-          class: 'small dim stack-note',
-          text: 'No React, no bundler, no npm import inside src/, and no AI API: the intelligence here is local - a compiler, a CRDT and a renderer. That is a deliberate constraint, not a missing feature. The only Python is tooling; the shipped page is static HTML, CSS and ES modules.',
-        }),
-      ]),
-      card('Roadmap', [
-        roadmapList(),
-        el('p', { class: 'small dim mt-10', text: 'The same honesty rule as the scorecard, pointed forward: "partial" rows say exactly what is missing, and "planned" rows are not counted anywhere.' }),
-      ]),
-      card('Repository signals', [repoSignals()]),
       note('Read this first: this is not the mythical 1000-point build, which the brief itself budgets at 20 engineers for 12 months. It is a working, tested, honest slice: the modules that are full are full, the ones that are partial say exactly where they stop, and every claim is backed by a test you can re-run.', 'warn'),
-      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column this app’s strict count lands on ${achieved}, because Silver asks for four complete modules and ${full} rows say “ok”${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}; the reviewer’s independent tally (829) also stamps this build Silver on the requirement column, while its 829 points sit inside the Platinum band. The self-assessment sits below the reviewer where the evidence is deliberately thinner (M2 −12, M4 −7, M7 −4, M8 −8, Integration −7; ${score} vs 829), and above its pre-skinning M3 mark by 2: that 88 predates the skinned sample, whose rig, loader path, bone texture and real-shader draw are now covered by tests. Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
-      bootSequenceCard(),
-      card('Tier ladder', [tierLadder(achieved)]),
-      card('Module score map', [
-        scoreMap(),
-        el('p', { class: 'small dim mt-10', text: 'Ten cells per tile, one tile per module: the shape of the score at a glance, and exactly which modules are carrying it.' }),
+      card('What this is, why it exists, who it is for', [briefBlock()]),
+      el('div', { class: 'grid two' }, [
+        card('Tier ladder', [tierLadder(achieved)]),
+        card('Module score map', [
+          scoreMap(),
+          el('p', { class: 'small dim mt-10', text: 'Ten cells per tile, one tile per module: the shape of the score at a glance, and exactly which modules are carrying it.' }),
+        ]),
       ]),
       card('Module scorecard', [
         el('table', {}, [
@@ -4396,23 +4376,60 @@ function renderDashboard(root) {
         ]),
       ]),
       card('Performance and reliability budget', [measured]),
-      card('Build order followed (from the brief)', [
-        el('ul', { class: 'checklist' }, [
-          el('li', { text: 'Phase 1 - M6 storage and M8 headers first, so everything sits on top' }),
-          el('li', { text: 'Phase 2 - M1 CRDT with properties proven before any networking' }),
-          el('li', { text: 'Phase 3 - M5 transport and M4 crypto, turning a local editor into a private collaborative one' }),
-          el('li', { text: 'Phase 4 - M2 runtime, prototyped early because it is the biggest risk' }),
-          el('li', { text: 'Phase 5 - M3 engine and M7 accessibility' }),
-          el('li', { text: 'Phase 6 - integration, budget measurement, honest scorecard' }),
-        ]),
+      note(`Tiers, precisely: two different questions get two different answers, so both are shown. The raw ${score} points fall in the “${band}” band of the brief’s ladder. On the requirement column this app’s strict count lands on ${achieved}, because Silver asks for four complete modules and ${full} rows say “ok”${shortOf ? ` — “${shortOf.req}” is the next requirement in reach` : ''}; the reviewer’s independent tally (829) also stamps this build Silver on the requirement column, while its 829 points sit inside the Platinum band. The self-assessment sits below the reviewer where the evidence is deliberately thinner (M2 −12, M4 −7, M7 −4, M8 −8, Integration −7; ${score} vs 829), and above its pre-skinning M3 mark by 2: that 88 predates the skinned sample, whose rig, loader path, bone texture and real-shader draw are now covered by tests. Nothing is claimed as done that is not done; that is the only reason this page is worth reading.`),
+      card('Capabilities in the shipped build', [
+        capabilityGrid(),
+        el('p', { class: 'small dim mt-10', text: 'Each tile names a capability that has tests behind it - open the module and re-run them. Nothing on this grid is aspirational: the aspirational material lives in the roadmap, below.' }),
       ]),
-      card('How to verify all of it yourself', [
-        el('ul', { class: 'checklist' }, [
-          el('li', { text: 'python3 tools/serve.py 5173 && open the URL (Node is not required anywhere)' }),
-          el('li', { text: 'Open /tests/browser.html to run the whole suite in this browser' }),
-          el('li', { text: 'Open a second tab to see the CRDT, presence and cursors synchronise for real' }),
-          el('li', { text: 'Try the standalone playgrounds: /playground/c.html (C runtime) and /playground/m3.html (WebGL2 engine)' }),
-          el('li', { text: 'Read docs/PLAN.md, docs/ARCHITECTURE.md, docs/THREAT_MODEL.md, docs/SECURITY_REPORT.md and docs/LOAD_CHAOS.md' }),
+      showcaseCard(),
+      constellationView.node,
+      caseStudyCard(),
+      card('Technologies, by layer', [
+        stackGrid(),
+        el('p', {
+          class: 'small dim stack-note',
+          text: 'No React, no bundler, no npm import inside src/, and no AI API: the intelligence here is local - a compiler, a CRDT and a renderer. That is a deliberate constraint, not a missing feature. The only Python is tooling; the shipped page is static HTML, CSS and ES modules.',
+        }),
+      ]),
+      bootSequenceCard(),
+      card('Roadmap', [
+        roadmapList(),
+        el('p', { class: 'small dim mt-10', text: 'The same honesty rule as the scorecard, pointed forward: "partial" rows say exactly what is missing, and "planned" rows are not counted anywhere.' }),
+      ]),
+      card('Repository signals', [repoSignals()]),
+      card('Contributing & changelog', [
+        el('p', { class: 'small dim', text: 'The project is open to contributions. The guide covers setup, the test gates every change must pass, and the two constraints (no npm dependencies and an optional WebAssembly C/C++ toolchain, strict CSP / Trusted Types). The changelog is shown below so recent changes are visible without leaving the app.' }),
+        el('div', { class: 'row gap-8 mt-8' }, [
+          el('a', { href: 'CONTRIBUTING.md', target: '_blank', rel: 'noopener', text: 'Contributing guide' }),
+          el('a', { href: 'CHANGELOG.md', target: '_blank', rel: 'noopener', text: 'Full changelog' }),
+        ]),
+        el('pre', {
+          id: 'changelog-preview',
+          class: 'changelog-preview',
+          tabindex: '0',
+          role: 'region',
+          'aria-label': 'Recent changelog entries (scrollable)',
+        }, ['Loading changelog…']),
+      ]),
+      el('div', { class: 'grid two' }, [
+        card('Build order followed (from the brief)', [
+          el('ul', { class: 'checklist' }, [
+            el('li', { text: 'Phase 1 - M6 storage and M8 headers first, so everything sits on top' }),
+            el('li', { text: 'Phase 2 - M1 CRDT with properties proven before any networking' }),
+            el('li', { text: 'Phase 3 - M5 transport and M4 crypto, turning a local editor into a private collaborative one' }),
+            el('li', { text: 'Phase 4 - M2 runtime, prototyped early because it is the biggest risk' }),
+            el('li', { text: 'Phase 5 - M3 engine and M7 accessibility' }),
+            el('li', { text: 'Phase 6 - integration, budget measurement, honest scorecard' }),
+          ]),
+        ]),
+        card('How to verify all of it yourself', [
+          el('ul', { class: 'checklist' }, [
+            el('li', { text: 'python3 tools/serve.py 5173 && open the URL (Node is not required anywhere)' }),
+            el('li', { text: 'Open /tests/browser.html to run the whole suite in this browser' }),
+            el('li', { text: 'Open a second tab to see the CRDT, presence and cursors synchronise for real' }),
+            el('li', { text: 'Try the standalone playgrounds: /playground/c.html (C runtime) and /playground/m3.html (WebGL2 engine)' }),
+            el('li', { text: 'Read docs/PLAN.md, docs/ARCHITECTURE.md, docs/THREAT_MODEL.md, docs/SECURITY_REPORT.md and docs/LOAD_CHAOS.md' }),
+          ]),
         ]),
       ]),
       card('About the developer', [aboutSection()]),
@@ -4537,16 +4554,16 @@ function updateChips() {
   const online = navigator.onLine && !state.offline;
   const peers = state.mesh ? state.mesh.peers().length : 1;
   refs.chips.append(
-    chip(online ? 'ONLINE' : 'OFFLINE', online ? 'ok' : 'warn'),
-    chip(`${peers} PEER${peers === 1 ? '' : 'S'}`),
+    chip(online ? 'Online' : 'Offline', online ? 'ok' : 'warn'),
+    chip(`${peers} peer${peers === 1 ? '' : 's'}`),
     chip(
-      state.crypto && state.crypto.locked ? 'E2EE LOCKED' : state.crypto ? 'E2EE READY' : 'E2EE STANDBY',
+      state.crypto && state.crypto.locked ? 'E2EE locked' : state.crypto ? 'E2EE ready' : 'E2EE standby',
       state.crypto && !state.crypto.locked ? 'ok' : 'accent',
     ),
-    chip('CRDT RGA', 'accent'),
-    chip(`TT ${trustedTypesActive() ? 'ON' : 'OFF'}`, trustedTypesActive() ? 'ok' : 'warn'),
-    chip(globalThis.crossOriginIsolated ? 'ISOLATED' : 'NOT ISOLATED', globalThis.crossOriginIsolated ? 'ok' : 'warn'),
-    chip(state.store && state.store.persistent ? 'IDB' : 'MEMORY', state.store && state.store.persistent ? 'ok' : 'warn'),
+    chip('Own CRDT', 'accent'),
+    chip(`Trusted Types ${trustedTypesActive() ? 'on' : 'off'}`, trustedTypesActive() ? 'ok' : 'warn'),
+    chip(globalThis.crossOriginIsolated ? 'Isolated' : 'Not isolated', globalThis.crossOriginIsolated ? 'ok' : 'warn'),
+    chip(state.store && state.store.persistent ? 'IndexedDB' : 'Memory', state.store && state.store.persistent ? 'ok' : 'warn'),
   );
 }
 
@@ -4865,7 +4882,11 @@ async function boot() {
   addEventListener('offline', updateChips);
   addEventListener('beforeunload', () => state.mesh && state.mesh.close());
 
-  refs.footer.textContent = `framework-free shell · local WASM toolchain · TT ${trustedTypesActive() ? 'enforced' : 'off'} · COOP/COEP ${globalThis.crossOriginIsolated ? 'on' : 'off'} · ${state.peerId}`;
+  // The footer line is the only runtime fact here, and the shell already carries
+  // a placeholder of exactly the same measure (see .footer-peer), so filling it
+  // in costs no layout. Trusted Types and cross-origin isolation are not
+  // repeated - both are already chips in the header.
+  refs.footer.textContent = `this tab · ${state.peerId}`;
 }
 
 /**

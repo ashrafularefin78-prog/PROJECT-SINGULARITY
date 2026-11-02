@@ -273,6 +273,20 @@ export class Browser {
 
     const port = Number(new URL(wsUrl).port);
     const browser = new Browser(proc, port, profile);
+    // A driver that dies on an uncaught error never reaches close(), and the
+    // detached browser outlives it. That is not hypothetical: an interrupted run
+    // left 30 msedge processes on this machine, one holding 14 of 16 logical
+    // cores, and the throttled LCP taken next read 1,443 ms against a true 626.
+    // sweepProfile matches this run's unique temp profile, so it can only ever
+    // reap browsers this launch started - never the user's own Edge window.
+    browser.exitReap = () => {
+      try {
+        browser.sweepProfile();
+      } catch {
+        /* best effort on the way out */
+      }
+    };
+    process.once('exit', browser.exitReap);
     await browser.connect(wsUrl, scale);
     return browser;
   }
@@ -394,6 +408,7 @@ export class Browser {
   }
 
   async close() {
+    if (this.exitReap) process.removeListener('exit', this.exitReap);
     // Ask the browser to shut itself down before tearing the socket down. With
     // the launcher-stub behaviour above, the process we spawned is already gone
     // and `proc.kill()` would hit nothing, leaving a browser and its renderers

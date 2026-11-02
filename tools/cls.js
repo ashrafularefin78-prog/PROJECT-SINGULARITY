@@ -78,6 +78,7 @@ try {
       return {
         inset: [cs.top, cs.right, cs.bottom, cs.left],
         transform: cs.transform,
+        display: cs.display,
         rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
         renderedShareOfViewport: [Math.round((r.width / innerWidth) * 100), Math.round((r.height / innerHeight) * 100)],
         viewport: [innerWidth, innerHeight],
@@ -89,7 +90,7 @@ try {
     const entry = { label, height, geometry, cls: Math.round(shifts.total * 1000) / 1000, shiftEntries: shifts.entries.slice(0, 6) };
     report.steps.push(entry);
     console.log(`\n# ${label}  (viewport ${height}px tall)`);
-    console.log(`  aurora insets ${geometry.inset.join(' ')} | transform ${geometry.transform}`);
+    console.log(`  aurora insets ${geometry.inset.join(' ')} | transform ${geometry.transform} | display ${geometry.display}`);
     console.log(`  aurora covers ${geometry.renderedShareOfViewport.join('% x ')}% of the viewport`);
     console.log(`  cumulative layout shift so far: ${entry.cls}  (${entry.shiftEntries.length} shift entries)`);
     for (const s of entry.shiftEntries) console.log(`    - ${s.value.toFixed(4)}  ${s.sources.join(', ')}`);
@@ -108,13 +109,18 @@ try {
   await step('after the visual viewport grew back (URL bar hides)', HEIGHT);
 
   report.finalCls = report.steps[report.steps.length - 1].cls;
+  // Effects are opt-in now, so on a default load this layer is display:none and
+  // its rendered rect is empty. What still has to be true is the geometry the
+  // fix was about: the aurora is inset by -20% on every side, which is what
+  // keeps it overflowing the viewport instead of being resized by it.
+  report.auroraInsets = report.steps.map((s) => s.geometry && s.geometry.inset.join(' '));
   report.auroraOverflowPreserved = report.steps.every(
-    (s) => s.geometry && s.geometry.renderedShareOfViewport[0] >= 135 && s.geometry.renderedShareOfViewport[1] >= 135,
+    (s) => s.geometry && s.geometry.inset.every((v) => v === '-20%'),
   );
   mkdirSync('docs/reports', { recursive: true });
   writeFileSync(OUT, JSON.stringify(report, null, 2) + '\n');
   console.log(`\n# CLS after the viewport changes: ${report.finalCls}`);
-  console.log(`# aurora still overflows the viewport by ~40%: ${report.auroraOverflowPreserved}`);
+  console.log(`# aurora still inset -20% on every side (so it overflows the viewport by ~40%): ${report.auroraOverflowPreserved}`);
   console.log(`# report -> ${OUT} (${LABEL})`);
   if (report.finalCls > 0.1) process.exitCode = 1;
 } finally {

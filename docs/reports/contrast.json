@@ -1,0 +1,138 @@
+{
+  "measuredAt": "2026-11-02T12:39:28.304Z",
+  "url": "http://127.0.0.1:5233/",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "note": "every element that renders its own text node, both themes, every panel; translucent backgrounds composited from the root down the way the renderer does; text whose own colour is translucent is not judged",
+  "threshold": {
+    "normal": 4.5,
+    "large": 3,
+    "largeAt": "24px, or 18.66px at weight 700"
+  },
+  "surfaces": [
+    {
+      "theme": "light",
+      "panel": "dashboard",
+      "judged": 566,
+      "failures": []
+    },
+    {
+      "theme": "light",
+      "panel": "editor",
+      "judged": 120,
+      "failures": []
+    },
+    {
+      "theme": "light",
+      "panel": "compiler",
+      "judged": 150,
+      "failures": []
+    },
+    {
+      "theme": "light",
+      "panel": "engine",
+      "judged": 129,
+      "failures": []
+    },
+    {
+      "theme": "light",
+      "panel": "e2ee",
+      "judged": 129,
+      "failures": []
+    },
+    {
+      "theme": "light",
+      "panel": "mesh",
+      "judged": 146,
+      "failures": []
+    },
+    {
+      "theme": "light",
+      "panel": "offline",
+      "judged": 114,
+      "failures": []
+    },
+    {
+      "theme": "light",
+      "panel": "a11y",
+      "judged": 116,
+      "failures": []
+    },
+    {
+      "theme": "light",
+      "panel": "hardening",
+      "judged": 116,
+      "failures": []
+    },
+    {
+      "theme": "light",
+      "panel": "assistant",
+      "judged": 210,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "dashboard",
+      "judged": 566,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "editor",
+      "judged": 120,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "compiler",
+      "judged": 150,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "engine",
+      "judged": 129,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "e2ee",
+      "judged": 129,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "mesh",
+      "judged": 146,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "offline",
+      "judged": 114,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "a11y",
+      "judged": 116,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "hardening",
+      "judged": 116,
+      "failures": []
+    },
+    {
+      "theme": "dark",
+      "panel": "assistant",
+      "judged": 210,
+      "failures": []
+    }
+  ],
+  "totalFailures": 0,
+  "worst": null
+}

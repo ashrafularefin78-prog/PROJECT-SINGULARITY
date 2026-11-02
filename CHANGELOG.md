@@ -3,6 +3,144 @@
 Versions here are dates, not tags. `v0.1.0` is the first tagged release (2026-10-22); entries below are derived from commit history.
 Each entry is derived from the commit history; the newest comes first.
 
+## 2026-11-02 - The whole site takes the SINGU screen's register: a token layer, the chrome behind a switch, and a light theme that no longer overrides components
+
+The request was to redesign every page in a professional website style. Four
+decisions shaped the reading, and each one is a scope question rather than a
+taste question: how much of the sci-fi chrome survives (answer: none of it by
+default - it stays one click away on M7), which theme a first visitor sees
+(dark, with light rebuilt from tokens rather than patched), how far past CSS the
+change goes (into the panel markup in `src/app.js`, which is what makes the
+payload move and the regressions have to be re-thought), and what happens to the
+warm SINGU screen (kept, and its language becomes the site's). The result is
+that the site now reads as one document with ten sections instead of an
+instrument panel with one warm room inside it.
+
+### Added
+- **A token layer that a theme can actually be written against**
+  (`styles/app.css`). Four surfaces a component may be built from (`--surface`,
+  `--surface-2`, `--sunken`, `--tint`), a `--panel` ground, seven `--code-*`
+  tokens so the editor and terminal stay dark in both themes without either
+  theme mentioning them, a radius scale, and `--serif` for the display face.
+  With those in place the daylight theme is a re-declaration of tokens and
+  almost nothing else: `html[data-theme='light'] .component` rules go from **45
+  to 2** - `.substrate`'s opacity and the full-effects hero title. Every one of
+  the 43 that went was a colour hardcoded into a component, which is why the
+  light theme broke wherever a component grew a new part.
+- **`tools/contrast.js`**, with its artifact at
+  `docs/reports/contrast.json`. A token-driven theme cannot be audited by
+  reading selectors: the colour a piece of text ends up with is the result of
+  inheritance, and `color-mix()` is resolved by the browser, not by the sheet.
+  So the checker drives a real browser, reads computed styles, and judges
+  **3,592 text elements across 20 panel/theme surfaces** against the 4.5:1
+  floor - **0 below it**. It also had to learn that Chromium serialises a
+  resolved `color-mix()` as `color(srgb r g b / a)` with channels in `0..1`,
+  which is a 255-times-off way to report that everything fails.
+- **`styles/standalone.css`**, and the two playground pages rebuilt on it -
+  `playground/m3.html` + `m3.js` (the renderer with no scene editor around it)
+  and `playground/c.html` + `c.js` (the compiler worker with no harness). They
+  had been inheriting the shell's instrument skin; they now carry the same
+  tokens, kicker, serif title and card shapes as the panels they demonstrate.
+
+### Changed
+- **The chrome is opt-in.** Rules keyed to `data-fx` go from 27 to 73: the HUD
+  corner brackets, the chamfered cut on cards and terminals, the badge halo,
+  the ring glow and the text-shadow on stat values all moved under
+  `[data-fx='full']`, and the default is `off`. Nothing was deleted - the M7
+  effects switch still gives the whole instrument to anyone who wants it - but
+  the first view is now a page that explains itself rather than a console.
+- **The SINGU language became the site's language.** Serif display headings,
+  sentence case, rounded cards and the warm-neutral ink ramp everywhere;
+  `#panel-assistant`'s clay tokens were not touched, so the ninth panel is
+  still the only place `--clay` resolves.
+- **A long caveat is prose, not a warning label.** `.note` now sets
+  `color: var(--text)`. The class pair `note warn` also carries the bare `warn`
+  utility, which colours the whole element, and the M2 note is twelve lines -
+  so an entire paragraph of the caution hue was the default reading experience
+  on three panels. The amber left rule and ground stay, because they are what
+  says caution; the ink is what says the rest.
+- **The deck strip's caption stops reading as a typo.** `'DOC OPS · 1 S'` and
+  `'FRAME RATE · 1 S'` (`src/ui/hud.js`) lose the window suffix: the strip now
+  reads `DOC OPS [waveform] 0/s` instead of `DOC OPS · 1 S [waveform] 0/s`.
+- **Panel markup restructured** in `src/app.js` (311 lines changed) so the
+  module header, the stat row and the card grid are laid out as one document
+  rather than as instrument tiles.
+- **The 24th browser regression had to be turned inside out, not deleted.** It
+  asserted that M2 *keeps the chamfer and square corners* while only SINGU is
+  warm - which the redesign made false for the right reason. It now asserts
+  that no panel keeps the chamfer, that every panel got the rounded card, that
+  the serif card *label* is still SINGU's alone, and that `--clay` resolves
+  inside `#panel-assistant` and nowhere else. The scope of the warm identity is
+  what still has to hold; the shape was never the point. Count stays at 25.
+- **Published payload re-measured, not estimated:** CSS 29.9 → **32.6 KiB
+  gzip**, cold load 159.9 → **163.0 KiB gzip / 519.4 → 520.9 KiB raw** over 15
+  initial files. Propagated to README.md, docs/DEMO.md, docs/PLAN.md,
+  docs/LOAD_CHAOS.md and docs/charts/budget.svg. The critical block did *not*
+  move (33.0 KiB raw / 7.8 KiB gzip, same SHA-256) because every rule the
+  redesign added to `.note` and the chrome sits in the deferred sheet.
+- **The seven published social cards were re-shot from the running app**, because
+  every one of them showed the pre-redesign chrome. They went from 3.00 MiB to
+  1.27 MiB together: `og.png` is now the 1200×630 its own `<meta>` declares (it
+  was 1174×537), `case-study.png` joined the other desktop cards at 1574×907
+  instead of 1800×1200, and the mobile card is 780×1688. `temporal-core-wide.png`
+  is untouched - it is not a screenshot of this shell. The capture driver was a scratch CDP script outside
+  this repository, and saying so matters: there is no committed way to re-shoot
+  these, which is why CONTRIBUTING.md's claim about `tools/cls.js` is corrected
+  below rather than left standing.
+
+### Fixed
+- **The sentence-case pass broke the deployed build, and only the build could
+  say so.** `tools/build-site.py` rewrites the hero's test chip in `dist/`
+  against two literal patterns - `( tests GREEN)` and `(RUN )…( tests IN THIS
+  BROWSER)` - while `tools/test-count.js`, which does the same job on the working
+  tree, had been updated for the redesign's sentence case. The Python twin had
+  not, so the build raised "test-count injection did not match exactly once" and
+  stopped with a half-written `dist/`. Both patterns now read `tests green` /
+  `Run … tests in this browser`, and a clean run re-reports
+  **463 browser tests** into `dist/index.html`. This is the second layer of one
+  vocabulary, and the rebuild is what caught it - no test in `tests/` looks at
+  either string.
+- **The throttled LCP this document published was wrong by a factor of two, and
+  the cause was the harness.** `tools/cdp.js` launches Edge `detached: true`,
+  so a driver that dies on an uncaught error never reaches `close()` and the
+  browser outlives it. An interrupted run left **30 `msedge.exe` processes** on
+  this machine, one of them holding 14 of 16 logical cores, and every throttled
+  measurement taken in the next hour was taken against that: the redesign's LCP
+  read **1,443 ms** where the same build clears **626 ms** once the orphans are
+  gone. The unthrottled row was
+  the control that gave it away - it had stayed at 104-132 ms the whole time.
+  The driver now reaps the browser it launched on process exit, matched to its
+  own unique temp profile so it can only ever reap what it started, verified
+  with a deliberate-crash harness: 0 survivors. The Lighthouse pair and the LCP
+  row were then re-cut three times on this box, and the honest result is a band
+  rather than a number: the committed artifacts read mobile **94** / desktop
+  **99** with a throttled cold LCP of **713 ms**, five further runs of the same
+  build returned 94 / 92 / 90 / 87 / 86, and the pre-redesign HEAD build run as
+  a control on the same machine returned **83**. Mobile Performance therefore
+  lands **under** the brief's ≥ 95, on one audit: `total-blocking-time` 288 ms,
+  essentially all of it the `src/storage/db.js` IndexedDB boot task. The
+  earlier readings on this box (96, then 99 on a quiet one) are recorded in
+  docs/LOAD_CHAOS.md sections 2 and 2b rather than quietly replaced - 99 is no
+  longer reproducible and this repository no longer holds that artifact.
+- **Five numbers in the application's own module deck had no gate and had all
+  gone stale.** Lighthouse 95 → 99 desktop and 94 mobile (M9), draw calls 4 → **12 including the
+  shadow pass** and frame rate 58 → 60 FPS (M3, stale since the glTF and skinning
+  work added the passes), axe passing results 469 → **477** and named
+  interactive controls 194 → **290** (M7). `tools/check-docs.js` claims the
+  payload, the Lighthouse scores and the test totals; it claims **none** of the
+  LCP, CLS, FPS or draw-call rows, which is how they drifted unnoticed. That
+  gap is now stated in the report rather than left implied.
+- **CONTRIBUTING.md told contributors to use a tool that does not do what it
+  said.** It claimed the published social cards "are captured from the running
+  app with `tools/cls.js`, not drawn by hand". `tools/cls.js` contains no
+  screenshot code and no tool in `tools/` writes to `assets/screenshots/` - the
+  line was checked against the whole directory before it was rewritten to say
+  what is actually true: the cards are captured from the running app, and the
+  driver that did it is not in this repository.
+- **`og.png` no longer contradicts its own metadata.** `index.html` has declared
+  `og:image:width` 1200 and `og:image:height` 630 throughout, while the file it
+  pointed at was 1174×537; the re-shot card is 1200×630.
+
 ## 2026-11-01 - The SINGU screen stops reading as an instrument: warm clay, a serif, and a background nobody touched
 
 The request was to polish the SINGU AI screen towards Claude's look without

@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-18T04:25:38.286Z",
+  "measuredAt": "2026-11-02T12:41:06.367Z",
   "url": "http://127.0.0.1:5231/",
   "viewport": {
     "width": 412,
@@ -15,33 +15,34 @@
       "height": 915,
       "geometry": {
         "inset": [
-          "-183px",
-          "-82.3906px",
-          "-183px",
-          "-82.3906px"
+          "-20%",
+          "-20%",
+          "-20%",
+          "-20%"
         ],
-        "transform": "matrix(1.00437, 0, 0, 1.00437, -12.8793, -17.0381)",
+        "transform": "none",
+        "display": "block",
         "rect": [
-          -97,
-          -203,
-          579,
-          1287
+          0,
+          0,
+          0,
+          0
         ],
         "renderedShareOfViewport": [
-          141,
-          141
+          0,
+          0
         ],
         "viewport": [
           412,
           915
         ]
       },
-      "cls": 0.002,
+      "cls": 0,
       "shiftEntries": [
         {
-          "value": 0.0022485368329899368,
+          "value": 0.00011928819113767829,
           "sources": [
-            "FOOTER.footer"
+            "DIV.topbar-actions"
           ]
         }
       ]
@@ -51,33 +52,34 @@
       "height": 780,
       "geometry": {
         "inset": [
-          "-156px",
-          "-82.3906px",
-          "-156px",
-          "-82.3906px"
+          "-20%",
+          "-20%",
+          "-20%",
+          "-20%"
         ],
-        "transform": "matrix(1.0113, 0, 0, 1.0113, -10.4355, -11.58)",
+        "transform": "none",
+        "display": "block",
         "rect": [
-          -96,
-          -174,
-          583,
-          1104
+          0,
+          0,
+          0,
+          0
         ],
         "renderedShareOfViewport": [
-          142,
-          142
+          0,
+          0
         ],
         "viewport": [
           412,
           780
         ]
       },
-      "cls": 0.002,
+      "cls": 0,
       "shiftEntries": [
         {
-          "value": 0.0022485368329899368,
+          "value": 0.00011928819113767829,
           "sources": [
-            "FOOTER.footer"
+            "DIV.topbar-actions"
           ]
         }
       ]
@@ -87,38 +89,44 @@
       "height": 915,
       "geometry": {
         "inset": [
-          "-183px",
-          "-82.3906px",
-          "-183px",
-          "-82.3906px"
+          "-20%",
+          "-20%",
+          "-20%",
+          "-20%"
         ],
-        "transform": "matrix(1.02139, 0, 0, 1.02139, -6.88152, -8.56131)",
+        "transform": "none",
+        "display": "block",
         "rect": [
-          -95,
-          -205,
-          589,
-          1308
+          0,
+          0,
+          0,
+          0
         ],
         "renderedShareOfViewport": [
-          143,
-          143
+          0,
+          0
         ],
         "viewport": [
           412,
           915
         ]
       },
-      "cls": 0.002,
+      "cls": 0,
       "shiftEntries": [
         {
-          "value": 0.0022485368329899368,
+          "value": 0.00011928819113767829,
           "sources": [
-            "FOOTER.footer"
+            "DIV.topbar-actions"
           ]
         }
       ]
     }
   ],
-  "finalCls": 0.002,
+  "finalCls": 0,
+  "auroraInsets": [
+    "-20% -20% -20% -20%",
+    "-20% -20% -20% -20%",
+    "-20% -20% -20% -20%"
+  ],
   "auroraOverflowPreserved": true
 }

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 452" width="780" height="452" role="img" aria-labelledby="title desc">
   <title id="title">Performance budget: measured values against the brief's targets</title>
-  <desc id="desc">One row per budget row. Each bar is the measured value as a share of the brief's target, so the right-hand end of every track is the target itself: a bar that reaches it meets the row, a bar that stops short falls short, and a bar that would overrun it is clamped and labelled with its ratio. The 10,000-user row is drawn as a one-tenth bar: 1,000 simulated clients is what was actually driven through the ciphertext relay, which delivered every envelope with p95 12.2 ms. The chaos row is green because the relay was SIGKILLed mid-backlog and every one of its 20,000 accepted envelopes replayed from the log without loss - met for the single node that exists, not a fleet. The payload is re-measured from the current import graph; all other rows retain historical evidence under the recorded conditions in docs/LOAD_CHAOS.md and are not new audits, browser runs or device guarantees. The payload row is the cold load: the 170.1 KiB gzip module graph fetched on first panel open (M2, M3, M4, the SINGU AI panel, WebRTC/relay) is reported separately in LOAD_CHAOS.md rather than hidden inside the bar. The only row that reaches its full target and still falls short is the frame rate at maximum settings, two frames short, and it is labelled as such. The soak row is a full hour of samples on this build: the per-minute heap after GC rose from 1.51 to 2.82 MiB, and the minute-60 snapshot holds more nodes and more reachable memory than the minute-10 one, so the bar meets its size target while the leak question stays open. Columns are: row, value, and target.</desc>
+  <desc id="desc">One row per budget row. Each bar is the measured value as a share of the brief's target, so the right-hand end of every track is the target itself: a bar that reaches it meets the row, a bar that stops short falls short, and a bar that would overrun it is clamped and labelled with its ratio. The 10,000-user row is drawn as a one-tenth bar: 1,000 simulated clients is what was actually driven through the ciphertext relay, which delivered every envelope with p95 12.2 ms. The chaos row is green because the relay was SIGKILLed mid-backlog and every one of its 20,000 accepted envelopes replayed from the log without loss - met for the single node that exists, not a fleet. The payload is re-measured from the current import graph; all other rows retain historical evidence under the recorded conditions in docs/LOAD_CHAOS.md and are not new audits, browser runs or device guarantees. The payload row is the cold load: the 170.1 KiB gzip module graph fetched on first panel open (M2, M3, M4, the SINGU AI panel, WebRTC/relay) is reported separately in LOAD_CHAOS.md rather than hidden inside the bar. The rows that fall short are labelled: mobile Lighthouse Performance at 94 of 95, one 288 ms total-blocking-time audit wide of the target on a machine whose band for this same build is 83-99, and the frame rate at maximum settings, two frames short. The soak row is a full hour of samples on this build: the per-minute heap after GC rose from 1.51 to 2.82 MiB, and the minute-60 snapshot holds more nodes and more reachable memory than the minute-10 one, so the bar meets its size target while the leak question stays open. Columns are: row, value, and target.</desc>
   <style>
     .bg { fill: #0d131c; }
     .label { fill: #c9d4e2; font: 12px ui-monospace, monospace; }
@@ -19,33 +19,33 @@
   <text class="small" x="20" y="44">The right-hand end of each track is the target. Bars are clamped at the target; the ratio beside them is the real one.</text>
   <line class="axis" x1="20" y1="56" x2="768" y2="56" />
 
-  <!-- Current initial payload: 15 files (14 JS + CSS), JS 130.1 KiB gzip + CSS 29.9 = 159.9 KiB gzip / 519.4 KiB raw; 30 deferred files are 187.7 KiB gzip JS, plus separate approximately 18.4 MiB compressed toolchain assets. JS ratio uses decimal 170 KB. -->
+  <!-- Current initial payload: 15 files (14 JS + CSS), JS 130.4 KiB gzip + CSS 32.6 = 163.0 KiB gzip / 520.9 KiB raw; 30 deferred files are 187.7 KiB gzip JS, plus separate approximately 18.4 MiB compressed toolchain assets. JS ratio uses decimal 170 KB. -->
   <text class="label" x="20" y="82">Initial JS payload (gzip)</text>
-  <text class="value" x="768" y="82" text-anchor="end">130.1 KiB of 170 KB - met</text>
+  <text class="value" x="768" y="82" text-anchor="end">130.4 KiB of 170 KB - met</text>
   <rect class="track" x="20" y="88" width="748" height="9" />
-  <rect class="met" x="20" y="88" width="586" height="9" />
+  <rect class="met" x="20" y="88" width="587" height="9" />
 
-  <!-- Throttled LCP: 856 ms vs 1500 ms (met, 0.57x), current build -->
+  <!-- Throttled LCP: 713 ms cold vs 1500 ms (met, 0.48x), current build -->
   <text class="label" x="20" y="114">Largest Contentful Paint, Slow 4G + 4x CPU</text>
-  <text class="value" x="768" y="114" text-anchor="end">856 ms of 1,500 ms - met</text>
+  <text class="value" x="768" y="114" text-anchor="end">713 ms of 1,500 ms - met</text>
   <rect class="track" x="20" y="120" width="748" height="9" />
-  <rect class="met" x="20" y="120" width="427" height="9" />
+  <rect class="met" x="20" y="120" width="355" height="9" />
 
-  <!-- Lighthouse mobile: 95 vs 95 (met) -->
+  <!-- Lighthouse mobile: 94 vs 95 (1 short) - one 288 ms total-blocking-time audit, see LOAD_CHAOS.md section 2b -->
   <text class="label" x="20" y="146">Lighthouse, mobile Performance</text>
-  <text class="value" x="768" y="146" text-anchor="end">95 of 95 - met</text>
+  <text class="value" x="768" y="146" text-anchor="end">94 of 95 - 1 short</text>
   <rect class="track" x="20" y="152" width="748" height="9" />
-  <rect class="met" x="20" y="152" width="748" height="9" />
+  <rect class="unmet" x="20" y="152" width="740" height="9" />
 
-  <!-- Lighthouse mobile: a11y/bp/seo 100/96/100 vs 95 (met) -->
+  <!-- Lighthouse mobile: a11y/bp/seo 100/100/100 vs 95 (met) -->
   <text class="label" x="20" y="178">Lighthouse, mobile Accessibility / Best practices / SEO</text>
-  <text class="value" x="768" y="178" text-anchor="end">100 / 96 / 100 of 95 - met</text>
+  <text class="value" x="768" y="178" text-anchor="end">100 / 100 / 100 of 95 - met</text>
   <rect class="track" x="20" y="184" width="748" height="9" />
   <rect class="met" x="20" y="184" width="748" height="9" />
 
-  <!-- Lighthouse desktop: 95 / 100 / 100 / 100 vs 95 (met) -->
+  <!-- Lighthouse desktop: 99 / 100 / 100 / 100 vs 95 (met) -->
   <text class="label" x="20" y="210">Lighthouse, desktop (all four categories)</text>
-  <text class="value" x="768" y="210" text-anchor="end">95 / 100 / 100 / 100 of 95 - met</text>
+  <text class="value" x="768" y="210" text-anchor="end">99 / 100 / 100 / 100 of 95 - met</text>
   <rect class="track" x="20" y="216" width="748" height="9" />
   <rect class="met" x="20" y="216" width="748" height="9" />
 

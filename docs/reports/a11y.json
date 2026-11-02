@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-11-01T14:46:31.572Z",
+  "measuredAt": "2026-11-02T13:01:00.286Z",
   "url": "http://127.0.0.1:5198/",
   "browser": "Edg/157.0.4341.30",
   "note": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
@@ -37,93 +37,41 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 478,
+            "count": 455,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                ".fx-rain > i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                ".fx-rain > i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                ".fx-rain > i:nth-child(5)"
+                "kbd"
               ],
               [
-                ".fx-rain > i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
         ],
-        "passCount": 53
+        "passCount": 54
       },
       "axTree": {
-        "totalNodes": 2277,
-        "liveNodes": 1783,
-        "ignoredNodes": 494,
+        "totalNodes": 2230,
+        "liveNodes": 1741,
+        "ignoredNodes": 489,
         "interactiveCount": 37,
         "unnamedInteractive": [],
         "unnamedImages": [],
         "headings": [
           {
-            "name": "Live system constellation",
-            "level": 2
-          },
-          {
             "name": "What this is, why it exists, who it is for",
-            "level": 2
-          },
-          {
-            "name": "Engineering case study - decisions, trade-offs and evidence",
-            "level": 2
-          },
-          {
-            "name": "Contributing & changelog",
-            "level": 2
-          },
-          {
-            "name": "See it running - real screenshots, no mockups",
-            "level": 2
-          },
-          {
-            "name": "Capabilities in the shipped build",
-            "level": 2
-          },
-          {
-            "name": "Technologies, by layer",
-            "level": 2
-          },
-          {
-            "name": "PLATFORM",
-            "level": 3
-          },
-          {
-            "name": "BROWSER APIS",
-            "level": 3
-          },
-          {
-            "name": "WRITTEN HERE",
-            "level": 3
-          },
-          {
-            "name": "BUILD AND DELIVERY",
-            "level": 3
-          },
-          {
-            "name": "Roadmap",
-            "level": 2
-          },
-          {
-            "name": "Repository signals",
-            "level": 2
-          },
-          {
-            "name": "Boot sequence",
             "level": 2
           },
           {
@@ -143,6 +91,58 @@
             "level": 2
           },
           {
+            "name": "Capabilities in the shipped build",
+            "level": 2
+          },
+          {
+            "name": "See it running - real screenshots, no mockups",
+            "level": 2
+          },
+          {
+            "name": "Live system constellation",
+            "level": 2
+          },
+          {
+            "name": "Engineering case study - decisions, trade-offs and evidence",
+            "level": 2
+          },
+          {
+            "name": "Technologies, by layer",
+            "level": 2
+          },
+          {
+            "name": "Platform",
+            "level": 3
+          },
+          {
+            "name": "Browser APIs",
+            "level": 3
+          },
+          {
+            "name": "Written here",
+            "level": 3
+          },
+          {
+            "name": "Build and delivery",
+            "level": 3
+          },
+          {
+            "name": "Boot sequence",
+            "level": 2
+          },
+          {
+            "name": "Roadmap",
+            "level": 2
+          },
+          {
+            "name": "Repository signals",
+            "level": 2
+          },
+          {
+            "name": "Contributing & changelog",
+            "level": 2
+          },
+          {
             "name": "Build order followed (from the brief)",
             "level": 2
           },
@@ -155,7 +155,7 @@
             "level": 2
           },
           {
-            "name": "CONTACT",
+            "name": "Contact",
             "level": 3
           },
           {
@@ -223,35 +223,35 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 103,
+            "count": 79,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                "i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                "i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                "i:nth-child(5)"
+                "kbd"
               ],
               [
-                "i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
         ],
-        "passCount": 46
+        "passCount": 47
       },
       "axTree": {
-        "totalNodes": 415,
+        "totalNodes": 408,
         "liveNodes": 288,
-        "ignoredNodes": 127,
+        "ignoredNodes": 120,
         "interactiveCount": 24,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -273,7 +273,7 @@
             "level": 2
           },
           {
-            "name": "LIVE CURSORS",
+            "name": "Live cursors",
             "level": 3
           },
           {
@@ -327,35 +327,35 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 134,
+            "count": 124,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                "i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                "i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                "i:nth-child(5)"
+                "kbd"
               ],
               [
-                "i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
         ],
-        "passCount": 45
+        "passCount": 46
       },
       "axTree": {
-        "totalNodes": 778,
-        "liveNodes": 612,
-        "ignoredNodes": 166,
+        "totalNodes": 773,
+        "liveNodes": 614,
+        "ignoredNodes": 159,
         "interactiveCount": 45,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -427,25 +427,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 101,
+            "count": 95,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                "i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                "i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                "i:nth-child(5)"
+                "kbd"
               ],
               [
-                "i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
@@ -453,9 +453,9 @@
         "passCount": 46
       },
       "axTree": {
-        "totalNodes": 420,
-        "liveNodes": 304,
-        "ignoredNodes": 116,
+        "totalNodes": 415,
+        "liveNodes": 306,
+        "ignoredNodes": 109,
         "interactiveCount": 21,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -517,35 +517,35 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 96,
+            "count": 88,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                "i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                "i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                "i:nth-child(5)"
+                "kbd"
               ],
               [
-                "i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
         ],
-        "passCount": 46
+        "passCount": 47
       },
       "axTree": {
-        "totalNodes": 412,
-        "liveNodes": 292,
-        "ignoredNodes": 120,
+        "totalNodes": 410,
+        "liveNodes": 296,
+        "ignoredNodes": 114,
         "interactiveCount": 19,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -556,6 +556,10 @@
           },
           {
             "name": "Session",
+            "level": 2
+          },
+          {
+            "name": "Key material and safety number",
             "level": 2
           },
           {
@@ -581,6 +585,7 @@
           "navigation",
           "main",
           "contentinfo",
+          "region",
           "region",
           "region",
           "region",
@@ -617,35 +622,35 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 134,
+            "count": 122,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                "i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                "i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                "i:nth-child(5)"
+                "kbd"
               ],
               [
-                "i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
         ],
-        "passCount": 47
+        "passCount": 48
       },
       "axTree": {
-        "totalNodes": 548,
-        "liveNodes": 398,
-        "ignoredNodes": 150,
+        "totalNodes": 547,
+        "liveNodes": 403,
+        "ignoredNodes": 144,
         "interactiveCount": 33,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -732,25 +737,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 95,
+            "count": 89,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                "i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                "i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                "i:nth-child(5)"
+                "kbd"
               ],
               [
-                "i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
@@ -758,9 +763,9 @@
         "passCount": 43
       },
       "axTree": {
-        "totalNodes": 411,
-        "liveNodes": 295,
-        "ignoredNodes": 116,
+        "totalNodes": 408,
+        "liveNodes": 298,
+        "ignoredNodes": 110,
         "interactiveCount": 17,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -822,35 +827,35 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 104,
+            "count": 96,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                "i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                "i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                "i:nth-child(5)"
+                "#cmd-open > kbd"
               ],
               [
-                "i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
         ],
-        "passCount": 48
+        "passCount": 49
       },
       "axTree": {
-        "totalNodes": 427,
-        "liveNodes": 318,
-        "ignoredNodes": 109,
+        "totalNodes": 430,
+        "liveNodes": 327,
+        "ignoredNodes": 103,
         "interactiveCount": 43,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -922,35 +927,35 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 112,
+            "count": 104,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                "i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                "i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                "i:nth-child(5)"
+                "kbd"
               ],
               [
-                "i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
         ],
-        "passCount": 48
+        "passCount": 49
       },
       "axTree": {
-        "totalNodes": 443,
-        "liveNodes": 337,
-        "ignoredNodes": 106,
+        "totalNodes": 434,
+        "liveNodes": 335,
+        "ignoredNodes": 99,
         "interactiveCount": 17,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -1012,25 +1017,25 @@
             "id": "color-contrast",
             "impact": "serious",
             "help": "Elements must meet minimum color contrast ratio thresholds",
-            "count": 106,
+            "count": 99,
             "targets": [
               [
-                ".fx-rain > i:nth-child(1)"
+                ".brand-mark"
               ],
               [
-                "i:nth-child(2)"
+                ".brand-name"
               ],
               [
-                ".fx-rain > i:nth-child(3)"
+                ".brand-sub"
               ],
               [
-                "i:nth-child(4)"
+                "#cmd-open"
               ],
               [
-                "i:nth-child(5)"
+                "kbd"
               ],
               [
-                "i:nth-child(6)"
+                ".theme-toggle-label"
               ]
             ]
           }
@@ -1038,9 +1043,9 @@
         "passCount": 48
       },
       "axTree": {
-        "totalNodes": 709,
-        "liveNodes": 584,
-        "ignoredNodes": 125,
+        "totalNodes": 704,
+        "liveNodes": 586,
+        "ignoredNodes": 118,
         "interactiveCount": 34,
         "unnamedInteractive": [],
         "unnamedImages": [],
@@ -1128,25 +1133,25 @@
   ],
   "axe": {
     "engine": "4.14.0",
-    "passes": 470,
+    "passes": 477,
     "violations": [],
     "perModule": [
       {
         "module": "M0 Dashboard",
         "violations": 0,
-        "passes": 53,
+        "passes": 54,
         "incomplete": 2
       },
       {
         "module": "1. M1 Editor",
         "violations": 0,
-        "passes": 46,
+        "passes": 47,
         "incomplete": 2
       },
       {
         "module": "2. M2 C/C++ Runtime",
         "violations": 0,
-        "passes": 45,
+        "passes": 46,
         "incomplete": 2
       },
       {
@@ -1158,13 +1163,13 @@
       {
         "module": "4. M4 E2EE",
         "violations": 0,
-        "passes": 46,
+        "passes": 47,
         "incomplete": 2
       },
       {
         "module": "5. M5 Mesh",
         "violations": 0,
-        "passes": 47,
+        "passes": 48,
         "incomplete": 2
       },
       {
@@ -1176,13 +1181,13 @@
       {
         "module": "7. M7 Access",
         "violations": 0,
-        "passes": 48,
+        "passes": 49,
         "incomplete": 2
       },
       {
         "module": "8. M8 Hardening",
         "violations": 0,
-        "passes": 48,
+        "passes": 49,
         "incomplete": 2
       },
       {
@@ -1196,66 +1201,14 @@
   "axTree": [
     {
       "module": "M0 Dashboard",
-      "liveNodes": 1783,
+      "liveNodes": 1741,
       "interactiveCount": 37,
       "unnamedInteractive": [],
       "unnamedImages": [],
       "headingLevelJumps": [],
       "headings": [
         {
-          "name": "Live system constellation",
-          "level": 2
-        },
-        {
           "name": "What this is, why it exists, who it is for",
-          "level": 2
-        },
-        {
-          "name": "Engineering case study - decisions, trade-offs and evidence",
-          "level": 2
-        },
-        {
-          "name": "Contributing & changelog",
-          "level": 2
-        },
-        {
-          "name": "See it running - real screenshots, no mockups",
-          "level": 2
-        },
-        {
-          "name": "Capabilities in the shipped build",
-          "level": 2
-        },
-        {
-          "name": "Technologies, by layer",
-          "level": 2
-        },
-        {
-          "name": "PLATFORM",
-          "level": 3
-        },
-        {
-          "name": "BROWSER APIS",
-          "level": 3
-        },
-        {
-          "name": "WRITTEN HERE",
-          "level": 3
-        },
-        {
-          "name": "BUILD AND DELIVERY",
-          "level": 3
-        },
-        {
-          "name": "Roadmap",
-          "level": 2
-        },
-        {
-          "name": "Repository signals",
-          "level": 2
-        },
-        {
-          "name": "Boot sequence",
           "level": 2
         },
         {
@@ -1275,6 +1228,58 @@
           "level": 2
         },
         {
+          "name": "Capabilities in the shipped build",
+          "level": 2
+        },
+        {
+          "name": "See it running - real screenshots, no mockups",
+          "level": 2
+        },
+        {
+          "name": "Live system constellation",
+          "level": 2
+        },
+        {
+          "name": "Engineering case study - decisions, trade-offs and evidence",
+          "level": 2
+        },
+        {
+          "name": "Technologies, by layer",
+          "level": 2
+        },
+        {
+          "name": "Platform",
+          "level": 3
+        },
+        {
+          "name": "Browser APIs",
+          "level": 3
+        },
+        {
+          "name": "Written here",
+          "level": 3
+        },
+        {
+          "name": "Build and delivery",
+          "level": 3
+        },
+        {
+          "name": "Boot sequence",
+          "level": 2
+        },
+        {
+          "name": "Roadmap",
+          "level": 2
+        },
+        {
+          "name": "Repository signals",
+          "level": 2
+        },
+        {
+          "name": "Contributing & changelog",
+          "level": 2
+        },
+        {
           "name": "Build order followed (from the brief)",
           "level": 2
         },
@@ -1287,7 +1292,7 @@
           "level": 2
         },
         {
-          "name": "CONTACT",
+          "name": "Contact",
           "level": 3
         },
         {
@@ -1321,7 +1326,7 @@
           "level": 2
         },
         {
-          "name": "LIVE CURSORS",
+          "name": "Live cursors",
           "level": 3
         },
         {
@@ -1332,7 +1337,7 @@
     },
     {
       "module": "2. M2 C/C++ Runtime",
-      "liveNodes": 612,
+      "liveNodes": 614,
       "interactiveCount": 45,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1362,7 +1367,7 @@
     },
     {
       "module": "3. M3 3D Engine",
-      "liveNodes": 304,
+      "liveNodes": 306,
       "interactiveCount": 21,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1388,7 +1393,7 @@
     },
     {
       "module": "4. M4 E2EE",
-      "liveNodes": 292,
+      "liveNodes": 296,
       "interactiveCount": 19,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1400,6 +1405,10 @@
         },
         {
           "name": "Session",
+          "level": 2
+        },
+        {
+          "name": "Key material and safety number",
           "level": 2
         },
         {
@@ -1422,7 +1431,7 @@
     },
     {
       "module": "5. M5 Mesh",
-      "liveNodes": 398,
+      "liveNodes": 403,
       "interactiveCount": 33,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1460,7 +1469,7 @@
     },
     {
       "module": "6. M6 Offline",
-      "liveNodes": 295,
+      "liveNodes": 298,
       "interactiveCount": 17,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1486,7 +1495,7 @@
     },
     {
       "module": "7. M7 Access",
-      "liveNodes": 318,
+      "liveNodes": 327,
       "interactiveCount": 43,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1520,7 +1529,7 @@
     },
     {
       "module": "8. M8 Hardening",
-      "liveNodes": 337,
+      "liveNodes": 335,
       "interactiveCount": 17,
       "unnamedInteractive": [],
       "unnamedImages": [],
@@ -1546,7 +1555,7 @@
     },
     {
       "module": "9. SINGU AI (unscored)",
-      "liveNodes": 584,
+      "liveNodes": 586,
       "interactiveCount": 34,
       "unnamedInteractive": [],
       "unnamedImages": [],

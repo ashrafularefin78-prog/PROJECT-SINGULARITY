@@ -228,8 +228,8 @@ def inject_test_count():
     index = os.path.join(DIST, "index.html")
     html = open(index, "r", encoding="utf-8").read()
     for pattern, replacement in [
-        (r'(id="hero-tests">)\d+( tests GREEN)', rf'\g<1>{total}\g<2>'),
-        (r'(RUN )\d+( tests IN THIS BROWSER)', rf'\g<1>{total}\g<2>'),
+        (r'(id="hero-tests">)\d+( tests green)', rf'\g<1>{total}\g<2>'),
+        (r'(Run )\d+( tests in this browser)', rf'\g<1>{total}\g<2>'),
     ]:
         html, matched = re.subn(pattern, replacement, html)
         if matched != 1:

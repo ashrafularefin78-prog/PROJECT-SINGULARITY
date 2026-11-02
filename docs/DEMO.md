@@ -61,8 +61,8 @@ Keep a second browser tab open on the same URL for the collaboration steps.
    the Platinum band, past the Gold ceiling. Say out loud that the leading
    column is the brief's points band and the ladder grades the *requirements*,
    which is why the two readings disagree.
-7. Point at the budget table: the current payload is **met** (130.1 KiB gzip
-   cold-load JavaScript plus 29.9 KiB gzip CSS = 159.9 KiB gzip / 519.4 KiB raw
+7. Point at the budget table: the current payload is **met** (130.4 KiB gzip
+   cold-load JavaScript plus 32.6 KiB gzip CSS = 163.0 KiB gzip / 520.9 KiB raw
    across 15 initial files: 14 JS and the stylesheet, against a 170 KB JS ceiling).
    The 30-file deferred graph is 187.7 KiB gzip JS; the approximately 18.4 MiB
    compressed toolchain asset set is separate and loads on the first compiler run.
@@ -102,7 +102,8 @@ assets, not a compilation service. Program source is not uploaded.
 
 ## 3. M3 3D Engine — WebGL2 from scratch (1 min)
 
-1. Open **3. M3 3D Engine**: cube 3D scene, 4 draw calls, FPS readout, PCF
+1. Open **3. M3 3D Engine**: cube 3D scene, 12 draw calls including the shadow
+   pass, FPS readout, PCF
    shadows, particles. The totem beside the core model is a second shipped GLB
    whose seven-joint clip is playing and whose two morph targets are driven by a
    CUBICSPLINE weights track: point at the **Skinned primitives** and

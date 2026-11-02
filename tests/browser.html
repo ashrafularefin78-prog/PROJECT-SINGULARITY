@@ -3,12 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Project Singularity - Test Runner</title>
+    <title>Project Singularity - test runner</title>
     <link rel="stylesheet" href="./browser.css" />
   </head>
   <body>
-    <h1>Project Singularity - automated test suite</h1>
-    <div id="out"></div>
+    <div class="wrap">
+      <h1>Automated test suite</h1>
+      <p class="lede">
+        The same suites the Node runner executes, run here so they can reach the
+        DOM, IndexedDB and WebGL2. Every module tile in
+        <a href="../index.html">the application</a> names tests from this page; a
+        green line here is the evidence behind the claim there.
+      </p>
+      <div id="out"></div>
+    </div>
     <script type="module" src="./browser-runner.js"></script>
   </body>
 </html>

@@ -119,8 +119,8 @@ function transform(name, text) {
       return text
         .replace(/\b\d+(?: of \d+)? tests green in your browser/g, `${b} of ${n} tests runnable in your browser`)
         .replace(/\b\d+(?: of \d+)? tests runnable in your browser/g, `${b} of ${n} tests runnable in your browser`)
-        .replace(/(id="hero-tests">)\d+( tests GREEN)/g, `$1${b}$2`)
-        .replace(/(RUN )\d+( tests IN THIS BROWSER)/g, `$1${b}$2`);
+        .replace(/(id="hero-tests">)\d+( tests green)/g, `$1${b}$2`)
+        .replace(/(Run )\d+( tests in this browser)/g, `$1${b}$2`);
     case 'app':
       return text
         .replace(

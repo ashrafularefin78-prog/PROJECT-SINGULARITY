@@ -56,7 +56,7 @@ const WAVE_SAMPLES = 64;
 function createWaveform() {
   const width = 260;
   const height = 34;
-  const label = el('b', { class: 'deck-label', text: 'DOC OPS · 1 S' });
+  const label = el('b', { class: 'deck-label', text: 'DOC OPS' });
   const value = el('i', { class: 'deck-value', text: '0/s' });
   const grid = [];
   for (let i = 1; i < 4; i += 1) {
@@ -103,7 +103,7 @@ function createWaveform() {
         'd',
         points.length ? `M${points[0].split(',')[0]},${height} L${points.join(' L')} L${points[points.length - 1].split(',')[0]},${height} Z` : '',
       );
-      label.textContent = isFps ? 'FRAME RATE · 1 S' : 'DOC OPS · 1 S';
+      label.textContent = isFps ? 'FRAME RATE' : 'DOC OPS';
       value.textContent = isFps ? `${Math.round(reading.fps)} fps` : `${reading.opsDelta}/s`;
     },
   };

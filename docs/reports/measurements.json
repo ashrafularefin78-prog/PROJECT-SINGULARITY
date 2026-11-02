@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-02T07:12:57.814Z",
+  "generatedAt": "2026-11-02T13:09:54.381Z",
   "directory": "docs/reports",
   "counts": {
-    "artifacts": 30,
-    "measurements": 20,
+    "artifacts": 31,
+    "measurements": 21,
     "records": 10,
     "errors": 0
   },
@@ -11,12 +11,12 @@
     {
       "file": "a11y.json",
       "kind": "json",
-      "bytes": 37865,
-      "sha256": "691fa06892685a4d4156d35eded477680adc3ea2577472516bb10cc58d8535b9",
+      "bytes": 37614,
+      "sha256": "b08a5868f6975cdff07fd606a4bbfbb4cfbc5fb3b40e22c9af4b2880fa58b04d",
       "what": "axe-core plus the browser accessibility tree; not a screen-reader session (none is available headlessly)",
       "stamp": {
         "key": "measuredAt",
-        "value": "2026-11-01T14:46:31.572Z"
+        "value": "2026-11-02T13:01:00.286Z"
       },
       "category": "measurement"
     },
@@ -35,12 +35,24 @@
     {
       "file": "cls.json",
       "kind": "json",
-      "bytes": 2573,
-      "sha256": "a21ac33694f6843d3c8e727f135fc3ba33c6685f19fa01e93c9bfdff12b31df1",
+      "bytes": 2540,
+      "sha256": "62c5be854bc8e45c711414f644c11db1c0502bb2b73806edbd105b49d773e0cc",
       "what": "layout-shift PerformanceObserver installed before first paint; the layout viewport is resized twice to imitate the mobile URL bar moving",
       "stamp": {
         "key": "measuredAt",
-        "value": "2026-10-18T04:25:38.286Z"
+        "value": "2026-11-02T12:41:06.367Z"
+      },
+      "category": "measurement"
+    },
+    {
+      "file": "contrast.json",
+      "kind": "json",
+      "bytes": 2603,
+      "sha256": "8b1b63dacef46440c815fbe3eb568532930de4ddf35f3e6bb7ceb300852266b9",
+      "what": "every element that renders its own text node, both themes, every panel; translucent backgrounds composited from the root down the way the renderer does; text whose own colour is translucent is not judged",
+      "stamp": {
+        "key": "measuredAt",
+        "value": "2026-11-02T12:39:28.304Z"
       },
       "category": "measurement"
     },
@@ -99,23 +111,23 @@
     {
       "file": "lcp.json",
       "kind": "json",
-      "bytes": 3336,
-      "sha256": "a86d7ab48cf4d592948d1282c751adf7fe9575d2391d848f406bf7cee26fa4fd",
+      "bytes": 5238,
+      "sha256": "0ff50ba1150c314259172ecd66942959b64dfd2fcb92cb528cc4a08091c31569",
       "what": "{\"viewport\":\"412x915 @2.625 (mobile)\",\"throttled\":\"CDP Slow 4G: 150 ms RTT, 1.6 Mbps down, 750 Kbps up; 4x CPU slowdown\",\"unthrottled\":\"no network or CPU throttling (loopback reference)\",\"server\":\"tools/serve.js with the production security headers\",\"lcpSource\":\"PerformanceObserver largest-contentful-paint (buffered)\"}",
       "stamp": {
         "key": "measuredAt",
-        "value": "2026-10-31T16:30:02.761Z"
+        "value": "2026-11-02T12:52:34.883Z"
       },
       "category": "measurement"
     },
     {
       "file": "lighthouse-desktop.json",
       "kind": "json",
-      "bytes": 692506,
-      "sha256": "18b79f16b4860340731afc1ef810ccd71990ce9ec7740c144a475493051f4911",
+      "bytes": 700166,
+      "sha256": "a62c83b45e3e7279fb274f9d5daf80f23ada6e18e1b45a57d49f68a3ba5c85ca",
       "stamp": {
         "key": "fetchTime",
-        "value": "2026-10-21T20:26:43.598Z"
+        "value": "2026-11-02T12:44:07.600Z"
       },
       "category": "measurement"
     },
@@ -133,11 +145,11 @@
     {
       "file": "lighthouse-mobile.json",
       "kind": "json",
-      "bytes": 685865,
-      "sha256": "501fcbdd6bcbc9c1a28205fd5ce539625308e8e0ae7fbbe65ef7f46861b2a013",
+      "bytes": 661016,
+      "sha256": "9befcc8533cb144180645f6f2a5270f4042ea84d947f7ea2d066016f08652a47",
       "stamp": {
         "key": "fetchTime",
-        "value": "2026-10-21T19:54:08.929Z"
+        "value": "2026-11-02T12:43:49.264Z"
       },
       "category": "measurement"
     },

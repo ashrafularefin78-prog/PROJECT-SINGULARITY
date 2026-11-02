@@ -85,12 +85,46 @@ MUST_BE_CRITICAL = [
     ".hero-badges", ".lede", ".ring", ".footer", "h1",
 ]
 
-# Keyframes an animation-name in the critical block refers to.
-CRITICAL_KEYFRAMES = [
-    "aurora-drift", "fx-sweep", "hero-glow",
-    "title-glitch", "btn-sheen",
-    "stars-drift", "stars-twinkle", "meteor-run", "rain-fall",
-]
+# Keyframes are not listed by hand. A `@keyframes` block is inlined exactly when
+# a rule in the critical block names it, which is decided after the split (see
+# animation_names). The list this replaced had already drifted twice: it carried
+# two names that no longer exist anywhere in app.css, missed three that critical
+# rules do reference (sweep-down, floor-scroll, nebula-drift, ticker-run), and so
+# shipped the hero floor and the deck ticker unanimated at first paint while
+# paying for two keyframes nobody asked for.
+#
+# The names an `animation` shorthand can carry that are not themselves a name.
+ANIMATION_KEYWORDS = {
+    "none", "infinite", "alternate", "alternate-reverse", "reverse", "normal",
+    "forwards", "backwards", "both", "running", "paused", "initial", "inherit",
+    "unset", "ease", "ease-in", "ease-out", "ease-in-out", "linear", "step-start",
+    "step-end",
+}
+
+
+def animation_names(body):
+    """Every @keyframes name one rule body's `animation` shorthands reference.
+
+    `animation` only, never `animation-*`: `html[data-fx='reduced'] .hero::before
+    { animation-duration: 24s }` changes timing of a name the base rule already
+    declared, and reading it would need the value to be a name.
+    """
+    names = []
+    for decl in re.finditer(r"(?:^|[;{])\s*animation\s*:([^;}]*)", body):
+        for item in decl.group(1).split(","):
+            for token in item.strip().split():
+                if token in ANIMATION_KEYWORDS or token.endswith(")"):
+                    continue
+                if re.match(r"^[0-9]", token) or token.startswith("var("):
+                    continue
+                # `animation: none !important` on the reduced-motion kill switch:
+                # once the only value is skipped, the flag would otherwise be
+                # read as a keyframe name and the run would stop on it.
+                if not re.match(r"^-?[_a-zA-Z][_a-zA-Z0-9-]*$", token):
+                    continue
+                names.append(token)
+                break
+    return names
 
 
 def strip_comments(text):
@@ -173,31 +207,52 @@ def split_rule(prelude, body):
 
 
 def split_css(css):
+    blocks = parse_blocks(css)
     critical, deferred = [], []
-    for kind, prelude, body in parse_blocks(css):
+    named = set()
+
+    def take_rule(prelude, body):
+        for where, text in split_rule(prelude, body):
+            if where == "critical":
+                critical.append(text)
+                named.update(animation_names(body))
+            else:
+                deferred.append(text)
+
+    for kind, prelude, body in blocks:
         if kind == "rule":
-            for where, text in split_rule(prelude, body):
-                (critical if where == "critical" else deferred).append(text)
-        elif kind == "keyframes":
-            (critical if prelude in CRITICAL_KEYFRAMES else deferred).append(
-                f"@keyframes {prelude} {{{body}}}"
-            )
+            take_rule(prelude, body)
         elif kind == "media":
-            inner = parse_blocks(body)
-            keep = []
-            drop = []
-            for ikind, iprelude, ibody in inner:
+            keep, drop = [], []
+            for ikind, iprelude, ibody in parse_blocks(body):
                 if ikind == "rule":
                     for where, text in split_rule(iprelude, ibody):
-                        (keep if where == "critical" else drop).append(text)
+                        if where == "critical":
+                            keep.append(text)
+                            named.update(animation_names(ibody))
+                        else:
+                            drop.append(text)
                 else:
                     drop.append(f"{iprelude} {{{ibody}}}")
             if keep:
                 critical.append(prelude + " {\n" + "\n".join(keep) + "\n}")
             if drop:
                 deferred.append(prelude + " {\n" + "\n".join(drop) + "\n}")
-        else:
+        elif kind != "keyframes":
             deferred.append(f"{prelude} {{{body}}}")
+
+    missing = sorted(named - {b[1] for b in blocks if b[0] == "keyframes"})
+    if missing:
+        raise SystemExit(
+            "critical rules name keyframes that are not defined anywhere in "
+            "styles/app.css: " + ", ".join(missing)
+        )
+
+    # Second pass, in source order, so the inlined block reads like the sheet.
+    for kind, prelude, body in blocks:
+        if kind == "keyframes":
+            target = critical if prelude in named else deferred
+            target.append(f"@keyframes {prelude} {{{body}}}")
     return critical, deferred
 
 

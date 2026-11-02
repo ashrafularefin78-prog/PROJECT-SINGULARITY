@@ -7,68 +7,131 @@
    including dynamic ones such as the score ring and the quota bar.
    Accessibility preferences are driven by data attributes on <html>. */
 
+/* The design system. One vocabulary: a neutral ground, one accent per role,
+   a serif for display headings and a sans for prose, mono only where the text
+   really is a machine reading. Every theme below re-declares these tokens and
+   nothing else - a theme that had to override a component rule is a theme that
+   breaks when that component changes. */
 :root {
-  --bg: #05070b;
-  --bg-2: #0a0f16;
-  --panel: #0d131c;
-  --panel-2: #121a25;
-  --line: #1b2634;
-  --line-2: #2a3a4e;
-  --text: #dae5f5;
-  --dim: #8399b0;
-  --accent: #6ea8fe;
-  --accent-2: #b39ddb;
-  --accent-3: #4dd0e1;
-  --accent-oklch: oklch(0.72 0.12 250);
-  --accent-2-oklch: oklch(0.74 0.10 300);
-  --accent-3-oklch: oklch(0.80 0.10 200);
-  --ok: #57d68d;
-  --warn: #f7b955;
-  --bad: #ff6b81;
-  --radius: 12px;
-  --radius-sm: 8px;
+  --bg: #0b0e13;
+  --bg-2: #10141b;
+  --panel: #151a22;
+  --panel-2: #1b212b;
+  --raised: #202733;
+  --line: #262e3a;
+  --line-2: #364252;
+  --text: #e9eef6;
+  --dim: #9bacc2;
+  /* The caption/telemetry-key ramp. #6f8098 measured 4.29:1 on a card and 4.38
+     on the topbar - under the 4.5 floor this token exists to hold - so it sits
+     two steps lighter and clears 4.97 and 5.07. */
+  --faint: #788ba6;
+  --accent: #8ab4ff;
+  --accent-2: #b9a7e6;
+  --accent-3: #6fd3c7;
+  --accent-oklch: oklch(0.78 0.11 250);
+  --accent-2-oklch: oklch(0.78 0.09 300);
+  --accent-3-oklch: oklch(0.82 0.09 190);
+  --on-accent: #08101c;
+  --ok: #5fc98f;
+  --warn: #e3b25c;
+  --bad: #f0798d;
+  /* The four surfaces a component can be built from. A theme that re-declares
+     these never has to override a component rule, which is the whole reason the
+     light theme used to need forty `html[data-theme='light'] .x` selectors -
+     every one of them was a surface colour hardcoded in the wrong place. */
+  --surface: rgba(22, 27, 35, 0.86);
+  --surface-2: rgba(28, 34, 44, 0.92);
+  --sunken: rgba(10, 13, 18, 0.62);
+  --tint: rgba(138, 180, 255, 0.10);
+  --tint-2: rgba(185, 167, 230, 0.10);
+  /* The eight module hues (M9 keeps its own clay). Graphics only - see the
+     module identity section for why no hue is ever used as small-text ink. */
+  --mod-1: #6f9fe0;
+  --mod-2: #d9a25a;
+  --mod-3: #5cb98c;
+  --mod-4: #a08ad6;
+  --mod-5: #4bb8c9;
+  --mod-6: #e08e70;
+  --mod-7: #8db862;
+  --mod-8: #e2748c;
+  /* M9 is the clay of the SINGU screen, and its tab has to be recognisable as
+     the same module, so the ninth hue follows --clay rather than the series. */
+  --mod-9: #d97757;
+  /* Code surfaces - editor, terminal, digest - stay dark in every theme. A code
+     block is a window into a machine, and the daylight around it does not change
+     what a compiler prints. Having them as tokens is what lets the light theme
+     skip a dozen `.editor-head`/`.gutter`/`.terminal` overrides. */
+  --code-bg: #0a0e14;
+  --code-head: #0e131b;
+  --code-line: #1e2733;
+  --code-ink: #dbe7f6;
+  --code-dim: #8fa3b8;
+  --code-gutter: #6d84a0;
+  --code-ok: #86e0a8;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 18px;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* The display face. Inherited from the SINGU screen, where it was introduced
+     as a change of register: a page that explains itself is a document, not an
+     instrument, and a serif says so before the reader parses a word. */
+  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
   --scale: 1;
-  --shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.9);
-  --glow: 0 0 26px -8px var(--accent);
-  --glow-cyan: 0 0 22px -8px var(--accent-3);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 34px -24px rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.35), 0 30px 60px -34px rgba(0, 0, 0, 0.85);
+  --ring: 0 0 0 3px rgba(138, 180, 255, 0.28);
 }
 
 html[data-scale='1.25'] { --scale: 1.25; }
 html[data-scale='1.5'] { --scale: 1.5; }
 html[data-scale='2'] { --scale: 2; }
 
+/* High contrast is a palette, not a layout: it re-declares the same tokens with
+   every pairing pushed past 7:1 and the decorative ground removed. */
 html[data-contrast='high'] {
   --bg: #000;
   --bg-2: #000;
   --panel: #05070a;
   --panel-2: #0b1017;
+  --raised: #131a24;
   --line: #5c7591;
   --line-2: #95aecb;
   --text: #ffffff;
-  --dim: #cbd9ea;
-  --accent: #8cc4ff;
+  --dim: #dbe7f4;
+  --faint: #c3d3e6;
+  --accent: #9ecbff;
   --accent-2: #d3bcff;
   --accent-3: #7fe6f5;
+  --on-accent: #000;
   --ok: #7dffb0;
   --warn: #ffd166;
   --bad: #ff97a6;
+  --surface: #070b11;
+  --surface-2: #0c1219;
+  --sunken: #000;
+  --tint: rgba(158, 203, 255, 0.18);
+  --tint-2: rgba(211, 188, 255, 0.18);
+  --mod-9: #ffb38a;
+  --shadow: none;
+  --shadow-lg: none;
 }
 
 * { box-sizing: border-box; }
 
-/* Visual polish: a themed, high-contrast focus ring that is visible for
-   keyboard users without turning every mouse click into a ring. */
+/* Focus is a 2px themed outline plus a soft halo. The halo is what keeps the
+   ring legible on every surface the app paints; `:focus-visible` means a mouse
+   click does not trigger it. */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 button:focus-visible, .button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  box-shadow: 0 0 0 3px rgba(110, 168, 254, 0.22);
+  box-shadow: var(--ring);
 }
-html[data-theme='light'] :focus-visible { outline-color: var(--accent); }
+
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
 }
@@ -78,11 +141,14 @@ html, body { height: 100%; }
 body {
   margin: 0;
   color: var(--text);
-  font: calc(15px * var(--scale)) / 1.6 var(--sans);
+  font: calc(15px * var(--scale)) / 1.65 var(--sans);
+  /* Exactly three radials - the count is asserted in tools/ui-regressions.js -
+     and quiet enough to read as a page rather than a light show. They only say
+     which corner the light comes from. */
   background:
-    radial-gradient(1100px 620px at 8% -12%, rgba(110, 168, 254, 0.14), transparent 62%),
-    radial-gradient(900px 560px at 96% 6%, rgba(179, 157, 219, 0.12), transparent 60%),
-    radial-gradient(1000px 700px at 50% 118%, rgba(77, 208, 225, 0.07), transparent 62%),
+    radial-gradient(1200px 660px at 12% -14%, rgba(138, 180, 255, 0.10), transparent 60%),
+    radial-gradient(980px 620px at 92% 4%, rgba(185, 167, 230, 0.07), transparent 58%),
+    radial-gradient(1100px 720px at 50% 116%, rgba(111, 211, 199, 0.05), transparent 60%),
     var(--bg);
   background-attachment: fixed;
   display: grid;
@@ -100,9 +166,9 @@ body::before {
   pointer-events: none;
   z-index: 0;
   background-image:
-    repeating-linear-gradient(to right, rgba(120, 160, 210, 0.055) 0 1px, transparent 1px 68px),
-    repeating-linear-gradient(to bottom, rgba(120, 160, 210, 0.055) 0 1px, transparent 1px 68px);
-  mask-image: radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 78%);
+    repeating-linear-gradient(to right, rgba(120, 160, 210, 0.035) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(to bottom, rgba(120, 160, 210, 0.035) 0 1px, transparent 1px 72px);
+  mask-image: radial-gradient(130% 95% at 50% 0%, #000 30%, transparent 82%);
 }
 
 /* The shell is a grid, and a grid item's automatic minimum size is its content's
@@ -116,7 +182,7 @@ body::before {
    now tools/overflow.js). */
 body > * { position: relative; z-index: 1; min-width: 0; }
 
-::selection { background: rgba(110, 168, 254, 0.32); color: #fff; }
+::selection { background: rgba(138, 180, 255, 0.32); color: var(--text); }
 
 html[data-motion='reduced'] * { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
@@ -130,17 +196,11 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
 
 .skip-link {
   position: absolute; left: -9999px; top: 0; z-index: 50;
-  background: var(--accent); color: #04101f;
+  background: var(--accent); color: var(--on-accent);
   padding: 10px 16px; font-weight: 700;
   border-radius: 0 0 var(--radius) 0;
 }
 .skip-link:focus { left: 0; }
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 5px;
-}
 
 /* ---------------------------------------------------------------- scrollbars */
 
@@ -164,28 +224,20 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 12px 16px;
   align-items: center;
-  padding: 14px 22px;
+  padding: 14px 24px;
   border-bottom: 1px solid var(--line);
   min-height: 127px;
-  background: linear-gradient(180deg, rgba(12, 19, 28, 0.92), rgba(5, 7, 11, 0.75));
-  backdrop-filter: blur(14px);
+  background: var(--surface);
+  backdrop-filter: blur(12px);
 }
 
+/* The brand is a wordmark, not a light source: the mark holds the accent colour
+   and the name holds the type, but neither glows, pulses or fades through a
+   gradient. A reader should be able to see what product this is in one pass. */
 .brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.brand-mark {
-  font-size: 1.15em;
-  color: var(--accent);
-  text-shadow: 0 0 16px rgba(110, 168, 254, 0.8);
-  animation: pulse 3.6s ease-in-out infinite;
-}
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-.brand-name {
-  font: 800 0.95em/1 var(--sans);
-  letter-spacing: 0.2em;
-  background: linear-gradient(92deg, #fff 8%, var(--accent) 55%, var(--accent-2) 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.brand-sub { color: var(--dim); font: 0.76em/1 var(--mono); letter-spacing: 0.1em; }
+.brand-mark { font-size: 1.05em; color: var(--accent); }
+.brand-name { font: 700 1.06em/1 var(--serif); color: var(--text); }
+.brand-sub { color: var(--dim); font: 500 0.8em/1 var(--sans); }
 
 .chips {
   display: flex; flex-wrap: wrap; gap: 6px;
@@ -198,20 +250,23 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
   /* Reserved on narrow viewports only, and measured rather than guessed. On a
      wide viewport the chips share a row with the brand and filling them costs
      nothing (24.5px of chips inside a 30.5px row at 1350px). Below ~790px they
-     take their own grid row, which is 0px tall until boot fills it and 55px
+     take their own grid row, which is 0px tall until boot fills it and 56px
      after - a measured 0.048 of CLS at 412x915. Reserving that row at every
      width was tried first and rejected: it makes the desktop header 25px
-     taller from the first paint for a row that never grows there. */
+     taller from the first paint for a row that never grows there. The steps
+     themselves are at the bottom of this file, next to the telemetry ones. */
 }
 
+/* A chip labels a state of the system; it is not a value the machine printed.
+   Sans, at the weight the rest of the interface's small type uses, so a row of
+   five of them reads as a sentence rather than as a stamp. */
 .chip {
-  font: 700 calc(10.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.09em;
+  font: 600 calc(11px * var(--scale)) / 1 var(--sans);
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line);
   color: var(--dim);
-  background: rgba(13, 19, 28, 0.85);
+  background: var(--surface-2);
   white-space: nowrap;
 }
 .chip::before {
@@ -224,19 +279,19 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
   vertical-align: middle;
   opacity: 0.85;
 }
-.chip.ok { color: var(--ok); border-color: rgba(87, 214, 141, 0.4); background: rgba(87, 214, 141, 0.07); }
-.chip.warn { color: var(--warn); border-color: rgba(247, 185, 85, 0.4); background: rgba(247, 185, 85, 0.07); }
-.chip.bad { color: var(--bad); border-color: rgba(255, 107, 129, 0.4); background: rgba(255, 107, 129, 0.07); }
-.chip.accent { color: var(--accent); border-color: rgba(110, 168, 254, 0.4); background: rgba(110, 168, 254, 0.07); }
+.chip.ok { color: var(--ok); border-color: var(--line); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.chip.warn { color: var(--warn); border-color: var(--line); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.chip.bad { color: var(--bad); border-color: var(--line); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+.chip.accent { color: var(--accent); border-color: var(--line); background: var(--tint); }
 
 /* -------------------------------------------------------------------- tabs */
 
 .tabs {
   display: flex; gap: 6px;
   overflow-x: auto;
-  padding: 10px 18px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--line);
-  background: rgba(10, 15, 22, 0.72);
+  background: var(--sunken);
   backdrop-filter: blur(10px);
   scrollbar-width: none;
   /* The shell ships an empty tab strip and the app fills it during boot. With
@@ -250,38 +305,35 @@ html[data-motion='reduced'] * { animation: none !important; transition: none !im
 
 .tab {
   position: relative;
-  border: 1px solid var(--line);
-  background: rgba(18, 26, 37, 0.6);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--dim);
   padding: 9px 15px;
   border-radius: 999px;
-  font: 600 calc(12px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.04em;
+  font: 600 calc(12px * var(--scale)) / 1 var(--sans);
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-.tab:hover { color: var(--text); border-color: var(--line-2); transform: translateY(-1px); }
+.tab:hover { color: var(--text); background: var(--tint); }
 /* The selected tab wears its module's hue, so the navigation and the panel
    header agree about where you are. Colour comes from the same --mod tokens
    the module header and the score meters use. */
-.tab { --mod: #6ea8fe; --mod-soft: rgba(110, 168, 254, 0.3); }
+.tab { --mod: var(--accent); --mod-soft: rgba(138, 180, 255, 0.16); --mod-soft: color-mix(in srgb, var(--mod) 16%, transparent); }
 .tab[aria-selected='true'] {
-  color: #fff;
-  border-color: transparent;
-  background:
-    linear-gradient(180deg, var(--mod-soft), rgba(18, 26, 37, 0.4)),
-    rgba(18, 26, 37, 0.95);
-  /* The ring, plus the module hue pressed into the pill's bottom edge. The
-     inset shadow is masked by the border radius, so it reads as an arc that
-     follows the pill rather than a bar under it. */
-  box-shadow: 0 0 0 1px var(--mod), 0 10px 26px -16px var(--mod), inset 0 -3px 0 -1px var(--mod);
+  color: var(--text);
+  border-color: var(--line-2);
+  background: var(--mod-soft);
+  /* The hue lives in a 2px rule along the bottom edge rather than in a glow:
+     same signal, one third of the visual noise. */
+  box-shadow: inset 0 -2px 0 var(--mod);
+  font-weight: 700;
 }
 
 /* ------------------------------------------------------------------ layout */
 
-.main { padding: 26px 22px 40px; overflow: auto; }
-.panel { max-width: 1200px; margin: 0 auto; display: grid; gap: 18px; }
+.main { padding: 28px 24px 48px; overflow: auto; }
+.panel { max-width: 1140px; margin: 0 auto; display: grid; gap: 20px; }
 
 /* Grid and flex children default to min-width:auto, which means one wide table
    or long token can force the whole panel past the viewport. These resets let
@@ -292,27 +344,26 @@ td, th, .note, .list li, .checklist li { overflow-wrap: anywhere; }
 /* Tables in cards scroll inside their own box rather than widening the page. */
 .card > table { display: block; overflow-x: auto; max-width: 100%; }
 
-h1, h2, h3 { margin: 0 0 6px; line-height: 1.2; }
-h1 { font-size: 1.5em; letter-spacing: -0.01em; }
-h2 { font-size: 1.06em; }
-h3 {
-  font: 700 0.76em/1 var(--mono);
-  color: var(--dim);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-/* Every section heading gets a rule that fades off to the right, tinted with
-   the module hue when the panel provides one. */
+/* The type scale. h1 and the hero take the serif display face because they
+   announce something; h2 stays sans because it labels a box; h3 was a mono
+   small-caps stamp and is now just a smaller sans heading. Nothing in this
+   scale is uppercase or letterspaced - that was the instrument's voice, and
+   the page is a document. */
+h1, h2, h3 { margin: 0 0 6px; line-height: 1.24; }
+h1 { font: 600 calc(24px * var(--scale)) / 1.2 var(--serif); letter-spacing: -0.012em; color: var(--text); }
+h2 { font: 600 calc(15.5px * var(--scale)) / 1.3 var(--sans); letter-spacing: -0.004em; color: var(--text); }
+h3 { font: 600 calc(13px * var(--scale)) / 1.4 var(--sans); color: var(--dim); }
+/* Every section heading gets a hairline under it, so a scan of the page finds
+   the structure before it finds the words. */
 h3::after {
   content: '';
   display: block;
   height: 1px;
-  margin-top: 6px;
-  background: linear-gradient(90deg, var(--mod, var(--accent)), transparent 82%);
-  opacity: 0.5;
+  margin-top: 8px;
+  background: var(--line);
 }
 p { margin: 0 0 8px; }
-.lede { color: var(--dim); max-width: 76ch; font-size: 0.97em; }
+.lede { color: var(--dim); max-width: 72ch; font-size: 0.98em; line-height: 1.62; }
 .mono { font-family: var(--mono); }
 .dim { color: var(--dim); }
 .ok { color: var(--ok); }
@@ -324,65 +375,45 @@ p { margin: 0 0 8px; }
 
 /* -------------------------------------------------------------------- hero */
 
-/* Chamfered corners rather than rounded ones: the two cut edges get their own
-   one-pixel diagonal (a gradient band positioned in the corner), because
-   clip-path cuts the border away along the diagonal and a cut with no edge
-   reads as a rendering bug rather than as a design. The drop shadow goes with
-   it - clip-path clips the outside too - so depth comes from a backlit inset
-   instead. */
+/* The hero is a card like every other surface, with two differences: it is the
+   only thing on the page set in the display face, and it carries the accent
+   tint. The chamfered corners, the diagonal corner marks and the backlit inset
+   were instrument styling, so they live under [data-fx='full'] now - see
+   the instrument block at the end of this file. */
 .hero {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
-  padding: 26px 26px 22px;
-  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  border-radius: var(--radius-lg);
+  padding: 34px 32px 28px;
   background:
-    linear-gradient(45deg, transparent calc(50% - 0.6px), rgba(110, 168, 254, 0.6) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 16px 16px no-repeat,
-    linear-gradient(135deg, transparent calc(50% - 0.6px), rgba(179, 157, 219, 0.55) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 16px 16px no-repeat,
-    radial-gradient(720px 320px at 6% -30%, rgba(110, 168, 254, 0.22), transparent 68%),
-    radial-gradient(560px 300px at 96% 130%, rgba(179, 157, 219, 0.18), transparent 66%),
-    linear-gradient(180deg, var(--panel), var(--bg-2));
-  box-shadow: inset 0 -46px 54px -52px rgba(110, 168, 254, 0.85);
+    radial-gradient(720px 320px at 6% -34%, var(--tint), transparent 70%),
+    var(--surface-2);
+  box-shadow: var(--shadow);
 }
 .hero::after {
   content: '';
-  position: absolute; inset: 0 0 auto 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(110, 168, 254, 0.75), rgba(179, 157, 219, 0.55), transparent);
+  position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2) 55%, transparent 92%);
 }
 .hero-grid {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 24px;
+  gap: 28px;
   align-items: center;
 }
 .hero-title {
-  font: 800 clamp(1.7rem, 4.4vw, 2.7rem) / 1.06 var(--sans);
-  letter-spacing: -0.025em;
-  margin: 0 0 10px;
-  background: linear-gradient(100deg, #ffffff 6%, #cfe0ff 42%, var(--accent) 72%, var(--accent-2) 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  /* A rare chromatic stutter rather than a constant shimmer: the title carries
-     the largest contentful paint, so its resting state is a still image and
-     the whole glitch is six frames of a ten-second cycle. The keyframes are in
-     the critical block (tools/critical-css.py) so the first paint owns them. */
-  animation: title-glitch 10s linear infinite;
-}
-@keyframes title-glitch {
-  0%, 90%, 94%, 97%, 100% { filter: none; transform: none; }
-  91% { filter: drop-shadow(3px 0 rgba(255, 64, 128, 0.6)) drop-shadow(-3px 0 rgba(64, 224, 255, 0.6)); transform: translateX(-2px); }
-  92% { filter: drop-shadow(-2px 0 rgba(255, 64, 128, 0.45)) drop-shadow(2px 0 rgba(64, 224, 255, 0.45)); transform: translateX(3px); }
-  93% { filter: none; transform: translateX(-1px); }
-  95% { filter: drop-shadow(2px 0 rgba(255, 64, 128, 0.5)) drop-shadow(-2px 0 rgba(64, 224, 255, 0.5)); transform: none; }
-  96% { filter: none; transform: translateX(1px); }
+  font: 600 clamp(1.85rem, 3.6vw, 2.5rem) / 1.14 var(--serif);
+  letter-spacing: -0.018em;
+  margin: 0 0 12px;
+  color: var(--text);
 }
 .hero-kicker {
-  font: 700 0.72em/1 var(--mono);
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
+  font: 600 calc(12.5px * var(--scale)) / 1.2 var(--sans);
   color: var(--accent-3);
   margin-bottom: 12px;
 }
-.hero-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.hero-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 
 /* The hero is static HTML (see index.html) so that the largest contentful paint
    does not have to wait for the module script, IndexedDB and the CRDT rebuild.
@@ -390,7 +421,7 @@ p { margin: 0 0 8px; }
    second hero, and the four rules below are what make "a child of <main>" and
    "the first child of .panel" the same place on screen - so adopting it, and
    filling in the two dynamic parts, cannot move anything already painted. */
-#hero { max-width: 1200px; margin: 0 auto; }
+#hero { max-width: 1140px; margin: 0 auto; }
 /* `.panel > *` fades its children in on arrival. The hero is already on screen
    by then, so animating it would blink it out first. */
 .panel > #hero { animation: none; }
@@ -402,103 +433,26 @@ p { margin: 0 0 8px; }
    (which the CSP permits) instead of an inline style (which it does not). */
 .ring-wrap { display: grid; justify-items: center; gap: 8px; }
 .ring { width: 188px; height: 188px; display: block; }
-.ring-track { fill: none; stroke: rgba(120, 150, 190, 0.16); stroke-width: 12; }
+.ring-track { fill: none; stroke: var(--line); stroke-width: 10; }
 /* The arc's gradient stroke and dash offset arrive as SVG presentation
    attributes, so no inline style is needed anywhere in the ring. */
-.ring-arc { fill: none; stroke-width: 12; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; }
-/* Decorative dashed orbit: motion is expressed as a static transform in the
-   stylesheet, so nothing here needs an inline style or a script. */
+.ring-arc { fill: none; stroke-width: 10; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; }
 .ring-spin {
   fill: none;
-  stroke: rgba(110, 168, 254, 0.32);
+  stroke: var(--line-2);
   stroke-width: 2;
   stroke-dasharray: 3 26;
+  opacity: 0.75;
   transform-origin: 50% 50%;
-  animation: orbit 18s linear infinite;
 }
-@keyframes orbit { to { transform: rotate(360deg); } }
-.ring-score { font: 800 30px/1 var(--mono); fill: #fff; }
-.ring-max { font: 600 11px/1 var(--mono); fill: var(--dim); letter-spacing: 0.16em; }
-.ring-cap { font: 700 0.72em/1 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
-
-/* ---------------------------------------------------------- futuristic score */
-
-/* The score ring glows like a powered-up HUD element. */
-.ring-track { stroke: #142030; }
-.ring-spin {
-  stroke: rgba(110, 168, 254, 0.45);
-  filter: drop-shadow(0 0 14px rgba(110, 168, 254, 0.45));
-}
-.ring-arc {
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 16px var(--accent));
-  animation: arc-flow 3s linear infinite;
-}
-@keyframes arc-flow {
-  to { stroke-dashoffset: -520; }
-}
-/* A soft pulse at the heart of the ring, in time with the count-up. */
-.ring-core {
-  fill: var(--accent);
-  animation: core-pulse 2.2s ease-in-out infinite;
-}
-@keyframes core-pulse {
-  0%, 100% { r: 16; fill-opacity: 0.9; filter: drop-shadow(0 0 10px var(--accent)); }
-  50% { r: 20; fill-opacity: 1; filter: drop-shadow(0 0 24px var(--accent)); }
-}
-
-/* Centre number: neon readout that counts up on first paint. */
-.ring-score {
-  fill: #fff;
-  filter: drop-shadow(0 0 14px rgba(110, 168, 254, 0.7));
-  animation: score-ignite 1.2s ease-out both;
-}
-@keyframes score-ignite {
-  from { fill-opacity: 0; filter: drop-shadow(0 0 40px var(--accent)); transform: scale(1.12); }
-  to { fill-opacity: 1; transform: scale(1); }
-}
-
-/* LED segment meters: each lit cell glows and breathes slightly. */
-.seg.on {
-  background: var(--mod, var(--accent));
-  box-shadow: 0 0 10px -1px var(--mod, var(--accent));
-  animation: led-blink 4s ease-in-out infinite;
-}
-.seg.on:nth-child(odd) { animation-delay: 1s; }
-.seg.on:nth-child(even) { animation-delay: 2.5s; }
-@keyframes led-blink {
-  0%, 100% { opacity: 1; filter: brightness(1); }
-  50% { opacity: 0.85; filter: brightness(1.35); }
-}
-
-/* Module score tiles get a holographic rail and a faint scan on hover. */
-.map-tile {
-  background:
-    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
-    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--mod) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
-    linear-gradient(180deg, rgba(19, 27, 38, 0.92), rgba(10, 15, 22, 0.9)),
-    repeating-linear-gradient(90deg, transparent, transparent 92%, rgba(255,255,255,0.04) 92%, rgba(255,255,255,0.04) 100%);
-}
-.map-tile::after {
-  content: '';
-  position: absolute; inset: -1px;
-  pointer-events: none;
-  border-radius: inherit;
-  clip-path: inherit;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
-  background-size: 200% 100%;
-  animation: scan 3s linear infinite;
-  opacity: 0.6;
-}
-@keyframes scan {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-.map-tile:hover { box-shadow: 0 0 24px -8px var(--mod); }
-
-/* Honest score stat card number lights up. */
-.stat b, .stat .big { text-shadow: 0 0 28px -10px var(--accent-2); }
-
+.ring-core { fill: var(--tint); }
+.ring-score { font: 700 31px/1 var(--sans); letter-spacing: -0.02em; fill: var(--text); }
+.ring-max { font: 600 11px/1 var(--sans); fill: var(--faint); }
+/* The arc's three stops, read from the theme rather than baked into the SVG. */
+.ring-stop-a { stop-color: var(--accent); }
+.ring-stop-b { stop-color: var(--accent-2); }
+.ring-stop-c { stop-color: var(--accent-3); }
+.ring-cap { font: 600 calc(11.5px * var(--scale)) / 1.4 var(--sans); color: var(--dim); }
 
 /* ------------------------------------------------------------- scorecard */
 
@@ -509,87 +463,91 @@ p { margin: 0 0 8px; }
   border-inline-start-width: 3px;
   border-radius: var(--radius-sm);
   padding: 10px 12px;
-  background: rgba(13, 19, 28, 0.7);
+  background: var(--surface);
 }
-.tier-chip b { display: block; font: 700 0.86em/1.4 var(--mono); letter-spacing: 0.06em; }
-.tier-chip span { color: var(--dim); font-size: 0.78em; }
+.tier-chip b { display: block; font: 700 calc(13px * var(--scale)) / 1.4 var(--sans); }
+.tier-chip span { color: var(--dim); font-size: 0.82em; }
 /* Each tier shows both numbers: the points band it covers and the requirement
    that actually has to hold, because the brief has both. */
 .tier-chip .block { display: block; }
-.tier-chip .req { opacity: 0.72; font-style: italic; }
-.tier-chip .achieved { color: #fff; font-weight: 700; font-style: normal; opacity: 1; }
-.tier-chip.bronze { border-inline-start-color: #cd7f32; }
-.tier-chip.silver { border-inline-start-color: #b8c4d4; }
-.tier-chip.gold { border-inline-start-color: #e0b34a; }
-.tier-chip.platinum { border-inline-start-color: #7fe6f5; }
+.tier-chip .req { color: var(--dim); font-style: italic; }
+.tier-chip .achieved { color: var(--text); font-weight: 700; font-style: normal; }
+/* The three metals are the one place a hue is not a module, so they are fixed
+   colours - and they are picked to hold 3:1 on a dark page *and* a light one,
+   which #97a6ba and #c99a33 did not. */
+.tier-chip.bronze { border-inline-start-color: #b06a2a; }
+.tier-chip.silver { border-inline-start-color: #7f8da0; }
+.tier-chip.gold { border-inline-start-color: #a8801f; }
+.tier-chip.platinum { border-inline-start-color: var(--accent-3); }
 .tier-chip.impossible { border-inline-start-color: var(--bad); }
 .tier-chip.current {
-  background: linear-gradient(180deg, rgba(184, 196, 212, 0.18), rgba(13, 19, 28, 0.85));
-  box-shadow: 0 0 0 1px rgba(184, 196, 212, 0.45);
+  border-color: var(--line-2);
+  background: var(--surface-2);
+  box-shadow: var(--shadow);
 }
-.tier-chip.current b { color: #fff; }
+.tier-chip.current b { color: var(--text); }
 /* Requirements are graded, not decorated: a tier whose requirement actually
-   holds is marked met, one that does not says by how many modules it fails. */
-.tier-chip.met .req:last-of-type { color: var(--ok); font-style: normal; opacity: 1; }
-.tier-chip.unmet { opacity: 0.62; }
-.tier-chip.unmet .req:last-of-type { color: var(--bad); font-style: normal; opacity: 0.9; }
+   holds is marked met, one that does not says by how many modules it fails.
+   Both states carry the same ink - dimming the whole chip with opacity made the
+   text fail contrast on the daylight theme, and colour alone already says it. */
+.tier-chip.met .req:last-of-type { color: var(--ok); font-style: normal; }
+.tier-chip.unmet { border-color: var(--line); }
+.tier-chip.unmet .req:last-of-type { color: var(--bad); font-style: normal; }
 
 /* -------------------------------------------------------- module identity */
 
 /* Every module owns a hue, so the panel you are in is recognisable from the
-   badge, the top rule and its score meter alike. The hues are declared here as
-   custom properties - never as style attributes, which the CSP forbids. */
-.mod-head[data-mod='1'], .map-tile[data-mod='1'], .feat[data-mod='1'], progress.module-bar[data-mod='1'], .tab[data-mod='1'] { --mod: #6ea8fe; --mod-soft: rgba(110, 168, 254, 0.18); }
-.mod-head[data-mod='2'], .map-tile[data-mod='2'], .feat[data-mod='2'], progress.module-bar[data-mod='2'], .tab[data-mod='2'] { --mod: #f7b955; --mod-soft: rgba(247, 185, 85, 0.18); }
-.mod-head[data-mod='3'], .map-tile[data-mod='3'], .feat[data-mod='3'], progress.module-bar[data-mod='3'], .tab[data-mod='3'] { --mod: #57d68d; --mod-soft: rgba(87, 214, 141, 0.18); }
-.mod-head[data-mod='4'], .map-tile[data-mod='4'], .feat[data-mod='4'], progress.module-bar[data-mod='4'], .tab[data-mod='4'] { --mod: #b39ddb; --mod-soft: rgba(179, 157, 219, 0.18); }
-.mod-head[data-mod='5'], .map-tile[data-mod='5'], .feat[data-mod='5'], progress.module-bar[data-mod='5'], .tab[data-mod='5'] { --mod: #4dd0e1; --mod-soft: rgba(77, 208, 225, 0.18); }
-.mod-head[data-mod='6'], .map-tile[data-mod='6'], .feat[data-mod='6'], progress.module-bar[data-mod='6'], .tab[data-mod='6'] { --mod: #ffab91; --mod-soft: rgba(255, 171, 145, 0.18); }
-.mod-head[data-mod='7'], .map-tile[data-mod='7'], .feat[data-mod='7'], progress.module-bar[data-mod='7'], .tab[data-mod='7'] { --mod: #c5e1a5; --mod-soft: rgba(197, 225, 165, 0.18); }
-.mod-head[data-mod='8'], .map-tile[data-mod='8'], .feat[data-mod='8'], progress.module-bar[data-mod='8'], .tab[data-mod='8'] { --mod: #ff6b81; --mod-soft: rgba(255, 107, 129, 0.18); }
+   badge, the top rule and its score meter alike. The hues are root tokens - a
+   theme re-declares eight colours and no component rule - and they are used
+   only as graphics (bars, borders, badges), never as the ink of small text: one
+   hue cannot pass 4.5:1 on both a dark and a light ground. Never as style
+   attributes, which the CSP forbids. */
+.mod-head[data-mod='1'], .map-tile[data-mod='1'], .feat[data-mod='1'], progress.module-bar[data-mod='1'], .tab[data-mod='1'], .case[data-mod='1'] { --mod: var(--mod-1); }
+.mod-head[data-mod='2'], .map-tile[data-mod='2'], .feat[data-mod='2'], progress.module-bar[data-mod='2'], .tab[data-mod='2'], .case[data-mod='2'] { --mod: var(--mod-2); }
+.mod-head[data-mod='3'], .map-tile[data-mod='3'], .feat[data-mod='3'], progress.module-bar[data-mod='3'], .tab[data-mod='3'], .case[data-mod='3'] { --mod: var(--mod-3); }
+.mod-head[data-mod='4'], .map-tile[data-mod='4'], .feat[data-mod='4'], progress.module-bar[data-mod='4'], .tab[data-mod='4'], .case[data-mod='4'] { --mod: var(--mod-4); }
+.mod-head[data-mod='5'], .map-tile[data-mod='5'], .feat[data-mod='5'], progress.module-bar[data-mod='5'], .tab[data-mod='5'], .case[data-mod='5'] { --mod: var(--mod-5); }
+.mod-head[data-mod='6'], .map-tile[data-mod='6'], .feat[data-mod='6'], progress.module-bar[data-mod='6'], .tab[data-mod='6'], .case[data-mod='6'] { --mod: var(--mod-6); }
+.mod-head[data-mod='7'], .map-tile[data-mod='7'], .feat[data-mod='7'], progress.module-bar[data-mod='7'], .tab[data-mod='7'], .case[data-mod='7'] { --mod: var(--mod-7); }
+.mod-head[data-mod='8'], .map-tile[data-mod='8'], .feat[data-mod='8'], progress.module-bar[data-mod='8'], .tab[data-mod='8'], .case[data-mod='8'] { --mod: var(--mod-8); }
 
 .mod-head {
   --mod: var(--accent);
-  --mod-soft: rgba(110, 168, 254, 0.18);
+  --mod-soft: rgba(138, 180, 255, 0.14);
+  --mod-soft: color-mix(in srgb, var(--mod) 14%, transparent);
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 20px;
   align-items: start;
-  padding: 20px 20px 18px;
+  padding: 24px 24px 22px;
   border: 1px solid var(--line);
-  /* Chamfered like the hero, at panel scale; the cut edges wear the module's
-     own hue, so the geometry is where the module identity shows up next. */
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  border-radius: var(--radius-lg);
   background:
-    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--mod) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 14px 14px no-repeat,
-    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--mod) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 14px 14px no-repeat,
-    radial-gradient(560px 220px at 0% -40%, var(--mod-soft), transparent 72%),
-    linear-gradient(180deg, var(--panel), var(--bg-2));
-  box-shadow: inset 0 -1px 0 0 var(--mod-soft), inset 0 -40px 60px -58px var(--mod);
+    radial-gradient(620px 240px at 0% -50%, var(--mod-soft), transparent 72%),
+    var(--surface-2);
   overflow: hidden;
 }
 .mod-head::after {
   content: '';
-  position: absolute; inset: 0 0 auto 0; height: 2px;
-  background: linear-gradient(90deg, var(--mod), transparent 76%);
+  position: absolute; inset: 0 0 auto 0; height: 3px;
+  background: var(--mod);
 }
 
 .mod-badge {
-  width: 64px; height: 64px;
+  width: 60px; height: 60px;
   display: grid; place-items: center;
-  border-radius: 17px;
-  font: 800 calc(19px * var(--scale)) / 1 var(--mono);
-  color: #fff;
-  background: linear-gradient(160deg, var(--mod-soft), rgba(6, 10, 16, 0.65));
+  border-radius: var(--radius);
+  font: 700 calc(18px * var(--scale)) / 1 var(--sans);
+  color: var(--text);
+  background: var(--mod-soft);
   border: 1px solid var(--mod);
-  box-shadow: 0 0 30px -10px var(--mod), inset 0 0 26px -18px var(--mod);
 }
 
-.mod-title { margin: 0 0 8px; font-size: clamp(1.28rem, 2.5vw, 1.72rem); letter-spacing: -0.022em; }
-.mod-meta { display: flex; flex-wrap: wrap; gap: 11px; align-items: center; margin-top: 13px; }
+.mod-title { margin: 0 0 8px; font: 600 clamp(1.35rem, 2.4vw, 1.7rem) / 1.2 var(--serif); letter-spacing: -0.018em; }
+.mod-meta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 14px; }
 .mod-meter { flex: 0 1 200px; min-width: 120px; }
-.mod-score { font: 700 calc(11.5px * var(--scale)) / 1 var(--mono); letter-spacing: 0.07em; color: var(--text); white-space: nowrap; }
+.mod-score { font: 700 calc(12.5px * var(--scale)) / 1 var(--sans); color: var(--text); white-space: nowrap; }
 .mod-head .lede { margin-bottom: 0; }
 
 /* ------------------------------------------------------------------- cards */
@@ -597,27 +555,16 @@ p { margin: 0 0 8px; }
 .card {
   position: relative;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
-  /* Chamfered, like every surface that frames content: ten pixels off the top
-     right and bottom left, each cut carrying a one-pixel edge (see .hero). */
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-  background:
-    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 10px 10px no-repeat,
-    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 10px 10px no-repeat,
-    linear-gradient(180deg, rgba(16, 23, 33, 0.94), rgba(10, 15, 22, 0.9));
+  background: var(--surface);
   border: 1px solid var(--line);
-  padding: 18px;
-  box-shadow: inset 0 24px 40px -46px rgba(110, 168, 254, 0.75);
+  border-radius: var(--radius);
+  padding: 20px;
 }
-.card::before {
-  content: '';
-  position: absolute; inset: 0 0 auto 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.09), transparent);
-}
-.card:hover { border-color: var(--line-2); box-shadow: inset 0 0 0 1px rgba(110, 168, 254, 0.3), inset 0 24px 40px -46px rgba(110, 168, 254, 0.75); }
+.card:hover { border-color: var(--line-2); }
 .card-head {
   display: flex; flex-wrap: wrap; gap: 12px;
   align-items: center; justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
 }
@@ -630,55 +577,41 @@ p { margin: 0 0 8px; }
 
 /* ---------------------------------------------------------------- controls */
 
+/* Buttons: one quiet surface, one filled accent for the primary action, one
+   filled red for the destructive action. No sheen, no lift, no glow - those are
+   instrument behaviour and return under [data-fx='full']. */
 button, .button {
-  font: 600 calc(12px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.05em;
+  font: 600 calc(13px * var(--scale)) / 1 var(--sans);
   color: var(--text);
-  background: linear-gradient(180deg, rgba(28, 39, 54, 0.95), rgba(17, 24, 34, 0.95));
+  background: var(--surface-2);
   border: 1px solid var(--line-2);
-  border-radius: 999px;
-  padding: 9px 15px;
+  border-radius: var(--radius-sm);
+  padding: 10px 15px;
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease, color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 button:hover:not(:disabled) {
-  color: #fff;
-  border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 22px -14px rgba(110, 168, 254, 0.95);
+  background: var(--raised);
+  border-color: var(--line-2);
 }
-button:active:not(:disabled) { transform: translateY(0); }
-button:disabled { opacity: 0.4; cursor: not-allowed; }
-button.primary {
-  color: #f2f7ff;
-  border-color: rgba(110, 168, 254, 0.75);
-  background: linear-gradient(180deg, rgba(110, 168, 254, 0.4), rgba(110, 168, 254, 0.16));
+button:active:not(:disabled) { background: var(--surface); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary, .button.primary {
+  color: var(--on-accent);
+  border-color: transparent;
+  background: var(--accent);
 }
-/* An energy sweep across the primary buttons while they are being pointed at
-   or keyboard-focused: one pseudo-element, translated, clipped by the pill. */
-button.primary { position: relative; overflow: hidden; }
-button.primary::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, 0.22) 50%, transparent 68%);
-  transform: translate3d(-130%, 0, 0);
-  pointer-events: none;
-}
-button.primary:hover::after, button.primary:focus-visible::after { animation: btn-sheen 0.8s linear infinite; }
-@keyframes btn-sheen {
-  from { transform: translate3d(-130%, 0, 0); }
-  to { transform: translate3d(130%, 0, 0); }
-}
+button.primary:hover:not(:disabled), .button.primary:hover { background: var(--accent-2); color: var(--on-accent); }
 button.danger {
-  color: #ffe9ec;
-  border-color: rgba(255, 107, 129, 0.7);
-  background: linear-gradient(180deg, rgba(255, 107, 129, 0.32), rgba(255, 107, 129, 0.12));
+  color: var(--on-accent);
+  border-color: transparent;
+  background: var(--bad);
 }
+button.danger:hover:not(:disabled) { background: var(--bad); filter: brightness(1.08); }
 
 input[type='text'], input[type='password'], input[type='number'], textarea, select {
-  font: calc(13px * var(--scale)) / 1.55 var(--mono);
-  background: #060a10;
+  font: calc(13.5px * var(--scale)) / 1.55 var(--sans);
+  background: var(--surface-2);
   color: var(--text);
   border: 1px solid var(--line-2);
   border-radius: var(--radius-sm);
@@ -688,11 +621,12 @@ input[type='text'], input[type='password'], input[type='number'], textarea, sele
 }
 input[type='text']:focus, input[type='password']:focus, input[type='number']:focus, textarea:focus, select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(110, 168, 254, 0.16);
+  box-shadow: var(--ring);
   outline: none;
 }
 textarea { resize: vertical; min-height: 130px; }
-label { font: 600 0.72em/1.5 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 6px; }
+::placeholder { color: var(--faint); opacity: 1; }
+label { font: 600 calc(12.5px * var(--scale)) / 1.5 var(--sans); color: var(--dim); display: block; margin-bottom: 6px; }
 input[type='checkbox'] { accent-color: var(--accent); width: 17px; height: 17px; }
 
 /* The passphrase dialog is a native modal <dialog>: focus trapping, Escape to
@@ -701,15 +635,15 @@ input[type='checkbox'] { accent-color: var(--accent); width: 17px; height: 17px;
   width: min(520px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
   overflow: auto;
-  padding: 22px;
+  padding: 24px;
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.95);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
 }
 .passphrase-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(3px);
 }
 .passphrase-dialog h2 { margin-bottom: 8px; }
@@ -728,20 +662,18 @@ input[type='range'] {
 input[type='range']::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 99px;
-  background: linear-gradient(90deg, rgba(110, 168, 254, 0.55), rgba(179, 157, 219, 0.35));
-  border: 1px solid var(--line-2);
+  background: var(--line-2);
 }
 input[type='range']::-webkit-slider-thumb {
   appearance: none;
   width: 18px; height: 18px;
-  margin-top: -7px;
+  margin-top: -6px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 32%, #ffffff, var(--accent) 70%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 0 14px -2px rgba(110, 168, 254, 0.95);
+  background: var(--accent);
+  border: 2px solid var(--panel);
 }
-input[type='range']::-moz-range-track { height: 6px; border-radius: 99px; background: rgba(110, 168, 254, 0.4); border: 1px solid var(--line-2); }
-input[type='range']::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 1px solid #fff; }
+input[type='range']::-moz-range-track { height: 6px; border-radius: 99px; background: var(--line-2); }
+input[type='range']::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 2px solid var(--panel); }
 
 /* ------------------------------------------------------------------- stats */
 
@@ -749,57 +681,44 @@ input[type='range']::-moz-range-thumb { width: 16px; height: 16px; border-radius
 .stat {
   position: relative;
   overflow: hidden;
-  /* Chamfered instrument tile: eight pixels off the top right and bottom left. */
-  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
-  background:
-    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
-    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
-    linear-gradient(180deg, rgba(20, 28, 40, 0.95), rgba(12, 18, 26, 0.9));
+  background: var(--surface);
   border: 1px solid var(--line);
-  padding: 12px 14px 13px;
-}
-.stat::before {
-  content: '';
-  position: absolute; inset: 0 0 auto 0; height: 2px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
-  opacity: 0.85;
+  border-radius: var(--radius-sm);
+  padding: 13px 14px 14px;
 }
 .stat b {
   display: block;
-  font: 800 calc(1.35em * var(--scale)) / 1.16 var(--mono);
-  letter-spacing: -0.02em;
-  background: linear-gradient(96deg, #ffffff, #bcd6ff 65%, var(--accent-2));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font: 700 calc(1.32em * var(--scale)) / 1.16 var(--sans);
+  letter-spacing: -0.022em;
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 .stat span {
   display: block;
   margin-top: 4px;
   color: var(--dim);
-  font: 700 0.68em/1.4 var(--mono);
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+  font: 500 calc(11.5px * var(--scale)) / 1.4 var(--sans);
 }
 
 /* --------------------------------------------------------------- progress */
 
 progress.bar {
   width: 100%;
-  height: 10px;
+  height: 8px;
   appearance: none;
-  border: 1px solid var(--line);
+  border: none;
   border-radius: 99px;
-  background: var(--panel-2);
+  background: var(--line);
   overflow: hidden;
 }
-progress.bar::-webkit-progress-bar { background: var(--panel-2); border-radius: 99px; }
+progress.bar::-webkit-progress-bar { background: var(--line); border-radius: 99px; }
 progress.bar::-webkit-progress-value {
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background: var(--accent);
   border-radius: 99px;
 }
 progress.bar::-moz-progress-bar { background: var(--accent); border-radius: 99px; }
 
-progress.module-bar { width: 78px; height: 7px; }
+progress.module-bar { width: 78px; height: 6px; }
 progress.module-bar::-webkit-progress-value { background: var(--mod, var(--accent)); }
 progress.module-bar::-moz-progress-bar { background: var(--mod, var(--accent)); }
 
@@ -808,44 +727,43 @@ progress.module-bar::-moz-progress-bar { background: var(--mod, var(--accent)); 
 /* Ten discrete cells instead of a continuous fill: the count is visible at a
    glance and each cell is a class, so no inline style is required. */
 .segs { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
-.seg { height: 7px; border-radius: 2px; background: rgba(120, 150, 190, 0.15); }
-.seg.on { background: var(--mod, var(--accent)); box-shadow: 0 0 9px -2px var(--mod, var(--accent)); }
+.seg { height: 7px; border-radius: 2px; background: var(--line); }
+.seg.on { background: var(--mod, var(--accent)); }
 
 .score-map { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; }
 .map-tile {
   --mod: var(--accent);
+  --mod-soft: rgba(138, 180, 255, 0.14);
+  --mod-soft: color-mix(in srgb, var(--mod) 14%, transparent);
   display: grid; gap: 9px;
-  padding: 11px 12px 12px;
+  padding: 12px 13px 12px;
   border: 1px solid var(--line);
-  border-bottom: 2px solid var(--mod);
-  /* Chamfered like the cards; the bottom-left cut wears the module hue, where
-     it meets the coloured bottom rail. */
-  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
-  background:
-    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
-    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--mod) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
-    linear-gradient(180deg, rgba(19, 27, 38, 0.92), rgba(10, 15, 22, 0.9));
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  /* The module's hue as a 3px rail along the bottom edge: enough to identify
+     the tile at a glance, quiet enough that ten of them do not compete. */
+  border-bottom: 3px solid var(--mod);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
-.map-tile:hover { transform: translateY(-2px); border-color: var(--line-2); border-bottom-color: var(--mod); }
+.map-tile:hover { background: var(--surface-2); border-color: var(--line-2); border-bottom-color: var(--mod); }
 .map-top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
-.map-id { font: 800 calc(12px * var(--scale)) / 1 var(--mono); letter-spacing: 0.09em; color: var(--mod); }
-.map-pts { font: 700 calc(12.5px * var(--scale)) / 1 var(--mono); color: var(--text); }
-.map-tile .small { font-size: 0.72em; letter-spacing: 0.04em; }
+.map-id { font: 700 calc(12.5px * var(--scale)) / 1 var(--sans); color: var(--dim); }
+.map-pts { font: 700 calc(13px * var(--scale)) / 1 var(--sans); color: var(--text); }
+.map-tile .small { font-size: 0.8em; }
 
 /* ------------------------------------------------------------------ tables */
 
-table { width: 100%; border-collapse: collapse; font-size: 0.89em; }
-th, td { text-align: start; padding: 9px 11px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+th, td { text-align: start; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th {
   color: var(--dim);
-  font: 700 0.72em/1.3 var(--mono);
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  background: rgba(10, 15, 22, 0.55);
+  font: 600 calc(12px * var(--scale)) / 1.3 var(--sans);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-2);
+  white-space: nowrap;
 }
 tbody tr { transition: background 0.14s ease; }
-tbody tr:hover { background: rgba(110, 168, 254, 0.045); }
+tbody tr:hover { background: var(--tint); }
 tbody tr:last-child td { border-bottom: none; }
 
 /* Budget rows carry their verdict as a coloured dot, so the one place the
@@ -860,38 +778,35 @@ tr.unmeasured td:first-child::before {
   border-radius: 50%;
   vertical-align: middle;
 }
-tr.met td:first-child::before { background: var(--ok); box-shadow: 0 0 9px -1px var(--ok); }
-tr.unmet td:first-child::before { background: var(--bad); box-shadow: 0 0 9px -1px var(--bad); }
+tr.met td:first-child::before { background: var(--ok); }
+tr.unmet td:first-child::before { background: var(--bad); }
 tr.unmeasured td:first-child::before { background: var(--line-2); }
-tr.unmeasured td { opacity: 0.82; }
+tr.unmeasured td { color: var(--dim); }
 
 .module-name { font-weight: 600; }
 .module-id {
-  font: 800 0.82em/1 var(--mono);
+  font: 700 calc(12px * var(--scale)) / 1 var(--sans);
   color: var(--accent);
-  letter-spacing: 0.06em;
 }
-.module-score { font: 700 0.9em/1 var(--mono); white-space: nowrap; }
+.module-score { font: 700 0.9em/1 var(--sans); white-space: nowrap; }
 
 /* ------------------------------------------------------------------- peers */
 
 .peers { display: flex; flex-wrap: wrap; gap: 8px; }
 .peer {
   display: flex; align-items: center; gap: 8px;
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 5px 12px 5px 5px;
-  font: 600 calc(11.5px * var(--scale)) / 1 var(--mono);
-  background: rgba(13, 19, 28, 0.8);
+  padding: 5px 12px 5px 6px;
+  font: 600 calc(11.5px * var(--scale)) / 1 var(--sans);
+  background: var(--surface-2);
 }
-.peer.self { border-color: rgba(110, 168, 254, 0.65); box-shadow: 0 0 0 1px rgba(110, 168, 254, 0.25); }
+.peer.self { border-color: var(--accent); }
 
 /* Which carrier a peer arrived on. Deliberately quiet: it is information, not
    an alert, and the peer list must stay readable at a glance. */
 .mini-badge {
-  font: 600 calc(9.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font: 600 calc(10.5px * var(--scale)) / 1 var(--sans);
   color: var(--dim);
   border: 1px solid var(--line-2);
   border-radius: 4px;
@@ -901,61 +816,61 @@ tr.unmeasured td { opacity: 0.82; }
 .mesh-log {
   max-height: 210px;
   overflow: auto;
-  border: 1px solid var(--line-2);
-  border-radius: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   padding: 10px 12px;
-  background: rgba(7, 11, 17, 0.72);
+  background: var(--sunken);
 }
 
 .mesh-log p { margin: 0 0 4px; }
-.dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 8px -1px currentColor; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
 .avatar {
   width: 22px; height: 22px;
   border-radius: 50%;
   display: grid; place-items: center;
-  font: 800 10px/1 var(--mono);
-  color: #05101f;
+  font: 700 10.5px/1 var(--sans);
+  color: var(--on-accent);
   background: var(--accent);
   flex: 0 0 auto;
 }
 
-.dot[data-c='0'] { background: #6ea8fe; color: #6ea8fe; }
-.dot[data-c='1'] { background: #f7b955; color: #f7b955; }
-.dot[data-c='2'] { background: #57d68d; color: #57d68d; }
-.dot[data-c='3'] { background: #ff6b81; color: #ff6b81; }
-.dot[data-c='4'] { background: #b39ddb; color: #b39ddb; }
-.dot[data-c='5'] { background: #4dd0e1; color: #4dd0e1; }
-.dot[data-c='6'] { background: #ffab91; color: #ffab91; }
-.dot[data-c='7'] { background: #c5e1a5; color: #c5e1a5; }
+/* Peer identity colours are the module hues: one palette for the whole site,
+   and eight peers still read as eight distinct nodes. */
+.dot[data-c='0'] { background: var(--mod-1); color: var(--mod-1); }
+.dot[data-c='1'] { background: var(--mod-2); color: var(--mod-2); }
+.dot[data-c='2'] { background: var(--mod-3); color: var(--mod-3); }
+.dot[data-c='3'] { background: var(--mod-4); color: var(--mod-4); }
+.dot[data-c='4'] { background: var(--mod-5); color: var(--mod-5); }
+.dot[data-c='5'] { background: var(--mod-6); color: var(--mod-6); }
+.dot[data-c='6'] { background: var(--mod-7); color: var(--mod-7); }
+.dot[data-c='7'] { background: var(--mod-8); color: var(--mod-8); }
 
-.avatar[data-c='0'] { background: #6ea8fe; }
-.avatar[data-c='1'] { background: #f7b955; }
-.avatar[data-c='2'] { background: #57d68d; }
-.avatar[data-c='3'] { background: #ff6b81; }
-.avatar[data-c='4'] { background: #b39ddb; }
-.avatar[data-c='5'] { background: #4dd0e1; }
-.avatar[data-c='6'] { background: #ffab91; }
-.avatar[data-c='7'] { background: #c5e1a5; }
+.avatar[data-c='0'] { background: var(--mod-1); }
+.avatar[data-c='1'] { background: var(--mod-2); }
+.avatar[data-c='2'] { background: var(--mod-3); }
+.avatar[data-c='3'] { background: var(--mod-4); }
+.avatar[data-c='4'] { background: var(--mod-5); }
+.avatar[data-c='5'] { background: var(--mod-6); }
+.avatar[data-c='6'] { background: var(--mod-7); }
+.avatar[data-c='7'] { background: var(--mod-8); }
 
 /* ------------------------------------------------------------------ editor */
 
 .editor-shell {
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius);
   overflow: hidden;
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-  background: #04070b;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  background: var(--code-bg);
 }
 .editor-head {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 13px;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(22, 31, 43, 0.95), rgba(13, 19, 28, 0.95));
-  font: 700 calc(11px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.08em;
-  color: var(--dim);
+  border-bottom: 1px solid var(--code-line);
+  background: var(--code-head);
+  font: 600 calc(11.5px * var(--scale)) / 1 var(--mono);
+  color: var(--code-dim);
 }
-.editor-head .file-name { color: var(--text); letter-spacing: 0.04em; }
+.editor-head .file-name { color: var(--code-ink); }
 .editor-head .spacer { flex: 1; }
 /* The gutter is absolutely positioned against the editor's box, so its height is
    exactly the textarea's height and its content overflows (and therefore
@@ -968,9 +883,9 @@ tr.unmeasured td { opacity: 0.82; }
   width: 4.4em;
   padding: 12px 10px 12px 8px;
   text-align: end;
-  color: #4a6482;
-  background: rgba(9, 13, 19, 0.92);
-  border-inline-end: 1px solid var(--line);
+  color: var(--code-gutter);
+  background: var(--code-head);
+  border-inline-end: 1px solid var(--code-line);
   font: calc(13px * var(--scale)) / 1.55 var(--mono);
   white-space: pre;
   overflow: hidden;
@@ -987,39 +902,50 @@ tr.unmeasured td { opacity: 0.82; }
   padding-inline-start: calc(4.4em + 12px);
   border: none;
   border-radius: 0;
-  background: transparent;
+  /* Owns its ground instead of borrowing the card's: a code surface stays dark
+     in both themes, and the M2 source box and the SINGU listing are not wrapped
+     in an .editor-shell - a transparent background here put light ink on light
+     paper in the daylight theme. */
+  background: var(--code-bg);
   white-space: pre;
   overflow-wrap: normal;
   overflow-x: auto;
   tab-size: 2;
   font: calc(13px * var(--scale)) / 1.55 var(--mono);
-  color: #cfe0f5;
+  color: var(--code-ink);
   caret-color: var(--accent);
 }
 .editor:focus { box-shadow: none; }
 .editor.tall { min-height: 430px; }
 /* The M2 C source box shares the editor styling but has no line-number gutter,
-   so it must not reserve the space one would occupy. */
-.editor.no-gutter { padding-inline-start: 12px; }
+   so it must not reserve the space one would occupy. It also sits straight on a
+   card instead of inside a shell, so it carries its own edge. */
+.editor.no-gutter {
+  padding-inline-start: 12px;
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius-sm);
+}
 
 .editor-status {
   display: flex; flex-wrap: wrap; gap: 12px;
   align-items: center;
   padding: 7px 13px;
-  border-top: 1px solid var(--line);
-  background: rgba(9, 13, 19, 0.9);
-  font: 600 calc(10.5px * var(--scale)) / 1.5 var(--mono);
-  letter-spacing: 0.05em;
-  color: var(--dim);
+  border-top: 1px solid var(--code-line);
+  background: var(--code-head);
+  font: 500 calc(11px * var(--scale)) / 1.5 var(--mono);
+  color: var(--code-dim);
 }
-.editor-status .sep { color: var(--line-2); }
+.editor-status .sep { color: var(--code-gutter); }
+/* The strip is a code surface, so its muted text follows the code ramp: the
+   theme's --dim is dark ink in daylight, and dark ink on this strip is 2.6:1. */
+.editor-status .dim { color: var(--code-dim); }
 
 @media (max-width: 620px) {
   .gutter { display: none; }
   .hero-grid { grid-template-columns: 1fr; }
   .ring { width: 150px; height: 150px; }
   .mod-head { grid-template-columns: 1fr; gap: 14px; }
-  .mod-badge { width: 48px; height: 48px; border-radius: 13px; font-size: calc(15px * var(--scale)); }
+  .mod-badge { width: 48px; height: 48px; font-size: calc(15px * var(--scale)); }
   .topbar { grid-template-columns: 1fr; }
   .scope .spark { width: 100%; }
 }
@@ -1027,25 +953,24 @@ tr.unmeasured td { opacity: 0.82; }
 /* ---------------------------------------------------------------- terminal */
 
 .terminal-shell {
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius);
   overflow: hidden;
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-  background: #03060a;
+  background: var(--code-bg);
 }
 .terminal-head {
   display: flex; align-items: center; gap: 9px;
   padding: 9px 13px;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(22, 31, 43, 0.95), rgba(13, 19, 28, 0.95));
-  font: 700 calc(11px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.08em;
-  color: var(--dim);
+  border-bottom: 1px solid var(--code-line);
+  background: var(--code-head);
+  font: 600 calc(11.5px * var(--scale)) / 1 var(--mono);
+  color: var(--code-dim);
 }
 .term-dots { display: flex; gap: 6px; }
 .term-dot { width: 10px; height: 10px; border-radius: 50%; display: block; }
-.term-dot.r { background: #ff6b81; }
-.term-dot.y { background: #f7b955; }
-.term-dot.g { background: #57d68d; }
+.term-dot.r { background: var(--bad); }
+.term-dot.y { background: var(--warn); }
+.term-dot.g { background: var(--ok); }
 
 .terminal {
   margin: 0;
@@ -1055,13 +980,15 @@ tr.unmeasured td { opacity: 0.82; }
   overflow: auto;
   white-space: pre-wrap;
   font: calc(12.5px * var(--scale)) / 1.62 var(--mono);
-  color: #a9f0c6;
-  background:
-    repeating-linear-gradient(to bottom, rgba(120, 200, 160, 0.03) 0 1px, transparent 1px 22px);
+  /* Owns its ground: the boot log, the hardening tree and the scene summary sit
+     straight on a card with no shell, and mint on daylight paper is 1.6:1. */
+  background: var(--code-bg);
+  border-radius: var(--radius-sm);
+  color: var(--code-ok);
 }
 .terminal .err { color: var(--bad); }
-.terminal .meta { color: var(--dim); }
-.terminal::selection { background: rgba(87, 214, 141, 0.3); }
+.terminal .meta { color: var(--code-dim); }
+.terminal::selection { background: rgba(92, 185, 140, 0.3); }
 
 /* M1 temporal core: the replay preview is a readout, not a shell, so it is
    shorter than the compiler terminal and never scrolls the page. */
@@ -1069,19 +996,18 @@ tr.unmeasured td { opacity: 0.82; }
   min-height: 92px;
   max-height: 180px;
   margin-top: 10px;
-  color: var(--text);
-  background: var(--panel-2);
+  color: var(--code-ink);
+  background: var(--code-head);
 }
 
 /* ------------------------------------------------------------------ canvas */
 
 .canvas-wrap {
   position: relative;
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   overflow: hidden;
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-  background: #04070b;
-  box-shadow: inset 0 0 60px -20px rgba(110, 168, 254, 0.35);
+  background: var(--code-bg);
 }
 canvas#scene { display: block; width: 100%; height: 470px; }
 canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -1091,11 +1017,10 @@ canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -
 }
 .canvas-overlay {
   position: absolute; inset-inline-start: 14px; inset-block-start: 14px;
-  font: 700 calc(11px * var(--scale)) / 1.7 var(--mono);
-  letter-spacing: 0.04em;
-  color: #d7e8ff;
-  background: rgba(4, 7, 11, 0.72);
-  border: 1px solid var(--line-2);
+  font: 600 calc(11.5px * var(--scale)) / 1.7 var(--mono);
+  color: var(--code-ink);
+  background: rgba(10, 14, 20, 0.82);
+  border: 1px solid var(--code-line);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
   backdrop-filter: blur(6px);
@@ -1104,19 +1029,16 @@ canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -
 
 /* ------------------------------------------------- system constellation */
 /* The live picture of the tab itself (src/ui/constellation.js). It shares the
-   chamfered shell of the engine canvas so the two read as one instrument, but
-   it is not interactive: there is nothing here to click, so it never takes
-   focus and never competes with the 3D scene's keyboard model. */
+   dark code shell of the engine canvas so the two read as one family, but it is
+   not interactive: there is nothing here to click, so it never takes focus and
+   never competes with the 3D scene's keyboard model. */
 
 .constellation-shell {
   position: relative;
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius);
   overflow: hidden;
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-  background:
-    radial-gradient(circle at 50% 46%, rgba(110, 168, 254, 0.12), transparent 64%),
-    #04070b;
-  box-shadow: inset 0 0 70px -26px rgba(110, 168, 254, 0.4);
+  background: var(--code-bg);
 }
 
 .constellation-canvas {
@@ -1135,18 +1057,24 @@ canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -
 .constellation-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 8px;
   margin-top: 10px;
 }
 
+/* The four swatches are the canvas's own state colours, which are bright hues
+   chosen for a black plotting surface. Rather than invent a second set that the
+   canvas would not use, the legend sits on the same ground as the canvas, so one
+   definition of "active" is read the same way in both places - in every theme. */
 .constellation-key {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font: 600 calc(11px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--dim);
+  padding: 5px 10px;
+  border: 1px solid var(--code-line);
+  border-radius: 999px;
+  font: 500 calc(11.5px * var(--scale)) / 1 var(--sans);
+  color: var(--code-dim);
+  background: var(--code-bg);
 }
 
 .constellation-key::before {
@@ -1155,7 +1083,6 @@ canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -
   height: 9px;
   border-radius: 50%;
   background: var(--key, var(--accent));
-  box-shadow: 0 0 10px -1px var(--key, var(--accent));
 }
 
 /* The hexes match STATES in src/ui/constellation.js: the legend and the canvas
@@ -1172,23 +1099,23 @@ canvas#scene:focus-visible { outline: 2px solid var(--accent); outline-offset: -
   border-inline-start: 3px solid var(--line-2);
   padding: 3px 0 3px 12px;
   color: var(--dim);
-  font-size: 0.92em;
+  font-size: 0.93em;
 }
 .list li.ok { border-color: var(--ok); }
 .list li.partial { border-color: var(--warn); }
 .list li.todo { border-color: var(--bad); }
 
-.checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; font-size: 0.9em; color: var(--dim); }
-.checklist li::before { content: '▸ '; color: var(--accent); }
+.checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; font-size: 0.92em; color: var(--dim); }
+.checklist li::before { content: '— '; color: var(--accent); }
 .checklist li { padding-inline-start: 2px; }
 
 kbd {
-  font: 700 calc(10.5px * var(--scale)) / 1 var(--mono);
+  font: 600 calc(11px * var(--scale)) / 1 var(--mono);
   border: 1px solid var(--line-2);
   border-bottom-width: 2px;
   border-radius: 6px;
   padding: 4px 7px;
-  background: linear-gradient(180deg, rgba(28, 39, 54, 0.95), rgba(15, 21, 30, 0.95));
+  background: var(--surface-2);
   color: var(--text);
   white-space: nowrap;
 }
@@ -1197,26 +1124,30 @@ kbd {
 
 .note {
   border-inline-start: 3px solid var(--accent);
-  background: linear-gradient(90deg, rgba(110, 168, 254, 0.11), rgba(110, 168, 254, 0.02));
-  padding: 11px 14px;
+  background: var(--tint);
+  padding: 12px 14px;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  font-size: 0.93em;
+  font-size: 0.94em;
   margin: 0;
+  /* Reading ink, not the caution hue. `.note.warn` also carries the bare `warn`
+     utility, which colours the whole element, and these blocks run to twelve
+     lines - a paragraph of amber is a warning you have to read, and the rule
+     and the ground already say caution. The SINGU panel reached the same shape
+     from its own side with `--warm-text`. */
+  color: var(--text);
 }
-.note.warn { border-color: var(--warn); background: linear-gradient(90deg, rgba(247, 185, 85, 0.12), rgba(247, 185, 85, 0.02)); }
+.note.warn { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
 
 .pill {
   display: inline-block;
-  font: 700 calc(10px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font: 600 calc(11px * var(--scale)) / 1 var(--sans);
   padding: 5px 9px;
   border-radius: 999px;
   border: 1px solid currentColor;
 }
-.pill.ok { color: var(--ok); background: rgba(87, 214, 141, 0.1); }
-.pill.partial { color: var(--warn); background: rgba(247, 185, 85, 0.1); }
-.pill.todo { color: var(--bad); background: rgba(255, 107, 129, 0.1); }
+.pill.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.pill.partial { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.pill.todo { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
 
 /* ------------------------------------------------- noscript (JS disabled) */
 
@@ -1226,31 +1157,37 @@ kbd {
 .noscript-note {
   margin: 24px; padding: 16px 18px;
   border: 1px solid var(--line); border-left: 3px solid var(--accent);
-  border-radius: 8px;
-  background: rgba(5, 7, 11, 0.9);
-  color: var(--text, #dae5f5);
-  font: calc(13px * var(--scale, 1)) / 1.6 var(--mono, monospace);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text, #e9eef6);
+  font: calc(13.5px * var(--scale, 1)) / 1.6 var(--mono, monospace);
 }
-.noscript-note code { color: var(--accent, #6ea8fe); }
+.noscript-note code { color: var(--accent, #8ab4ff); }
 
 /* Modifier for the file:// notice created by src/boot-note.js: the page was
    opened from disk, modules are browser-blocked, and this is the one visible
    thing that can still run and explain the situation. */
 .boot-note { max-width: 72ch; font-size: 15px; }
-.boot-note strong { display: block; margin-bottom: 8px; letter-spacing: 0.04em; }
+.boot-note strong { display: block; margin-bottom: 8px; }
 
 /* ------------------------------------------------------------------ footer */
 
 .footer {
   display: flex; flex-wrap: wrap; gap: 12px;
   justify-content: space-between;
-  padding: 12px 22px;
+  padding: 14px 24px;
   border-top: 1px solid var(--line);
   color: var(--dim);
-  font: calc(11px * var(--scale)) / 1.6 var(--mono);
-  letter-spacing: 0.03em;
-  background: rgba(5, 7, 11, 0.75);
+  font: 500 calc(11.5px * var(--scale)) / 1.6 var(--sans);
+  background: var(--surface);
 }
+/* The one footer string the app rewrites at boot. The shell's placeholder and
+   the filled line are the same 22 characters, `ch` is the width of `0` (the
+   widest character either of them can contain), and the line cannot break
+   inside itself - so the box reserves its final measure from the first paint
+   and filling it in moves nothing. Without this the footer grew by three lines
+   on a phone, which was a measured 0.056 of CLS. */
+.footer-peer { white-space: nowrap; min-width: 22ch; }
 
 /* ================================================================ FUTURE FX
    Decorative only: nothing here is load-bearing, every layer is pointer-inert,
@@ -1333,11 +1270,12 @@ body::after {
 .hero > * { position: relative; z-index: 1; }
 
 /* HUD corner ticks: eight background layers on one pseudo-element per surface.
-   No extra markup, no images, and no inline styles. */
-.card::after,
-.mod-head::before,
-.canvas-wrap::before,
-.terminal-shell::before {
+   No extra markup, no images, and no inline styles. Instrument styling, so it
+   only exists when the effects switch says full. */
+[data-fx='full'] .card::after,
+[data-fx='full'] .mod-head::before,
+[data-fx='full'] .canvas-wrap::before,
+[data-fx='full'] .terminal-shell::before {
   content: '';
   position: absolute;
   inset: 9px;
@@ -1353,19 +1291,20 @@ body::after {
   background-repeat: no-repeat;
   opacity: 0.65;
 }
-.mod-head::before { --hud: var(--mod); opacity: 0.42; }
-.canvas-wrap::before { inset: 12px; --hud: var(--accent); opacity: 0.5; }
-.terminal-shell::before { inset: 42px 12px 12px; --hud: var(--ok); opacity: 0.28; }
+[data-fx='full'] .mod-head::before { --hud: var(--mod); opacity: 0.42; }
+[data-fx='full'] .canvas-wrap::before { inset: 12px; --hud: var(--accent); opacity: 0.5; }
+[data-fx='full'] .terminal-shell::before { inset: 42px 12px 12px; --hud: var(--ok); opacity: 0.28; }
 
-/* Neon: a halo that breathes on the module badge, and glow on the readouts. */
-.mod-badge { animation: badge-halo 6s ease-in-out infinite; }
+/* Neon: a halo that breathes on the module badge, and glow on the readouts.
+   Same switch: none of it is load-bearing, so none of it is on by default. */
+[data-fx='full'] .mod-badge { animation: badge-halo 6s ease-in-out infinite; }
 @keyframes badge-halo {
-  0%, 100% { box-shadow: 0 0 30px -10px var(--mod), inset 0 0 26px -18px var(--mod); }
-  50% { box-shadow: 0 0 46px -8px var(--mod), inset 0 0 26px -12px var(--mod); }
+  0%, 100% { box-shadow: 0 0 30px -10px var(--mod); }
+  50% { box-shadow: 0 0 46px -8px var(--mod); }
 }
-.ring-score { filter: drop-shadow(0 0 12px rgba(110, 168, 254, 0.5)); }
-.stat b { text-shadow: 0 0 26px -12px var(--accent-2); }
-.chip::before { box-shadow: 0 0 9px -1px currentColor; }
+[data-fx='full'] .ring-score { filter: drop-shadow(0 0 12px rgba(138, 180, 255, 0.5)); }
+[data-fx='full'] .stat b { text-shadow: 0 0 26px -12px var(--accent-2); }
+[data-fx='full'] .chip::before { box-shadow: 0 0 9px -1px currentColor; }
 
 /* --------------------------------------------------------- telemetry strip */
 
@@ -1379,12 +1318,11 @@ body::after {
      removes that growth (with the tab strip's own reservation) - the measured
      desktop CLS went 0.375 -> 0.006. */
   min-height: 37px;
-  font: 700 calc(10.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.09em;
+  font: 500 calc(11px * var(--scale)) / 1 var(--mono);
   color: var(--dim);
 }
 .tl { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-.tl-k { color: #5c7591; font-style: normal; }
+.tl-k { color: var(--faint); font-style: normal; }
 .tl-v { color: var(--text); font-variant-numeric: tabular-nums; }
 .tl-live { display: inline-flex; align-items: center; gap: 7px; color: var(--accent-3); }
 .tl-live::before {
@@ -1392,7 +1330,6 @@ body::after {
   width: 7px; height: 7px;
   border-radius: 50%;
   background: var(--accent-3);
-  box-shadow: 0 0 12px 0 var(--accent-3);
   animation: blip 2.6s ease-in-out infinite;
 }
 /* The telemetry strip is static markup that the app fills after boot, so the
@@ -1405,7 +1342,20 @@ body::after {
    blank space; under-reserving moves the page under the reader's eyes. */
 @media (max-width: 899px) { .telemetry { min-height: 53px; } }
 @media (max-width: 499px) { .telemetry { min-height: 68px; } }
-@media (max-width: 789px) { .chips { min-height: 55px; } }
+/* The status chips get their own row below ~790px, and the row has to be
+   reserved at the height the filled strip actually reaches - which is not one
+   height. Swept in 10px steps with the shipped labels, the strip is 3 lines
+   below 380px, 2 lines from 380 to 919px and 1 line above that. The old ladder
+   stopped reserving at 789px, so every window from 790 to 919px grew the header
+   by 31px mid-boot; and the professional labels are longer than the instrument
+   ones they replaced ("Trusted Types on" rather than "TT"), which moved the
+   2-line band up to 919px from ~880px. Reserving one step higher than the
+   measured threshold (960px, 420px) buys headroom for a longer label - a
+   three-digit peer count, "Offline - edits buffered" - because over-reserving
+   costs blank space in a header that already reserves 127px, and under-reserving
+   moves the page under the reader's eyes. */
+@media (max-width: 959px) { .chips { min-height: 56px; } }
+@media (max-width: 419px) { .chips { min-height: 87px; } }
 
 @keyframes blip {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -1413,22 +1363,26 @@ body::after {
 }
 
 /* Sparkline: an SVG polyline whose points arrive as a presentation attribute,
-   which is the only legal way to draw live data under this CSP. The plot gets a
-   faint graticule so a flat line still reads as a measurement. */
+   which is the only legal way to draw live data under this CSP. The plot sits on
+   a sunken ground of its own so that a flat line still reads as a measurement
+   instead of as a stray rule in the header. */
 .spark {
   width: 138px; height: 26px; display: block;
-  background: rgba(4, 8, 13, 0.55);
+  background: var(--sunken);
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: 6px;
 }
-.spark-line { fill: none; stroke: var(--accent-3); stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px rgba(77, 208, 225, 0.85)); }
+.spark-line { fill: none; stroke: var(--accent-3); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .spark-area { stroke: none; opacity: 0.9; }
+/* The area fades from the line's own hue, which a stop-color attribute cannot
+   read from a custom property - so the hue is a class and the fade an attribute. */
+.spark-stop-a, .spark-stop-b { stop-color: var(--accent-3); }
 .scope {
   display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: rgba(9, 13, 19, 0.8);
+  background: var(--surface);
 }
 .scope-plot {
   flex: 1 1 260px;
@@ -1436,10 +1390,12 @@ body::after {
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: 6px;
+  /* The graticule stays: a plot with no grid makes a flat line look like a bug
+     rather than a measurement. */
   background:
-    repeating-linear-gradient(to right, rgba(120, 160, 210, 0.075) 0 1px, transparent 1px 24px),
-    repeating-linear-gradient(to bottom, rgba(120, 160, 210, 0.075) 0 1px, transparent 1px 10px),
-    rgba(4, 8, 13, 0.72);
+    repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 10px),
+    var(--sunken);
 }
 .scope-plot .spark { width: 100%; height: 44px; border: none; background: none; }
 
@@ -1464,16 +1420,29 @@ body::after {
   margin-inline-start: 3px;
   vertical-align: -2px;
   background: var(--ok);
-  box-shadow: 0 0 12px -2px var(--ok);
   animation: caret-blink 1.15s steps(2, start) infinite;
 }
 @keyframes caret-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 /* The documented escape hatch: for motion sensitivity, for forced colours, or
-   to reclaim frame time on a weak GPU. */
-html[data-fx='off'] .fx,
-html[data-fx='off'] body::after,
-html[data-fx='off'] .hero::before { display: none; }
+   to reclaim frame time on a weak GPU. 'off' is also what a first-time visitor
+   gets now - the instrument layers are opt-in.
+
+   Hiding is the base rule and showing is the exception, rather than the other
+   way round, because `<html>` carries no data-fx until app.js has applied the
+   stored preference. A gate that only fired on 'off' therefore painted the
+   starfield, the scanlines, the perspective floor and the HUD corners on every
+   cold load and deleted them a second later - a flash of the instrument on the
+   exact page view the design says is the default. Absent now means off. */
+.fx, .hud, body::after, .hero::before { display: none; }
+html[data-fx='full'] .fx,
+html[data-fx='full'] .hud,
+html[data-fx='full'] body::after,
+html[data-fx='full'] .hero::before,
+html[data-fx='reduced'] .fx,
+html[data-fx='reduced'] .hud,
+html[data-fx='reduced'] body::after,
+html[data-fx='reduced'] .hero::before { display: block; }
 html[data-fx='reduced'] .fx-sweep { display: none; }
 html[data-fx='reduced'] .fx-aurora { animation-duration: 120s; opacity: 0.65; }
 html[data-fx='reduced'] .hero::before { animation-duration: 24s; }
@@ -1483,18 +1452,17 @@ html[data-contrast='high'] body::after { background-image: none; }
 
 .cmd-hint {
   justify-self: start;
-  font: 700 calc(10.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.14em;
+  font: 600 calc(11px * var(--scale)) / 1 var(--mono);
   color: var(--accent-3);
-  border-color: rgba(77, 208, 225, 0.45);
-  background: linear-gradient(180deg, rgba(77, 208, 225, 0.16), rgba(77, 208, 225, 0.05));
+  border-color: var(--line-2);
+  background: var(--surface-2);
 }
 .cmd-hint kbd {
   margin-inline-start: 7px;
   padding: 2px 6px;
   color: var(--accent-3);
-  border-color: rgba(77, 208, 225, 0.5);
-  background: rgba(4, 8, 13, 0.6);
+  border-color: var(--line-2);
+  background: var(--sunken);
 }
 
 .palette {
@@ -1505,7 +1473,7 @@ html[data-contrast='high'] body::after { background-image: none; }
   align-items: flex-start;
   justify-content: center;
   padding: 11vh 16px 16px;
-  background: radial-gradient(120% 80% at 50% 0%, rgba(4, 8, 13, 0.7), rgba(2, 4, 8, 0.92));
+  background: rgba(3, 5, 9, 0.62);
   backdrop-filter: blur(6px);
 }
 .palette[data-open='true'] { display: flex; }
@@ -1515,12 +1483,10 @@ html[data-contrast='high'] body::after { background-image: none; }
   display: flex;
   flex-direction: column;
   border: 1px solid var(--line-2);
-  border-radius: calc(var(--radius) + 4px);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  background:
-    radial-gradient(460px 170px at 0% -30%, rgba(77, 208, 225, 0.16), transparent 70%),
-    linear-gradient(180deg, var(--panel), var(--bg-2));
-  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 1), 0 0 0 1px rgba(77, 208, 225, 0.14);
+  background: var(--panel);
+  box-shadow: var(--shadow-lg);
 }
 .palette-head {
   display: flex; align-items: center; gap: 10px;
@@ -1561,24 +1527,21 @@ html[data-contrast='high'] body::after { background-image: none; }
   border: 1px solid var(--line-2);
   border-radius: 999px;
   color: var(--dim);
-  font: 700 calc(9.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font: 600 calc(10.5px * var(--scale)) / 1 var(--mono);
 }
-.palette-item .p-hint { color: #5c7591; font: 600 0.85em/1 var(--mono); }
+.palette-item .p-hint { color: var(--faint); font: 500 0.85em/1 var(--mono); }
 .palette-item[aria-selected='true'] {
-  background: linear-gradient(90deg, rgba(77, 208, 225, 0.18), transparent 82%);
-  border-color: rgba(77, 208, 225, 0.45);
+  background: var(--tint);
+  border-color: var(--accent);
 }
-.palette-item[aria-selected='true'] .p-kind { color: var(--accent-3); border-color: rgba(77, 208, 225, 0.5); }
-.palette-empty { padding: 14px; color: var(--dim); font: 600 0.88em/1.5 var(--mono); }
+.palette-item[aria-selected='true'] .p-kind { color: var(--accent-3); border-color: var(--accent-3); }
+.palette-empty { padding: 14px; color: var(--dim); font: 500 0.88em/1.5 var(--mono); }
 .palette-foot {
   display: flex; flex-wrap: wrap; gap: 6px 16px;
   padding: 9px 14px;
   border-top: 1px solid var(--line);
   color: var(--dim);
-  font: 600 calc(10px * var(--scale)) / 1.4 var(--mono);
-  letter-spacing: 0.06em;
+  font: 500 calc(11px * var(--scale)) / 1.4 var(--mono);
 }
 
 /* ------------------------------------------------------------- HUD toasts */
@@ -1595,14 +1558,14 @@ html[data-contrast='high'] body::after { background-image: none; }
 }
 .toast {
   max-width: 46ch;
-  padding: 10px 14px;
+  padding: 11px 14px;
   border: 1px solid var(--line-2);
   border-inline-start: 3px solid var(--accent-3);
   border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, rgba(16, 23, 33, 0.97), rgba(8, 12, 18, 0.97));
+  background: var(--panel);
   color: var(--text);
-  font: 600 calc(11.5px * var(--scale)) / 1.5 var(--mono);
-  box-shadow: var(--shadow);
+  font: 500 calc(12.5px * var(--scale)) / 1.5 var(--sans);
+  box-shadow: var(--shadow-lg);
   animation: toast-in 0.24s ease-out;
 }
 .toast.ok { border-inline-start-color: var(--ok); }
@@ -1631,17 +1594,17 @@ html[data-contrast='high'] body::after { background-image: none; }
 
 .radar-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
 .radar { width: 216px; height: 216px; flex: 0 0 auto; }
-.radar-rings { fill: none; stroke: rgba(77, 208, 225, 0.22); stroke-width: 1; }
-.radar-cross { stroke: rgba(77, 208, 225, 0.15); stroke-width: 1; }
-.radar-wedge { fill: rgba(77, 208, 225, 0.2); }
+.radar-rings { fill: none; stroke: var(--line-2); stroke-width: 1; }
+.radar-cross { stroke: var(--line-2); stroke-width: 1; opacity: 0.6; }
+.radar-wedge { fill: var(--tint); }
 .radar-sweep { transform-origin: 108px 108px; animation: sweep-rotate 5.2s linear infinite; }
 @keyframes sweep-rotate { to { transform: rotate(360deg); } }
 .radar-blip { fill: var(--accent); }
 .radar-blip-self { fill: var(--ok); }
 .radar-blip-ring { fill: none; stroke: var(--accent); stroke-width: 1; animation: blip-pulse 2.6s ease-out infinite; }
 @keyframes blip-pulse { 0% { opacity: 0.6; } 70%, 100% { opacity: 0; } }
-.radar-label { fill: #9db6cd; font: 700 8px var(--mono); letter-spacing: 0.06em; }
-.radar-legend { display: grid; gap: 7px; font: 600 calc(11px * var(--scale)) / 1.5 var(--mono); color: var(--dim); }
+.radar-label { fill: var(--dim); font: 600 9px var(--mono); }
+.radar-legend { display: grid; gap: 7px; font: 500 calc(12px * var(--scale)) / 1.55 var(--sans); color: var(--dim); }
 
 .mt-6 { margin-top: 6px; }
 .mt-8 { margin-top: 8px; }
@@ -1803,9 +1766,9 @@ html[data-pointer='se'] .hud-corner, html[data-pointer='se'] .hud-ring { transfo
   grid-template-columns: minmax(260px, 30%) minmax(0, 1fr);
   gap: 16px;
   align-items: center;
-  padding: 7px 22px;
+  padding: 7px 24px;
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(8, 13, 20, 0.9), rgba(5, 7, 11, 0.72));
+  background: var(--sunken);
   /* The strip is empty in the shell and filled by the deck once the app boots.
      Reserving the filled height here is what keeps that from pushing <main>
      down after first paint: Lighthouse measured the whole page shifting 34px
@@ -1814,13 +1777,13 @@ html[data-pointer='se'] .hud-corner, html[data-pointer='se'] .hud-ring { transfo
   min-height: 49px;
 }
 .deck-wave { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.deck-label { font: 700 calc(9.5px * var(--scale)) / 1 var(--mono); letter-spacing: 0.16em; color: var(--accent-3); white-space: nowrap; }
-.deck-value { font: 600 calc(10px * var(--scale)) / 1 var(--mono); color: var(--dim); font-style: normal; white-space: nowrap; }
+.deck-label { font: 600 calc(11px * var(--scale)) / 1 var(--sans); color: var(--accent-3); white-space: nowrap; }
+.deck-value { font: 500 calc(11px * var(--scale)) / 1 var(--mono); color: var(--dim); font-style: normal; white-space: nowrap; }
 .wave { flex: 1 1 auto; min-width: 0; height: 34px; overflow: visible; }
-.wave-grid { stroke: rgba(140, 180, 220, 0.12); stroke-width: 1; }
-.wave-line { fill: none; stroke: var(--accent-3); stroke-width: 1.4; stroke-linejoin: round; filter: drop-shadow(0 0 5px rgba(77, 208, 225, 0.55)); }
-.wave-area { fill: rgba(77, 208, 225, 0.13); stroke: none; }
-.wave-cursor { stroke: rgba(255, 255, 255, 0.35); stroke-width: 1; }
+.wave-grid { stroke: var(--line); stroke-width: 1; }
+.wave-line { fill: none; stroke: var(--accent-3); stroke-width: 1.4; stroke-linejoin: round; }
+.wave-area { fill: var(--tint); stroke: none; }
+.wave-cursor { stroke: var(--line-2); stroke-width: 1; }
 
 .deck-ticker {
   min-width: 0;
@@ -1830,11 +1793,10 @@ html[data-pointer='se'] .hud-corner, html[data-pointer='se'] .hud-ring { transfo
 .deck-track { display: inline-flex; gap: 28px; white-space: nowrap; animation: ticker-run 54s linear infinite; will-change: transform; }
 @keyframes ticker-run { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
 .deck-fact {
-  font: 600 calc(10.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.08em;
+  font: 500 calc(11.5px * var(--scale)) / 1 var(--mono);
   color: var(--dim);
 }
-.deck-fact::before { content: '◈ '; color: var(--accent); }
+.deck-fact::before { content: '· '; color: var(--accent); }
 
 /* Readouts stay when the effects are off - they are data, not decoration - but
    they stop moving and stop glowing, which is what reclaims the frame time. */
@@ -1842,8 +1804,6 @@ html[data-fx='reduced'] .deck-track { animation-duration: 220s; }
 html[data-fx='reduced'] .deck-fact { opacity: 0.8; }
 html[data-fx='off'] .deck-track { animation: none; }
 html[data-fx='off'] .wave-line { filter: none; }
-html[data-fx='off'] .hud { display: none; }
-html[data-fx='off'] .hud-rail, html[data-fx='off'] .hud-ruler { display: none; }
 /* The dial is navigation, not chrome: it keeps working with the effects off,
    it just stops glowing and stops sweeping. */
 html[data-fx='off'] .dial-sweep { display: none; }
@@ -1875,7 +1835,7 @@ html[data-fx='reduced'] .dial { backdrop-filter: none; }
 .dial {
   position: fixed; inset: 0; z-index: 70;
   display: grid; place-items: center;
-  background: radial-gradient(60% 60% at 50% 50%, rgba(4, 8, 13, 0.72), rgba(2, 4, 8, 0.94));
+  background: rgba(4, 6, 10, 0.72);
   backdrop-filter: blur(7px);
   animation: dial-in 0.18s ease-out;
 }
@@ -1884,16 +1844,13 @@ html[data-fx='reduced'] .dial { backdrop-filter: none; }
 .dial-ring {
   position: absolute; inset: 12%;
   border-radius: 50%;
-  border: 1px solid rgba(110, 168, 254, 0.34);
-  background:
-    repeating-conic-gradient(from 0deg, rgba(110, 168, 254, 0.16) 0deg 1deg, transparent 1deg 15deg),
-    radial-gradient(closest-side, rgba(77, 208, 225, 0.1), transparent 78%);
-  box-shadow: inset 0 0 60px -30px var(--accent-3);
+  border: 1px solid var(--line-2);
+  background: repeating-conic-gradient(from 0deg, var(--tint) 0deg 1deg, transparent 1deg 15deg);
 }
 .dial-sweep {
   position: absolute; inset: 12%;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, rgba(77, 208, 225, 0.3), transparent 26%, transparent 100%);
+  background: conic-gradient(from 0deg, var(--tint-2), transparent 26%, transparent 100%);
   animation: ring-turn 4.6s linear infinite;
   mix-blend-mode: screen;
   will-change: transform;
@@ -1903,11 +1860,11 @@ html[data-fx='reduced'] .dial { backdrop-filter: none; }
   display: grid; place-content: center; gap: 7px;
   text-align: center;
   border-radius: 50%;
-  border: 1px solid rgba(110, 168, 254, 0.3);
-  background: radial-gradient(closest-side, rgba(10, 16, 24, 0.95), rgba(4, 8, 13, 0.6));
+  border: 1px solid var(--line-2);
+  background: var(--panel);
 }
-.dial-name { font: 800 calc(13px * var(--scale)) / 1.3 var(--mono); letter-spacing: 0.06em; color: #fff; }
-.dial-note { font: 600 calc(9.5px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.1em; color: var(--dim); font-style: normal; }
+.dial-name { font: 600 calc(16px * var(--scale)) / 1.3 var(--serif); color: var(--text); }
+.dial-note { font: 500 calc(11px * var(--scale)) / 1.4 var(--sans); color: var(--dim); font-style: normal; }
 
 /* Eight slots, eight classes: no inline positioning, so the CSP stays intact. */
 .dial-slot {
@@ -1916,23 +1873,24 @@ html[data-fx='reduced'] .dial { backdrop-filter: none; }
   margin: -36px 0 0 -62px;
   padding: 8px 10px;
   display: grid; align-content: center; gap: 4px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line-2);
-  background: linear-gradient(180deg, rgba(16, 23, 33, 0.96), rgba(8, 12, 18, 0.96));
+  background: var(--panel);
   color: var(--dim);
   text-align: center;
   cursor: pointer;
   transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
-.dial-slot-n { font: 800 calc(12px * var(--scale)) / 1 var(--mono); letter-spacing: 0.1em; color: var(--accent); }
-.dial-slot-l { font: 600 calc(9.5px * var(--scale)) / 1.2 var(--mono); letter-spacing: 0.06em; }
-.dial-slot-s { font: 600 calc(8.5px * var(--scale)) / 1 var(--mono); letter-spacing: 0.06em; color: var(--dim); font-style: normal; opacity: 0.85; }
+.dial-slot-n { font: 700 calc(12.5px * var(--scale)) / 1 var(--sans); color: var(--accent); }
+.dial-slot-l { font: 600 calc(11px * var(--scale)) / 1.2 var(--sans); color: var(--text); }
+.dial-slot-s { font: 500 calc(10.5px * var(--scale)) / 1 var(--sans); color: var(--dim); font-style: normal; }
 .dial-slot[data-active='true'] {
-  border-color: var(--accent-3);
-  color: #fff;
-  box-shadow: 0 0 0 1px var(--accent-3), 0 18px 40px -22px var(--accent-3);
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--accent);
 }
-.dial-slot:focus-visible { outline: 2px solid var(--accent-3); outline-offset: 3px; }
+.dial-slot:hover { border-color: var(--accent); }
+.dial-slot:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .dial-slot-0 { transform: rotate(0deg) translateY(-186px) rotate(0deg); }
 .dial-slot-1 { transform: rotate(45deg) translateY(-186px) rotate(-45deg); }
 .dial-slot-2 { transform: rotate(90deg) translateY(-186px) rotate(-90deg); }
@@ -2133,16 +2091,6 @@ html[data-contrast='high'] .fx-nebula { display: none; }
    stylesheet agree about when things move.
    ================================================================== */
 
-:root {
-  /* Telemetry-derived hues, kept next to the v2 tokens on purpose: blue leads,
-     purple rides alongside, cyan marks life - and the new warm alarm colour is
-     the error channel the substrate flashes when a command fails. */
-  --disk-hot: #ffa07a;
-  --ring-hot: rgba(255, 160, 122, 0.55);
-  --spring-fast: 210;
-  --spring-critical: 1;
-}
-
 /* --- the substrate canvas ----------------------------------------------- */
 .substrate {
   position: fixed;
@@ -2223,101 +2171,120 @@ html[data-fx='off'] .dial-blip { animation: none; }
    ================================================================== */
 
 /* --- theme: light ---------------------------------------------------------
-   The same instrument in daylight: tokens invert, and the handful of
-   surfaces that hardcoded a dark colour get their counterparts. Everything
-   else follows the tokens. Applied by M7 (Theme) and persisted with the
-   other preferences; ?theme=light also works for a shareable URL. */
+   The daylight theme is a token re-declaration and nothing else. Components
+   paint from --surface / --surface-2 / --sunken / --tint and write ink in
+   --text / --dim / --faint, so this block is the whole theme and changing a
+   component cannot half-break it. The previous version had forty
+   `html[data-theme='light'] .x` rules; each one was a colour hardcoded into a
+   component somewhere, and each one was a way for the light theme to silently
+   revert to dark wherever that component changed. Applied by M7 (Theme) and
+   persisted with the other preferences; ?theme=light also works for a
+   shareable URL.
+
+   Every ink here is a measured ratio, not an impression. A hue that is
+   comfortable on #0b0e13 is routinely under 4.5:1 on white - which is why the
+   accents are darker than their dark-theme twins and why the eight module hues
+   are re-declared too. Inks hold 4.5:1 against all five grounds they can land
+   on (panel, surface-2, sunken, bg, raised); module hues are graphics only and
+   hold 3:1, which is the floor for a border or a dot. */
 html[data-theme='light'] {
-  --bg: #edf1f8;
-  --bg-2: #e5ebf4;
+  --bg: #f2f5fa;
+  --bg-2: #e9eef6;
   --panel: #ffffff;
-  --panel-2: #f3f6fb;
-  --line: #ccd8e7;
-  --line-2: #a3b7d0;
-  --text: #16202e;
-  --dim: #475b76;
-  --accent: #2f6bdd;
-  --accent-2: #7c5fc9;
-  --accent-3: #0d8ba0;
-  --ok: #17875a;
-  --warn: #9d6207;
-  --bad: #c33a55;
-  --shadow: 0 18px 40px -28px rgba(23, 43, 77, 0.45);
-  --glow: 0 0 26px -8px rgba(47, 107, 221, 0.5);
-  --glow-cyan: 0 0 22px -8px rgba(13, 139, 160, 0.4);
-  --ring-hot: rgba(214, 106, 58, 0.45);
+  --panel-2: #f4f7fb;
+  --raised: #e4eaf3;
+  --line: #d9e1ec;
+  --line-2: #b6c4d6;
+  --text: #14202f;          /* 13.6-16.4:1 */
+  --dim: #47596f;           /*  5.9-7.2:1 */
+  --faint: #57687f;         /*  4.7-5.7:1 - the floor for captions and keys */
+  --accent: #2f66c8;        /*  4.5-5.5:1, and white ink on it is 5.45:1 */
+  --accent-2: #6a4fb8;      /*  5.1-6.1:1 */
+  --accent-3: #0a7486;      /*  4.5-5.5:1 */
+  --accent-oklch: oklch(0.52 0.16 255);
+  --accent-2-oklch: oklch(0.50 0.15 300);
+  --accent-3-oklch: oklch(0.55 0.09 200);
+  --on-accent: #ffffff;
+  --ok: #12765a;            /*  4.6-5.6:1 */
+  --warn: #8a5a10;          /*  4.9-5.9:1 */
+  --bad: #c0364f;           /*  4.5-5.4:1 */
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-2: #f6f8fc;
+  --sunken: #e9eef6;
+  --tint: rgba(47, 102, 200, 0.09);
+  --tint-2: rgba(106, 79, 184, 0.09);
+  --mod-1: #3568c4;
+  --mod-2: #a4691a;
+  --mod-3: #1d7d51;
+  --mod-4: #6f4fbe;
+  --mod-5: #0a7486;
+  --mod-6: #b8593a;
+  --mod-7: #4f8a2a;
+  --mod-8: #bf3c5c;
+  --mod-9: #b2471f;
+  --ring: 0 0 0 3px rgba(47, 102, 200, 0.30);
+  --shadow: 0 1px 2px rgba(23, 43, 77, 0.06), 0 12px 28px -20px rgba(23, 43, 77, 0.30);
+  --shadow-lg: 0 2px 4px rgba(23, 43, 77, 0.07), 0 26px 52px -30px rgba(23, 43, 77, 0.34);
 }
+/* Three radials again - the count is asserted in tools/ui-regressions.js - and
+   in daylight they read as the sky behind the page rather than as glow. */
 html[data-theme='light'] body {
   background:
-    radial-gradient(1100px 620px at 8% -12%, rgba(47, 107, 221, 0.10), transparent 62%),
-    radial-gradient(900px 560px at 96% 6%, rgba(124, 95, 201, 0.09), transparent 60%),
-    radial-gradient(1000px 700px at 50% 118%, rgba(13, 139, 160, 0.08), transparent 62%),
+    radial-gradient(1200px 660px at 12% -14%, rgba(47, 102, 200, 0.09), transparent 60%),
+    radial-gradient(980px 620px at 92% 4%, rgba(106, 79, 184, 0.06), transparent 58%),
+    radial-gradient(1100px 720px at 50% 116%, rgba(10, 116, 134, 0.05), transparent 60%),
     var(--bg);
-}
-html[data-theme='light'] body::after {
-  background-image: repeating-linear-gradient(to bottom, rgba(30, 60, 100, 0.012) 0 1px, transparent 1px 3px);
 }
 html[data-theme='light'] body::before {
   background-image:
-    repeating-linear-gradient(to right, rgba(47, 107, 221, 0.05) 0 1px, transparent 1px 68px),
-    repeating-linear-gradient(to bottom, rgba(47, 107, 221, 0.05) 0 1px, transparent 1px 68px);
+    repeating-linear-gradient(to right, rgba(30, 60, 100, 0.045) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(to bottom, rgba(30, 60, 100, 0.045) 0 1px, transparent 1px 72px);
 }
+html[data-theme='light'] body::after {
+  background-image: repeating-linear-gradient(to bottom, rgba(30, 60, 100, 0.010) 0 1px, transparent 1px 3px);
+}
+html[data-theme='light'] ::selection { background: rgba(47, 102, 200, 0.22); color: var(--text); }
 html[data-theme='light'] .substrate { opacity: 0.22; }
-html[data-theme='light'] .topbar { background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(238, 243, 250, 0.78)); }
-html[data-theme='light'] .tabs { background: rgba(240, 245, 251, 0.82); }
-html[data-theme='light'] .tab { background: rgba(255, 255, 255, 0.72); }
-html[data-theme='light'] .tab[aria-selected='true'] {
-  color: #12203a;
-  background: linear-gradient(180deg, var(--mod-soft), rgba(255, 255, 255, 0.5)), rgba(255, 255, 255, 0.96);
+
+/* Light and high contrast are independent toggles, so their combination has to
+   be declared or the dark high-contrast palette wins on the tokens it shares
+   and the page becomes white ink on white paper. */
+html[data-theme='light'][data-contrast='high'] {
+  --bg: #ffffff;
+  --bg-2: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f2f6fb;
+  --raised: #e6ecf4;
+  --line: #4a6382;
+  --line-2: #16202e;
+  --text: #000000;
+  --dim: #1d2b3d;
+  --faint: #2c3d52;
+  --accent: #14418f;
+  --accent-2: #4a2d92;
+  --accent-3: #06525f;
+  --on-accent: #ffffff;
+  --ok: #06583f;
+  --warn: #6b4103;
+  --bad: #9c1229;
+  --surface: #ffffff;
+  --surface-2: #f2f6fb;
+  --sunken: #ffffff;
+  --tint: rgba(20, 65, 143, 0.14);
+  --tint-2: rgba(74, 45, 146, 0.14);
+  --mod-1: #14418f;
+  --mod-2: #7d4a08;
+  --mod-3: #06583f;
+  --mod-4: #4a2d92;
+  --mod-5: #06525f;
+  --mod-6: #8f3a1c;
+  --mod-7: #2f6b0e;
+  --mod-8: #9c1229;
+  --mod-9: #7a3215;
+  --ring: 0 0 0 3px rgba(20, 65, 143, 0.45);
+  --shadow: none;
+  --shadow-lg: none;
 }
-html[data-theme='light'] .brand-name { background: linear-gradient(92deg, #16202e 8%, var(--accent) 55%, var(--accent-2) 100%); -webkit-background-clip: text; background-clip: text; }
-html[data-theme='light'] .chip { background: rgba(255, 255, 255, 0.88); }
-html[data-theme='light'] .cmd-hint kbd { background: rgba(255, 255, 255, 0.9); }
-html[data-theme='light'] .deck { background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(238, 243, 250, 0.72)); }
-html[data-theme='light'] .footer { background: rgba(246, 249, 253, 0.85); }
-html[data-theme='light'] button,
-html[data-theme='light'] .button { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(232, 238, 246, 0.97)); }
-html[data-theme='light'] kbd { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(233, 239, 247, 0.97)); }
-html[data-theme='light'] input[type='text'],
-html[data-theme='light'] input[type='number'],
-html[data-theme='light'] textarea,
-html[data-theme='light'] select { background: #ffffff; }
-html[data-theme='light'] .hero-title { background: linear-gradient(100deg, #16202e 6%, #2c4a76 42%, var(--accent) 72%, var(--accent-2) 100%); -webkit-background-clip: text; background-clip: text; }
-html[data-theme='light'] .stat b { background: linear-gradient(96deg, #16202e, #2f6bdd 65%, var(--accent-2)); -webkit-background-clip: text; background-clip: text; }
-html[data-theme='light'] .ring-track { stroke: #d3ddeb; }
-html[data-theme='light'] .ring-score { fill: #16202e; }
-html[data-theme='light'] .tier-chip { background: rgba(255, 255, 255, 0.78); }
-html[data-theme='light'] .tier-chip.current { background: linear-gradient(180deg, rgba(184, 196, 212, 0.25), rgba(255, 255, 255, 0.94)); }
-html[data-theme='light'] .tier-chip.current b,
-html[data-theme='light'] .tier-chip .achieved { color: #16202e; }
-html[data-theme='light'] .editor-head,
-html[data-theme='light'] .terminal-head { background: linear-gradient(180deg, rgba(244, 247, 252, 0.97), rgba(232, 238, 246, 0.97)); }
-html[data-theme='light'] .gutter { background: rgba(246, 249, 253, 0.95); color: #6d84a0; }
-html[data-theme='light'] .editor-status { background: rgba(246, 249, 253, 0.92); }
-/* Terminals are instruments: they stay dark in daylight, so the boot log and
-   the C output keep their green-on-black readout rather than flipping to a
-   washed-out print of themselves. The surrounding shell still goes light. */
-html[data-theme='light'] .terminal-shell { background: rgba(250, 253, 251, 0.92); }
-html[data-theme='light'] .scope { background: rgba(255, 255, 255, 0.82); }
-html[data-theme='light'] .scope-plot { background: repeating-linear-gradient(to right, rgba(47, 107, 221, 0.08) 0 1px, transparent 1px 24px), repeating-linear-gradient(to bottom, rgba(47, 107, 221, 0.08) 0 1px, transparent 1px 10px), rgba(255, 255, 255, 0.85); }
-html[data-theme='light'] .spark { background: rgba(255, 255, 255, 0.75); }
-html[data-theme='light'] .mesh-log { background: rgba(255, 255, 255, 0.82); }
-html[data-theme='light'] .peer { background: rgba(255, 255, 255, 0.85); }
-html[data-theme='light'] .canvas-overlay { color: #2b4a74; background: rgba(255, 255, 255, 0.8); }
-html[data-theme='light'] .palette { background: radial-gradient(120% 80% at 50% 0%, rgba(226, 234, 245, 0.72), rgba(214, 224, 238, 0.94)); }
-html[data-theme='light'] .toast { background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 245, 251, 0.98)); }
-html[data-theme='light'] .dial { background: rgba(232, 238, 247, 0.55); }
-html[data-theme='light'] .dial-core { background: radial-gradient(closest-side, rgba(255, 255, 255, 0.96), rgba(240, 245, 251, 0.7)); }
-html[data-theme='light'] .noscript-note { background: rgba(255, 255, 255, 0.92); }
-html[data-theme='light'] .stat {
-  background:
-    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
-    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
-    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
-}
-html[data-theme='light'] .dial-slot { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.97)); }
-html[data-theme='light'] .dial-name { color: #16202e; }
-html[data-theme='light'] .dial-slot[data-active='true'] { color: #16202e; background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(232, 240, 250, 0.99)); }
 
 /* --- links ---------------------------------------------------------------
    Anchors had no house style: the new About section is the first place the
@@ -2329,7 +2296,7 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* --- project brief: what / why / who -------------------------------------- */
 .brief { display: grid; gap: 10px; }
 .brief div { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 14px; align-items: baseline; }
-.brief dt { font: 700 calc(10.5px * var(--scale)) / 1.5 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-3); }
+.brief dt { font: 600 calc(12.5px * var(--scale)) / 1.5 var(--sans); color: var(--dim); }
 .brief dd { margin: 0; color: var(--text); }
 .brief dd span { display: block; color: var(--dim); font-size: 0.92em; }
 @media (max-width: 560px) {
@@ -2344,26 +2311,26 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  background: var(--surface);
 }
-.feat svg { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 1px; stroke: var(--mod, var(--accent)); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 6px var(--mod-soft, rgba(110, 168, 254, 0.3))); }
-.feat b { display: block; font: 700 calc(11.5px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.05em; }
-.feat span { color: var(--dim); font-size: 0.86em; }
+.feat svg { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 1px; stroke: var(--mod, var(--accent)); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.feat b { display: block; font: 600 calc(13.5px * var(--scale)) / 1.4 var(--sans); color: var(--text); }
+.feat span { color: var(--dim); font-size: 0.9em; }
 
 /* --- roadmap --------------------------------------------------------------- */
 .roadmap { display: grid; gap: 5px; margin: 0; padding: 0; }
-.roadmap li { display: flex; gap: 12px; align-items: baseline; padding: 7px 4px; border-bottom: 1px dashed var(--line); }
+.roadmap li { display: flex; gap: 12px; align-items: baseline; padding: 8px 4px; border-bottom: 1px dashed var(--line); }
 .roadmap li:last-child { border-bottom: none; }
-.roadmap .status { flex: 0 0 auto; width: 74px; text-align: center; font: 700 calc(9.5px * var(--scale)) / 1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid var(--line-2); border-radius: 999px; padding: 4px 6px; color: var(--dim); }
-.roadmap .done .status { color: var(--ok); border-color: rgba(87, 214, 141, 0.55); }
-.roadmap .active .status { color: var(--warn); border-color: rgba(247, 185, 85, 0.55); }
+.roadmap .status { flex: 0 0 auto; width: 78px; text-align: center; font: 600 calc(11px * var(--scale)) / 1 var(--sans); border: 1px solid var(--line-2); border-radius: 999px; padding: 5px 7px; color: var(--dim); background: var(--surface-2); }
+.roadmap .done .status { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, transparent); }
+.roadmap .active .status { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
 .roadmap .planned .status,
 .roadmap .out .status { color: var(--dim); }
 .roadmap .w { color: var(--text); }
-.roadmap .w i { display: block; color: var(--dim); font-style: normal; font-size: 0.86em; }
+.roadmap .w i { display: block; color: var(--dim); font-style: normal; font-size: 0.88em; }
 
 /* --- about + contact -------------------------------------------------------- */
 .about-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
@@ -2371,19 +2338,16 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .about-links a {
   display: inline-flex; align-items: center; gap: 7px;
-  font: 700 calc(10.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.09em;
-  padding: 8px 12px;
+  font: 600 calc(12.5px * var(--scale)) / 1 var(--sans);
+  padding: 9px 13px;
   border: 1px solid var(--line-2);
-  border-radius: 999px;
-  background: rgba(13, 19, 28, 0.85);
-  color: var(--text);
   border-bottom: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
 }
-.about-links a:hover { border-color: var(--accent); color: #fff; }
+.about-links a:hover { border-color: var(--accent); color: var(--accent); }
 .about-links svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-html[data-theme='light'] .about-links a { background: rgba(255, 255, 255, 0.9); }
-html[data-theme='light'] .about-links a:hover { color: var(--accent); }
 
 /* ==================================================================
    UI v3.2 - the first screen and the evidence: a one-click theme
@@ -2406,16 +2370,14 @@ html[data-theme='light'] .about-links a:hover { color: var(--accent); }
 .theme-toggle .icon-moon { display: none; }
 .theme-toggle[aria-pressed='true'] .icon-sun { display: none; }
 .theme-toggle[aria-pressed='true'] .icon-moon { display: block; }
-.theme-toggle-label { font: 700 calc(10px * var(--scale)) / 1 var(--mono); letter-spacing: 0.12em; }
+.theme-toggle-label { font: 600 calc(12px * var(--scale)) / 1 var(--sans); }
 .theme-toggle:hover:not(:disabled) { color: var(--text); }
-html[data-theme='light'] .theme-toggle { background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(232, 238, 246, 0.97)); }
 
 /* --- hero byline and calls to action ------------------------------------- */
 .hero-byline {
   margin: 0 0 12px;
   color: var(--dim);
-  font: 600 calc(11px * var(--scale)) / 1.6 var(--mono);
-  letter-spacing: 0.04em;
+  font: 500 calc(13px * var(--scale)) / 1.6 var(--sans);
 }
 .hero-byline b { color: var(--text); font-weight: 700; }
 .hero-byline a { color: var(--accent-3); border-bottom: 1px dotted currentColor; }
@@ -2423,10 +2385,8 @@ html[data-theme='light'] .theme-toggle { background: linear-gradient(180deg, rgb
 .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .hero-actions .button {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  border-bottom: 1px solid var(--line-2);
   text-decoration: none;
 }
-.hero-actions .button.primary { border-bottom-color: rgba(110, 168, 254, 0.75); }
 .hero-actions .button:hover { text-decoration: none; }
 @media (max-width: 560px) {
   .hero-actions .button { flex: 1 1 100%; }
@@ -2444,40 +2404,37 @@ html[data-theme='light'] .theme-toggle { background: linear-gradient(180deg, rgb
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   overflow: hidden;
-  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  background: var(--surface);
 }
-.shot a { display: block; background: #05070b; border-bottom: none; }
+.shot a { display: block; background: var(--sunken); border-bottom: none; }
 .shot img { display: block; width: 100%; height: auto; }
 .shot.portrait a { display: flex; justify-content: center; }
 .shot.portrait img { width: auto; max-width: 100%; max-height: 520px; }
 .shot a:hover img { transform: scale(1.012); }
 .shot img { transition: transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1); }
 .shot figcaption { padding: 10px 12px 12px; }
-.shot figcaption b { display: block; font: 700 calc(11px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.04em; }
-.shot figcaption span { display: block; color: var(--dim); font-size: 0.86em; margin-top: 2px; }
-.shot figcaption em { display: block; color: var(--accent-3); font: 700 calc(9.5px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.1em; font-style: normal; margin-top: 4px; }
-html[data-theme='light'] .shot a { background: #e9eef6; }
+.shot figcaption b { display: block; font: 600 calc(13px * var(--scale)) / 1.4 var(--sans); color: var(--text); }
+.shot figcaption span { display: block; color: var(--dim); font-size: 0.88em; margin-top: 2px; }
+.shot figcaption em { display: block; color: var(--accent-3); font: 600 calc(11.5px * var(--scale)) / 1.4 var(--sans); font-style: normal; margin-top: 4px; }
 
 /* --- stack --------------------------------------------------------------- */
 .stack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 10px; }
 .stack {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
-  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  padding: 14px 16px;
+  background: var(--surface);
 }
 .stack h3 { margin-bottom: 8px; }
 .stack ul { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
 .stack li {
-  font: 600 calc(10px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.04em;
-  padding: 5px 8px;
-  border: 1px solid var(--line-2);
+  font: 500 calc(11.5px * var(--scale)) / 1 var(--sans);
+  padding: 5px 9px;
+  border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--dim);
-  background: rgba(13, 19, 28, 0.6);
+  background: var(--surface-2);
 }
-html[data-theme='light'] .stack li { background: rgba(255, 255, 255, 0.75); }
 .stack-note { margin-top: 10px; }
 
 /* --- repository signals --------------------------------------------------- */
@@ -2485,22 +2442,13 @@ html[data-theme='light'] .stack li { background: rgba(255, 255, 255, 0.75); }
 .repo-stat {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  background:
-    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
-    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
-    linear-gradient(180deg, var(--panel), var(--bg-2));
+  padding: 12px 14px;
+  background: var(--surface);
 }
-.repo-stat b { display: block; font: 800 calc(20px * var(--scale)) / 1 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
-.repo-stat span { display: block; margin-top: 4px; color: var(--dim); font: 700 calc(9.5px * var(--scale)) / 1.4 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
-.repo-stat em { display: block; margin-top: 4px; color: var(--dim); font: 400 calc(9.5px * var(--scale)) / 1.5 var(--mono); font-style: normal; }
+.repo-stat b { display: block; font: 700 calc(22px * var(--scale)) / 1 var(--sans); letter-spacing: -0.022em; color: var(--text); font-variant-numeric: tabular-nums; }
+.repo-stat span { display: block; margin-top: 5px; color: var(--dim); font: 600 calc(11.5px * var(--scale)) / 1.4 var(--sans); }
+.repo-stat em { display: block; margin-top: 4px; color: var(--faint); font: 400 calc(11.5px * var(--scale)) / 1.5 var(--sans); font-style: normal; }
 .repo-note { margin-top: 10px; }
-html[data-theme='light'] .repo-stat {
-  background:
-    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 8px 8px no-repeat,
-    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 8px 8px no-repeat,
-    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(240, 245, 251, 0.95));
-}
 
 /* ==================================================================
    UI v3.3 - the engineering case study: decision records for every
@@ -2515,102 +2463,86 @@ html[data-theme='light'] .repo-stat {
 .case-brief div {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  padding: 12px 14px;
+  background: var(--surface);
 }
 .case-brief b {
   display: block;
-  font: 700 calc(9.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--accent-3);
+  font: 600 calc(12.5px * var(--scale)) / 1 var(--sans);
+  color: var(--dim);
 }
-.case-brief span { display: block; margin-top: 4px; color: var(--dim); font-size: 0.86em; }
+.case-brief span { display: block; margin-top: 6px; color: var(--text); font-size: 0.92em; }
 .case-intro { margin: 0; color: var(--dim); max-width: 86ch; }
 .case-list { display: grid; gap: 8px; }
 
 .case {
   --mod: var(--accent);
-  --mod-soft: rgba(110, 168, 254, 0.18);
+  --mod-soft: rgba(138, 180, 255, 0.16);
+  --mod-soft: color-mix(in srgb, var(--mod) 16%, transparent);
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   overflow: hidden;
-  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  background: var(--surface);
 }
-.case[data-mod='1'] { --mod: #6ea8fe; --mod-soft: rgba(110, 168, 254, 0.18); }
-.case[data-mod='2'] { --mod: #f7b955; --mod-soft: rgba(247, 185, 85, 0.18); }
-.case[data-mod='3'] { --mod: #57d68d; --mod-soft: rgba(87, 214, 141, 0.18); }
-.case[data-mod='4'] { --mod: #b39ddb; --mod-soft: rgba(179, 157, 219, 0.18); }
-.case[data-mod='5'] { --mod: #4dd0e1; --mod-soft: rgba(77, 208, 225, 0.18); }
-.case[data-mod='6'] { --mod: #ffab91; --mod-soft: rgba(255, 171, 145, 0.18); }
-.case[data-mod='7'] { --mod: #c5e1a5; --mod-soft: rgba(197, 225, 165, 0.18); }
-.case[data-mod='8'] { --mod: #ff6b81; --mod-soft: rgba(255, 107, 129, 0.18); }
 
 .case-summary {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) auto auto 18px;
   gap: 12px;
   align-items: center;
-  padding: 11px 14px;
+  padding: 12px 14px;
   cursor: pointer;
   list-style: none;
 }
 .case-summary::-webkit-details-marker { display: none; }
-.case-summary:hover { background: rgba(110, 168, 254, 0.05); }
+.case-summary:hover { background: var(--tint); }
 .case-summary:focus-visible { outline: 2px solid var(--mod); outline-offset: -2px; }
 
 .case-id {
   display: inline-flex; align-items: center; justify-content: center;
   width: 38px; height: 28px;
   border: 1px solid var(--mod);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--mod-soft);
   color: var(--text);
-  font: 800 calc(10.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.08em;
+  font: 700 calc(11.5px * var(--scale)) / 1 var(--sans);
 }
 .case-headline { min-width: 0; }
-.case-headline b { display: block; font: 700 calc(12px * var(--scale)) / 1.35 var(--mono); letter-spacing: 0.03em; }
-.case-headline i { display: block; color: var(--dim); font-style: normal; font-size: 0.86em; }
+.case-headline b { display: block; font: 600 calc(14.5px * var(--scale)) / 1.35 var(--sans); color: var(--text); }
+.case-headline i { display: block; color: var(--dim); font-style: normal; font-size: 0.88em; }
 .case-status {
-  padding: 5px 7px;
-  border: 1px solid;
+  padding: 5px 9px;
+  border: 1px solid var(--line-2);
   border-radius: 999px;
-  font: 700 calc(9.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font: 600 calc(11px * var(--scale)) / 1 var(--sans);
+  background: var(--surface-2);
 }
-.case-status.full { color: var(--ok); border-color: rgba(87, 214, 141, 0.55); background: rgba(87, 214, 141, 0.07); }
-.case-status.partial { color: var(--warn); border-color: rgba(247, 185, 85, 0.55); background: rgba(247, 185, 85, 0.07); }
-.case-points { color: var(--text); font: 700 calc(11px * var(--scale)) / 1 var(--mono); font-variant-numeric: tabular-nums; }
-.case-chevron::before { display: block; text-align: center; content: '+'; color: var(--accent); font: 700 18px/1 var(--mono); }
+.case-status.full { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, transparent); background: color-mix(in srgb, var(--ok) 8%, transparent); }
+.case-status.partial { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); background: color-mix(in srgb, var(--warn) 8%, transparent); }
+.case-points { color: var(--text); font: 700 calc(12.5px * var(--scale)) / 1 var(--sans); font-variant-numeric: tabular-nums; }
+.case-chevron::before { display: block; text-align: center; content: '+'; color: var(--accent); font: 600 18px/1 var(--sans); }
 .case[open] .case-chevron::before { content: '\2212'; }
-.case[open] .case-summary { border-bottom: 1px solid var(--line); background: rgba(110, 168, 254, 0.04); }
+.case[open] .case-summary { border-bottom: 1px solid var(--line); background: var(--tint); }
 
-.case-body { display: grid; gap: 12px; padding: 13px 14px 14px; }
+.case-body { display: grid; gap: 12px; padding: 14px; }
 .case-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 0; }
 .case-grid dt {
-  color: var(--accent-3);
-  font: 700 calc(9.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--dim);
+  font: 600 calc(12px * var(--scale)) / 1 var(--sans);
 }
-.case-grid dd { margin: 5px 0 0; color: var(--dim); font-size: 0.9em; }
-.case-evidence { border-left: 2px solid var(--mod); padding: 7px 10px; background: rgba(110, 168, 254, 0.04); }
+.case-grid dd { margin: 6px 0 0; color: var(--text); font-size: 0.92em; }
+.case-evidence { border-left: 2px solid var(--mod); padding: 9px 12px; background: var(--tint); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .case-evidence b {
   display: block;
-  color: var(--accent-3);
-  font: 700 calc(9.5px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--dim);
+  font: 600 calc(12px * var(--scale)) / 1 var(--sans);
 }
-.case-evidence span { display: block; margin-top: 3px; color: var(--text); font-size: 0.9em; }
+.case-evidence span { display: block; margin-top: 4px; color: var(--text); font-size: 0.92em; }
 .case-open {
   justify-self: start;
   color: var(--accent-3);
   border-bottom: 1px dotted currentColor;
-  font: 700 calc(10px * var(--scale)) / 1 var(--mono);
-  letter-spacing: 0.08em;
+  font: 600 calc(12px * var(--scale)) / 1 var(--sans);
 }
 .case-open:hover { color: var(--accent); border-bottom-style: solid; }
 
@@ -2637,7 +2569,7 @@ html[data-theme='light'] .repo-stat {
 /* ------------------------------------------------------- M9 SINGU AI (local) */
 
 /* The M9 hue is the clay below, so the badge, the tab and the panel agree. */
-.mod-head[data-mod='9'], .tab[data-mod='9'] { --mod: #d97757; --mod-soft: rgba(217, 119, 87, 0.2); }
+.mod-head[data-mod='9'], .tab[data-mod='9'] { --mod: var(--mod-9); --mod-soft: color-mix(in srgb, var(--mod-9) 18%, transparent); }
 
 .singu-levels { gap: 6px; }
 .singu-level { padding: 6px 12px; font-size: 0.86em; }
@@ -2682,6 +2614,12 @@ html[data-theme='light'] .repo-stat {
   --warm-dim: #b7aa9e;
   --warm-hover: #2a231e;
   --warm-hover-ink: #ffffff;
+  --warm-code: #efe4d9;
+  /* Two inks that do not follow the theme, because two surfaces in this screen
+     do not either: the sandbox terminal stays near-black in daylight, and the
+     danger control sits on a red tint rather than on paper. */
+  --warm-on-ink: #b7aa9e;
+  --warm-bad-ink: #f0798d;
   --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
   /* The tokens the shared components read, retinted for this subtree only:
      focus rings, carets, the confidence bar and the note rules all follow. */
@@ -2782,9 +2720,9 @@ html[data-theme='light'] .repo-stat {
    send control. */
 #panel-assistant button.primary::after { content: none; }
 #panel-assistant button.danger {
-  color: #ffd9df;
-  border-color: rgba(255, 107, 129, 0.55);
-  background: rgba(255, 107, 129, 0.14);
+  color: var(--warm-bad-ink);
+  border-color: color-mix(in srgb, var(--bad) 55%, transparent);
+  background: color-mix(in srgb, var(--bad) 12%, transparent);
 }
 #panel-assistant button.small { padding: 7px 12px; font-size: calc(12px * var(--scale)); }
 
@@ -2832,14 +2770,16 @@ html[data-theme='light'] .repo-stat {
 #panel-assistant .singu-prompt::placeholder { color: var(--warm-dim); opacity: 0.85; }
 
 /* Generated C is still source code, so it keeps the mono face - only the
-   surface it sits on changes. The terminal stays a terminal: green on black
-   is the honest readout of a sandbox, and it survives the daylight theme too. */
+   surface it sits on changes. The readout stays the deepest ground in the warm
+   family with a light ink on it, in every theme: on paper that ink has to be
+   the near-black text colour or the listing disappears, which is why it is a
+   token here and not a literal the theme blocks would have to override. */
 #panel-assistant .singu-code {
   padding: 14px 16px;
   border: 1px solid var(--warm-line);
   border-radius: 14px;
   background: var(--warm-3);
-  color: #efe4d9;
+  color: var(--warm-code);
   caret-color: var(--clay);
 }
 #panel-assistant .terminal-shell {
@@ -2851,8 +2791,12 @@ html[data-theme='light'] .repo-stat {
 #panel-assistant .terminal-head {
   border-bottom-color: var(--warm-line);
   background: linear-gradient(180deg, #221d19, #1a1613);
-  color: var(--warm-dim);
+  color: var(--warm-on-ink);
 }
+/* The head and the shell stay soot-black in daylight, so the muted spans that
+   live inside them take the ink that belongs to that ground, not the theme's. */
+#panel-assistant .terminal-shell .dim,
+#panel-assistant .terminal-head .dim { color: var(--warm-on-ink); }
 
 /* The long "what this is" paragraph, the pills and the meters. */
 #panel-assistant .note {
@@ -2912,8 +2856,9 @@ html[data-theme='light'] #panel-assistant {
   --warm-line-2: #cbb9a4;
   --warm-text: #2a221c;
   --warm-dim: #6d5f53;
+  --warm-code: #2a221c;
+  --warm-bad-ink: #a82a41;
 }
-html[data-theme='light'] #panel-assistant .singu-code { color: #2a221c; }
 
 /* High contrast: the warm family is the one thing that has to give, because
    this mode exists to remove exactly this kind of tinting. */
@@ -2934,6 +2879,8 @@ html[data-contrast='high'] #panel-assistant {
   --warm-line-2: #bdbdbd;
   --warm-text: #ffffff;
   --warm-dim: #f2e9e2;
+  --warm-code: #ffffff;
+  --warm-bad-ink: #ff9fb0;
 }
 
 /* Light *and* high contrast together. Both toggles are independent, so this
@@ -2961,11 +2908,152 @@ html[data-theme='light'][data-contrast='high'] #panel-assistant {
   --warm-line-2: #000000;
   --warm-text: #000000;
   --warm-dim: #241b14;
+  --warm-code: #000000;
+  --warm-bad-ink: #8a0018;
 }
-html[data-theme='light'][data-contrast='high'] #panel-assistant .singu-code { color: #000000; }
 
 @media (max-width: 620px) {
   #panel-assistant .card,
   #panel-assistant .mod-head { padding: 16px; border-radius: 14px; }
   #panel-assistant h4 { margin-top: 18px; }
+}
+
+/* ==================================================================
+   INSTRUMENT MODE - what M7's Effects switch turns on
+   ==================================================================
+   Everything the site used to be by default now lives here, behind one
+   attribute: cut corners instead of round ones, a lit inset instead of a drop
+   shadow, a title that stutters, an orbit that turns, LEDs that breathe, a
+   sheen across the primary button. The default is `off`, so a first-time
+   visitor reads a document; the console is one click away for anyone who
+   wants it.
+
+   Two things make this safe to bolt on rather than weave through the sheet:
+   every rule here is `[data-fx='full'] .x`, which beats the base `.x` without
+   a fight, and `#panel-assistant .x` beats *it*, so the SINGU screen stays a
+   conversation in both modes. Motion still obeys the existing contract -
+   `html[data-motion='reduced'] * { animation: none !important }` near the top
+   of this file stops all of it, and high contrast drops the gradient title
+   because gradient text cannot be trusted to survive a forced palette.
+
+   The attribute selector is written without its `html` on purpose: the
+   critical-CSS split keys off the first token of a selector, and `html` is on
+   that list because the theme blocks have to be in the first paint. A rule
+   spelled `html[data-fx='full']` would therefore be inlined into every cold
+   load - five kilobytes of a skin most visitors never switch on.
+   ================================================================== */
+
+/* Chamfers. clip-path cuts the border away along the diagonal, so each cut
+   corner gets its own drawn edge - a cut with no edge reads as a rendering
+   bug rather than as a design - and it clips the outer shadow too, so depth
+   comes from a backlit inset instead. */
+[data-fx='full'] .hero {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), color-mix(in srgb, var(--accent) 60%, transparent) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 16px 16px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), color-mix(in srgb, var(--accent-2) 55%, transparent) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 16px 16px no-repeat,
+    radial-gradient(720px 320px at 6% -34%, var(--tint), transparent 70%),
+    radial-gradient(560px 300px at 96% 130%, var(--tint-2), transparent 66%),
+    var(--surface-2);
+  box-shadow: inset 0 -46px 54px -52px color-mix(in srgb, var(--accent) 85%, transparent);
+}
+[data-fx='full'] .mod-head {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+[data-fx='full'] .card {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background:
+    linear-gradient(45deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) top right / 12px 12px no-repeat,
+    linear-gradient(135deg, transparent calc(50% - 0.6px), var(--line-2) calc(50% - 0.6px) calc(50% + 0.6px), transparent calc(50% + 0.6px)) bottom left / 12px 12px no-repeat,
+    var(--surface);
+  box-shadow: inset 0 -34px 40px -44px color-mix(in srgb, var(--accent) 55%, transparent);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+[data-fx='full'] .card:hover { transform: translateY(-1px); }
+[data-fx='full'] .editor-shell,
+[data-fx='full'] .terminal-shell,
+[data-fx='full'] .canvas-wrap,
+[data-fx='full'] .constellation-shell {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+[data-fx='full'] .map-tile {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+[data-fx='full'] .map-tile:hover { transform: translateY(-2px); box-shadow: 0 0 24px -8px var(--mod); }
+
+/* The display face goes backlit: the same four-stop gradient the old default
+   shipped, in the theme's own ink so it survives the daylight switch. */
+[data-fx='full'] .hero-title {
+  background: linear-gradient(100deg, #ffffff 6%, #cfe0ff 42%, var(--accent) 72%, var(--accent-2) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  animation: title-glitch 10s linear infinite;
+}
+[data-fx='full'][data-theme='light'] .hero-title {
+  background: linear-gradient(100deg, #14202f 6%, #2c4a76 42%, var(--accent) 72%, var(--accent-2) 100%);
+}
+/* A rare chromatic stutter rather than a constant shimmer: the title carries
+   the largest contentful paint, so its resting state is a still image and the
+   whole glitch is six frames of a ten-second cycle. */
+@keyframes title-glitch {
+  0%, 90%, 94%, 97%, 100% { filter: none; transform: none; }
+  91% { filter: drop-shadow(3px 0 rgba(255, 64, 128, 0.6)) drop-shadow(-3px 0 rgba(64, 224, 255, 0.6)); transform: translateX(-2px); }
+  92% { filter: drop-shadow(-2px 0 rgba(255, 64, 128, 0.45)) drop-shadow(2px 0 rgba(64, 224, 255, 0.45)); transform: translateX(3px); }
+  93% { filter: none; transform: translateX(-1px); }
+  95% { filter: drop-shadow(2px 0 rgba(255, 64, 128, 0.5)) drop-shadow(-2px 0 rgba(64, 224, 255, 0.5)); transform: none; }
+}
+[data-fx='full'][data-contrast='high'] .hero-title {
+  background: none;
+  -webkit-background-clip: border-box; background-clip: border-box;
+  color: var(--text);
+  animation: none;
+}
+
+/* The ring runs: the orbit turns, the arc fills, the core breathes in time with
+   the count-up. */
+[data-fx='full'] .ring-spin { animation: orbit 18s linear infinite; }
+@keyframes orbit { to { transform: rotate(360deg); } }
+[data-fx='full'] .ring-core { animation: core-pulse 2.2s ease-in-out infinite; }
+@keyframes core-pulse {
+  0%, 100% { fill-opacity: 0.55; }
+  50% { fill-opacity: 1; }
+}
+[data-fx='full'] .ring-arc { filter: drop-shadow(0 0 12px var(--accent)); }
+
+/* LED meters: each lit cell glows and breathes slightly, out of phase. */
+[data-fx='full'] .seg.on {
+  box-shadow: 0 0 10px -1px var(--mod, var(--accent));
+  animation: led-blink 4s ease-in-out infinite;
+}
+[data-fx='full'] .seg.on:nth-child(odd) { animation-delay: 1s; }
+[data-fx='full'] .seg.on:nth-child(even) { animation-delay: 2.5s; }
+@keyframes led-blink {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.85; filter: brightness(1.35); }
+}
+
+/* Buttons lift a pixel and the primary one sweeps. */
+[data-fx='full'] button:hover:not(:disabled),
+[data-fx='full'] .button:hover { transform: translateY(-1px); }
+[data-fx='full'] button:active:not(:disabled) { transform: translateY(0); }
+[data-fx='full'] button.primary { position: relative; overflow: hidden; }
+[data-fx='full'] button.primary::after,
+[data-fx='full'] .button.primary::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, 0.28) 50%, transparent 68%);
+  transform: translate3d(-130%, 0, 0);
+  pointer-events: none;
+}
+[data-fx='full'] button.primary:hover:not(:disabled)::after,
+[data-fx='full'] button.primary:focus-visible::after { animation: btn-sheen 0.8s linear infinite; }
+@keyframes btn-sheen {
+  from { transform: translate3d(-130%, 0, 0); }
+  to { transform: translate3d(130%, 0, 0); }
 }

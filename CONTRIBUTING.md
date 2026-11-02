@@ -49,7 +49,8 @@ Run all of these before opening a pull request; CI runs the same set:
 | Full suite | `node tools/browser-run.js` | All 463 tests green in a real browser, including WebGL2, IndexedDB and the peer connection. Point it at a deployment with `--url=` to test that deployment. |
 | Docs gate | `node tools/check-docs.js` | Every number the README and reports publish is still the number the artifacts produce, the eight module points still add up to the stated total, and every recorded report hash still matches. It also runs the generators over their own output: `tools/test-count.js --check`, `tools/measurements.js --check` (the evidence index against `docs/reports`), `tools/brief-table.js --check` (the against-the-brief table against the module deck and the import graph) and `tools/check-types.js` (every `types/*.d.ts` declaration against the exports that really exist). If your change moves a measurement, re-run the measuring tool and update the doc from its output - never hand-edit a published number. |
 | Critical CSS | `python3 tools/critical-css.py` | Required after any edit to `styles/app.css`; it regenerates the inlined first-viewport block and its CSP hash. `--check` verifies the sync. |
-| Accessibility | `node tools/a11y.js` | axe-core must still report 0 violations across all nine modules. |
+| Accessibility | `node tools/a11y.js` | axe-core must still report 0 violations across all ten views. |
+| Text contrast | `node tools/contrast.js` | axe marks a `color-mix()` background *incomplete* rather than judging it, so this composites the layer stack the way the renderer does and holds every text element at 4.5:1 (3:1 for large text) in both themes. Exits non-zero with the worst offender named. |
 
 `docs/reports/*.json` are evidence artifacts, not documents to keep in step. Never
 rewrite one as part of a number sync and never hand-edit captured speech or a
@@ -70,8 +71,11 @@ re-measured artifact is supposed to make it stale until it is regenerated.
 - Keep the honesty rule: the README and the docs describe what is real and
   name what is not. If your feature replaces a "does not do X" caveat, update
   the caveat in the same patch.
-- Screenshots in `assets/screenshots/` are captured from the running app with
-  `tools/cls.js`, not drawn by hand.
+- Screenshots in `assets/screenshots/` are captured from the running app, never
+  drawn by hand - but there is no committed capture tool for them. The last set
+  came from a scratch DevTools-Protocol script kept outside the repository, so
+  re-shooting them is a manual step, and `tools/cls.js` does not take
+  screenshots. If you add a card, add the driver that can make it again.
 - Write commit subjects that state what changed and what it proves, in the
   imperative: `Cut cold-load JS to 197.6 KiB by splitting the module graph`,
   not `Update files` or `Latest update`. `git log --oneline` is part of the

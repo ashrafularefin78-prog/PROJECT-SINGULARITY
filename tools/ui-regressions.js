@@ -582,11 +582,22 @@ test('the SINGU screen wears the warm skin and no other panel does', 'assistant'
   const elsewhere = await s.evaluate(`(() => {
     const card = document.querySelector('#panel-compiler .card');
     const cs = getComputedStyle(card);
-    return { clip: cs.clipPath, radius: cs.borderTopLeftRadius, title: getComputedStyle(card.querySelector('.card-head h2')).fontFamily };
+    return {
+      clay: cs.getPropertyValue('--clay').trim(),
+      clip: cs.clipPath,
+      radius: cs.borderTopLeftRadius,
+      title: getComputedStyle(card.querySelector('.card-head h2')).fontFamily,
+    };
   })()`);
-  assert.match(elsewhere.clip, /polygon/, 'M2 keeps the chamfer - the skin is scoped to M9');
-  assert.equal(elsewhere.radius, '0px', 'M2 keeps square corners');
-  assert.notEqual(elsewhere.title, warm.cardTitle, 'M2 keeps the shared heading face');
+  // The redesign made the rounded, unclipped card the site-wide default, so the
+  // shape is no longer what distinguishes SINGU. What still has to hold is the
+  // scope of the warm identity: clay resolves inside #panel-assistant and nowhere
+  // else, and the serif card titles are SINGU's own register - the rest of the
+  // site sets h1 and module titles in serif and card labels in sans.
+  assert.notEqual(elsewhere.clay.toLowerCase(), '#d97757', 'The clay token stays inside the SINGU panel');
+  assert.equal(elsewhere.clip, 'none', 'No panel keeps the chamfer - the cut corner was instrument chrome');
+  assert.notEqual(elsewhere.radius, '0px', 'M2 got the rounded card the redesign gave every panel');
+  assert.notEqual(elsewhere.title, warm.cardTitle, 'M2 keeps the sans card label; the serif belongs to SINGU');
 });
 
 test('the warm skin stays readable in every theme pairing', 'assistant', async s => {
