@@ -1,5 +1,6 @@
 # Evidence transcripts are byte-exact artifacts. Keep the checked-out bytes
 # identical to the recorded SHA-256 on every platform: without this, a Windows
-# autocrlf checkout rewrites JSON line endings and tools/check-docs.js reports a
-# false integrity failure.
-docs/reports/*.json -text
+# autocrlf checkout rewrites line endings and tools/check-docs.js reports a
+# false integrity failure. The index hashes every kind that lives here - .json,
+# .md, .txt, .html - so the rule cannot stop at .json.
+docs/reports/* -text

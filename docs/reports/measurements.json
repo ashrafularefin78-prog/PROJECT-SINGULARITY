@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T06:56:57.551Z",
+  "generatedAt": "2026-11-02T07:12:57.814Z",
   "directory": "docs/reports",
   "counts": {
     "artifacts": 30,
@@ -23,8 +23,8 @@
     {
       "file": "cls-legacy.json",
       "kind": "json",
-      "bytes": 2355,
-      "sha256": "5e6c4af74742c46eb3be54bfdac30e0398d349b9e7df2260af969bda1265a286",
+      "bytes": 2252,
+      "sha256": "787d511b9c9348b815a903d0103a036d85b8b02e32c08becf184c8efd5f6a284",
       "what": "layout-shift PerformanceObserver installed before first paint; the layout viewport is resized twice to imitate the mobile URL bar moving",
       "stamp": {
         "key": "measuredAt",
@@ -35,8 +35,8 @@
     {
       "file": "cls.json",
       "kind": "json",
-      "bytes": 2697,
-      "sha256": "dbec49763925376e2b8ea960d5f41f429e5d2ef413ca41b7ffeb40399ce01526",
+      "bytes": 2573,
+      "sha256": "a21ac33694f6843d3c8e727f135fc3ba33c6685f19fa01e93c9bfdff12b31df1",
       "what": "layout-shift PerformanceObserver installed before first paint; the layout viewport is resized twice to imitate the mobile URL bar moving",
       "stamp": {
         "key": "measuredAt",
@@ -47,8 +47,8 @@
     {
       "file": "crdt-scale.json",
       "kind": "json",
-      "bytes": 778,
-      "sha256": "0ebc8aa3b15df6097c4bec0fa3e3b00c75001f9f8031efa0f6024db059734892",
+      "bytes": 744,
+      "sha256": "38c70cf56b36efb95e16f58e1ca8be5003d532ed076f87c77cbf90e9b4cde3c6",
       "stamp": {
         "key": "measuredAt",
         "value": "2026-10-19T20:46:48.631Z"
@@ -58,8 +58,8 @@
     {
       "file": "demo.json",
       "kind": "json",
-      "bytes": 4987,
-      "sha256": "cf8b8b52e6769bfb75032103cdd9d08fad6b5b8a3f734730999236a783bddd14",
+      "bytes": 4817,
+      "sha256": "007091ad4b46cd6418884cd26b66b0416630168990386b29bd0971ce75c90555",
       "stamp": {
         "key": "generatedAt",
         "value": "2026-10-09T06:54:48.427Z"
@@ -81,8 +81,8 @@
     {
       "file": "file-stream.json",
       "kind": "json",
-      "bytes": 1866,
-      "sha256": "54340293e6eff7eac2ec76c87e2586642a29c46de190cf77456fe5fa499ddc58",
+      "bytes": 1830,
+      "sha256": "6ec7225c717cc5c5837f44f64028d3f4de2f0e5b1b1529f86f98a7b6d921ac65",
       "stamp": {
         "key": "generatedAt",
         "value": "2026-10-20T00:00:00.000Z"
@@ -92,8 +92,8 @@
     {
       "file": "headers-github-pages.txt",
       "kind": "txt",
-      "bytes": 1118,
-      "sha256": "44b0c202b78cc5904c160bbbe7c624b8191c62c7ce90c9c05b611ed23bc8529e",
+      "bytes": 1086,
+      "sha256": "dd6d0c3fed50d6d1b18ba58836188d449a7efbb7c27f4d23596b158ab084b97b",
       "category": "record"
     },
     {
@@ -111,8 +111,8 @@
     {
       "file": "lighthouse-desktop.json",
       "kind": "json",
-      "bytes": 704960,
-      "sha256": "32f35b28874b881d6b60a3c5457fcf2e6614acc9c8b8e9d567701bd0c143fc6e",
+      "bytes": 692506,
+      "sha256": "18b79f16b4860340731afc1ef810ccd71990ce9ec7740c144a475493051f4911",
       "stamp": {
         "key": "fetchTime",
         "value": "2026-10-21T20:26:43.598Z"
@@ -122,8 +122,8 @@
     {
       "file": "lighthouse-mobile-legacy.json",
       "kind": "json",
-      "bytes": 595779,
-      "sha256": "95fdca7d3d50639f72fc13df3ea372a88977e8f07fce8f07d7e4eb74a3893550",
+      "bytes": 584880,
+      "sha256": "e4bc7dcfcd4c4e3a18c1cea9291c755c8af94cdbf880c5e9187f73d52c9b34fd",
       "stamp": {
         "key": "fetchTime",
         "value": "2026-10-09T06:23:37.253Z"
@@ -133,8 +133,8 @@
     {
       "file": "lighthouse-mobile.json",
       "kind": "json",
-      "bytes": 697854,
-      "sha256": "a4844d66343732f527523daf51b0ccff4ab014d5a185ebb564c072d1d6ebbe8e",
+      "bytes": 685865,
+      "sha256": "501fcbdd6bcbc9c1a28205fd5ce539625308e8e0ae7fbbe65ef7f46861b2a013",
       "stamp": {
         "key": "fetchTime",
         "value": "2026-10-21T19:54:08.929Z"
@@ -155,8 +155,8 @@
     {
       "file": "nvda-session.md",
       "kind": "md",
-      "bytes": 7642,
-      "sha256": "fed88549a7d16479db0f86e979b0025dda8d191f724978eed94007ff2c6d192f",
+      "bytes": 7528,
+      "sha256": "5682ae80fb8f4620917b638945f83cbbe30d6db63c157a5d1c9d3ac8be1f1dc4",
       "category": "record"
     },
     {
@@ -174,15 +174,15 @@
     {
       "file": "red-team-session.md",
       "kind": "md",
-      "bytes": 6676,
-      "sha256": "686331aa3f20131d773d495935790a490c5f16ef9c2142fde0427d4167750539",
+      "bytes": 6544,
+      "sha256": "a07d03c764af6d38a185bb2046d535d941479141d8958ea14d985ed7c8a9d207",
       "category": "record"
     },
     {
       "file": "relay-chaos.json",
       "kind": "json",
-      "bytes": 2074,
-      "sha256": "a96af17d2be02176ee35c1996168f3a9f798ea67c4c7d47c968c8a3e3db82d44",
+      "bytes": 1980,
+      "sha256": "f0e93f136b41d678c1c5dbec8e7f0c5956506b9afa1ad7763be688b0954a03d0",
       "what": "{\"clients\":1000,\"shards\":1,\"sendPerClient\":25,\"burstPerClient\":20,\"intervalMs\":500,\"payloadBytes\":256,\"ctChars\":380,\"seed\":42,\"transport\":\"loopback http/1.1, keep-alive, one relay process, no TLS\",\"fsync\":false}",
       "stamp": {
         "key": "measuredAt",
@@ -193,8 +193,8 @@
     {
       "file": "relay-failover.json",
       "kind": "json",
-      "bytes": 2283,
-      "sha256": "f7cf1b4540bb1b00b898f22f69ef9ad73706528b8715b14ae2348a6b862d7023",
+      "bytes": 2185,
+      "sha256": "7e2797cbf9f71d219e3d054ee2f0302e1947201c5666abe005bae5a8de05dc7d",
       "what": "{\"clients\":1000,\"shards\":1,\"sendPerClient\":25,\"burstPerClient\":0,\"intervalMs\":500,\"payloadBytes\":256,\"ctChars\":380,\"seed\":42,\"transport\":\"loopback http/1.1, keep-alive, two relay processes (primary + standby, separate data dirs), no TLS\",\"fsync\":false}",
       "stamp": {
         "key": "measuredAt",
@@ -205,8 +205,8 @@
     {
       "file": "relay-load.json",
       "kind": "json",
-      "bytes": 2384,
-      "sha256": "f5b32af57b31227dcb17c7509b030a136701dee0abaf633fb5c65e5e88469e05",
+      "bytes": 2270,
+      "sha256": "3ec6825cbbfa25aad81d03e1aa9377a750b2d38619978f546afd0675518dc373",
       "what": "{\"clients\":1000,\"clientsPerShard\":250,\"shards\":4,\"sendPerClient\":50,\"burstPerClient\":0,\"intervalMs\":250,\"payloadBytes\":256,\"seed\":42,\"transport\":\"loopback http/1.1, keep-alive, one relay process, no TLS\",\"generator\":\"4 processes x 250 clients\",\"fsync\":false,\"ctChars\":380}",
       "stamp": {
         "key": "measuredAt",
@@ -246,15 +246,15 @@
     {
       "file": "sri-deployed.txt",
       "kind": "txt",
-      "bytes": 671,
-      "sha256": "7b1379df77a36fdb47a12af88bd4de51653c4e9940b568719b0076d397495535",
+      "bytes": 657,
+      "sha256": "4f11d082ace389f37c6e792070220dde81ff0152f8f34148d7b7b8a82e01bd48",
       "category": "record"
     },
     {
       "file": "stream-2gb.json",
       "kind": "json",
-      "bytes": 3059,
-      "sha256": "f08edfad5ed7dfc30e9ef75abb3915598fc4f832b994956774f9513c9f4d4898",
+      "bytes": 2929,
+      "sha256": "f6ec4f189bc9a06505d720854b547afe3289cedf9c20021eb547b5d3a2343dae",
       "stamp": {
         "key": "generatedAt",
         "value": "2026-10-19T13:29:36.396Z"
@@ -305,8 +305,8 @@
     {
       "file": "zap-deployed.html",
       "kind": "html",
-      "bytes": 109651,
-      "sha256": "a824970d4b2704e05e65c88dd7111318bbb869f4fb2c2edda622975ae66c103b",
+      "bytes": 106413,
+      "sha256": "509486d843f7fbdf97c27c9a2398f332d5987d26ef6853668b111a200b25b5ab",
       "category": "record"
     }
   ]
