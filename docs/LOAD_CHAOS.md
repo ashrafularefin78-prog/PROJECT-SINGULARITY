@@ -791,7 +791,8 @@ node tools/load-relay.js --clients=1000 --shards=4 --send=50 --interval=250    #
 node tools/load-relay.js --chaos --clients=1000 --send=25 --burst=20 --interval=500  # -> docs/reports/relay-chaos.json
 node tools/load-relay.js --failover --clients=1000 --send=25 --burst=20 --interval=500  # -> docs/reports/relay-failover.json
 node tools/relay-e2e.js         # the shipped app against a real node, in a real browser (also in CI)
-node tools/turn-selftest.js     # the reference TURN relay, from the socket up -> docs/reports/turn-selftest.json
+node tools/turn-selftest.js --out=docs/reports/turn-selftest.json   # the reference TURN relay, from the socket up
+node tools/turn-selftest.js  # the same gate, writing nothing (this is the form CI runs)
 node tools/turn-relay-e2e.js    # the shipped carrier, relay-only, through that relay -> docs/reports/turn-relay.json
 node tools/check-docs.js        # every number in this report still matches its artifact
 python3 tools/gen-soak-section.py  # rewrite section 3 of this report from the measured JSON

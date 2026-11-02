@@ -27,7 +27,11 @@ import { parseArgs } from './cdp.js';
 const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const args = parseArgs();
 const quiet = Boolean(args.quiet);
-const outPath = join(root, String(args.out || 'docs/reports/turn-selftest.json'));
+// The gate and the publisher are the same script, so writing must be asked for:
+// CI runs this to verify the relay, and docs/reports/measurements.json hashes
+// whatever it finds afterwards. Republishing on a verification run rewrote the
+// artifact out from under its own recorded SHA-256.
+const outPath = typeof args.out === 'string' ? join(root, String(args.out)) : null;
 const REALM = 'singularity.local';
 const USER = 'demo';
 const PASS = 'singularity-turn-secret';
@@ -432,9 +436,11 @@ const report = {
   checks,
   events: events.slice(-30),
 };
-mkdirSync(dirname(outPath), { recursive: true });
-writeFileSync(outPath, JSON.stringify(report, null, 2) + '\n');
+if (outPath) {
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, JSON.stringify(report, null, 2) + '\n');
+}
 console.log(`\n${report.summary.passed}/${report.summary.total} checks passed, ${report.summary.failed} failed`);
-console.log(`# report: ${outPath}`);
+console.log(outPath ? `# report: ${outPath}` : '# no artifact written - pass --out=<path> to publish one');
 if (stats) console.log(`# counters: ${JSON.stringify(stats.counters)}`);
 process.exitCode = failed.length ? 1 : 0;
