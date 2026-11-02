@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T14:46:58.731Z",
+  "generatedAt": "2026-11-02T06:56:57.551Z",
   "directory": "docs/reports",
   "counts": {
     "artifacts": 30,
@@ -163,11 +163,11 @@
       "file": "red-team-session.json",
       "kind": "json",
       "bytes": 10408,
-      "sha256": "e61879a63692226180af4c59cab89b28bff9a11de7c9d5c8793fe155f3d8fc8a",
+      "sha256": "98aa27ce07ca70376dea766b61bcfd3536245e33dddc2085242159860adb801b",
       "what": "internal-adversarial-review",
       "stamp": {
         "key": "generatedAt",
-        "value": "2026-11-01T14:34:27.691Z"
+        "value": "2026-11-01T14:51:26.698Z"
       },
       "category": "measurement"
     },

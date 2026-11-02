@@ -24,7 +24,7 @@ interpreter. There is no bundler or transpiler.
 | Live deployment | <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/> (canonical - one URL, updated by every push to `main`) |
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
-| Repository signals | **0 stars · 0 forks · 61 commits · 1 author · 2 tags (v0.1.0, v1.0.0), 0 GitHub releases** (snapshot 1 Nov 2026; GitHub is the live source) |
+| Repository signals | **0 stars · 0 forks · 68 commits · 1 author · 3 tags (v0.1.0, v1.0.0, v1.1.0), 1 GitHub release** (snapshot 2 Nov 2026; GitHub is the live source) |
 | Tests | **471 across 35 suites**, runnable in the browser from the site itself |
 | Dependencies | **0 npm packages**; optional self-hosted WebAssembly C/C++ compiler and libraries |
 | Modules | 8 brief modules scored - **3 complete, 5 with declared scope boundaries**, each saying exactly where it stops - plus two cross-cutting rows (M9 Performance 88, M10 Integration 69). The SINGU assistant is unscored. It carries one trained network - an intent classifier of 33,040 parameters that names which catalogue pattern a brief asks for - and nothing else: the programs still come from the hand-written generator, so a model never decides what compiles ([docs/reports/singu-intent.md](docs/reports/singu-intent.md), [docs/NON_GOALS.md](docs/NON_GOALS.md)). |
@@ -34,12 +34,12 @@ interpreter. There is no bundler or transpiler.
 The repository is new. If the work is useful, a star is the cheapest way to help
 it reach the people it was built for.
 
-Why there is no GitHub release yet: `v0.1.0` and `v1.0.0` were both cut on
-22 Oct 2026 from commits that do not contain `.github/workflows/release.yml`,
+Why the first two tags produced no release: `v0.1.0` and `v1.0.0` were both cut
+on 22 Oct 2026 from commits that do not contain `.github/workflows/release.yml`,
 and a tag-push workflow only runs if that file is in the commit the tag points
-at — so the workflow exists, has never run, and the releases list is empty. The
-next `v*` tag pushed from `main` publishes a release (generated notes, plus
-`CHANGELOG.md` and `README.md` attached) with no change to the app.
+at — so the workflow existed and had never run. `v1.1.0` is the first tag cut
+from `main` with that file present, and its job publishes a release (generated
+notes, plus `CHANGELOG.md` and `README.md` attached) with no change to the app.
 
 ## Against the brief
 

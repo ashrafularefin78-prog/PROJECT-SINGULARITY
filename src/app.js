@@ -3793,12 +3793,12 @@ const STACK = [
  * 'self', so the page makes no third-party connection at all - which also means
  * no analytics and no GitHub API call. Read these as dated facts, with GitHub
  * linked as the live source. */
-const REPO_SNAPSHOT = '31 Oct 2026';
+const REPO_SNAPSHOT = '2 Nov 2026';
 const REPO_SIGNALS = [
-  { value: '58', label: 'commits on main', hint: `snapshot ${REPO_SNAPSHOT}` },
+  { value: '68', label: 'commits on main', hint: `snapshot ${REPO_SNAPSHOT}` },
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
-  { value: '2', label: 'tags · 0 GitHub releases', hint: 'v0.1.0, v1.0.0' },
+  { value: '3', label: 'tags · 1 GitHub release', hint: 'v0.1.0, v1.0.0, v1.1.0' },
   { value: '471', label: 'tests - 35 suites', hint: 'run them from this page' },
   { value: '0', label: 'npm dependencies', hint: 'optional self-hosted WASM toolchain' },
 ];
