@@ -24,7 +24,7 @@ interpreter. There is no bundler or transpiler.
 | Live deployment | <https://ashrafularefin78-prog.github.io/PROJECT-SINGULARITY/> (canonical - one URL, updated by every push to `main`) |
 | Built by | **Ashraful Arefin** - Computer Science & Engineering student |
 | GitHub | [ashrafularefin78-prog/PROJECT-SINGULARITY](https://github.com/ashrafularefin78-prog/PROJECT-SINGULARITY) |
-| Repository signals | **0 stars · 0 forks · 68 commits · 1 author · 3 tags (v0.1.0, v1.0.0, v1.1.0), 1 GitHub release** (snapshot 2 Nov 2026; GitHub is the live source) |
+| Repository signals | **0 stars · 0 forks · 71 commits · 1 author · 3 tags (v0.1.0, v1.0.0, v1.1.0), 1 GitHub release** (snapshot 2 Nov 2026; GitHub is the live source) |
 | Tests | **471 across 35 suites**, runnable in the browser from the site itself |
 | Dependencies | **0 npm packages**; optional self-hosted WebAssembly C/C++ compiler and libraries |
 | Modules | 8 brief modules scored - **3 complete, 5 with declared scope boundaries**, each saying exactly where it stops - plus two cross-cutting rows (M9 Performance 88, M10 Integration 69). The SINGU assistant is unscored. It carries one trained network - an intent classifier of 33,040 parameters that names which catalogue pattern a brief asks for - and nothing else: the programs still come from the hand-written generator, so a model never decides what compiles ([docs/reports/singu-intent.md](docs/reports/singu-intent.md), [docs/NON_GOALS.md](docs/NON_GOALS.md)). |

@@ -3795,7 +3795,7 @@ const STACK = [
  * linked as the live source. */
 const REPO_SNAPSHOT = '2 Nov 2026';
 const REPO_SIGNALS = [
-  { value: '68', label: 'commits on main', hint: `snapshot ${REPO_SNAPSHOT}` },
+  { value: '71', label: 'commits on main', hint: `snapshot ${REPO_SNAPSHOT}` },
   { value: '1', label: 'author', hint: 'solo build' },
   { value: '0', label: 'stars · forks', hint: 'new repository - be the first' },
   { value: '3', label: 'tags · 1 GitHub release', hint: 'v0.1.0, v1.0.0, v1.1.0' },
